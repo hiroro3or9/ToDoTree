@@ -14,10 +14,10 @@ public sealed class LayoutOptions
     public LayoutDirection Direction { get; set; } = LayoutDirection.LeftToRight;
 
     /// <summary>レイヤ（世代）間の距離。</summary>
-    public double LayerSpacing { get; set; } = 260;
+    public double LayerSpacing { get; set; } = 290;
 
     /// <summary>同じレイヤ内のステップ同士の距離。</summary>
-    public double NodeSpacing { get; set; } = 110;
+    public double NodeSpacing { get; set; } = 128;
 
     public double OriginX { get; set; } = 80;
 

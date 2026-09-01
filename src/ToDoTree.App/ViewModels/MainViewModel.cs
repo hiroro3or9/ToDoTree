@@ -17,11 +17,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     private readonly IProjectStore _store;
     private readonly AppSettings _settings;
+    private readonly string _recoveryDirectory;
     private readonly List<TodoProject> _undo = [];
     private readonly List<TodoProject> _redo = [];
     private readonly Dictionary<Guid, NodeViewModel> _byId = [];
 
-    private TodoProject _project = new();
+    private TodoProject _project;
     private TodoGraph _graph;
     private string? _filePath;
     private bool _isDirty;
@@ -34,21 +35,25 @@ public sealed partial class MainViewModel : ObservableObject
     private DateTime _lastUndoAt = DateTime.MinValue;
     private ProgressSummary _progress = ProgressSummary.Empty;
 
-    public MainViewModel()
-        : this(new JsonProjectStore())
+    /// <summary>1 つのプロジェクトタブが持つ編集状態。</summary>
+    public MainViewModel(
+        IProjectStore store,
+        AppSettings settings,
+        TodoProject project,
+        string? filePath,
+        string recoveryDirectory,
+        Guid? documentId = null,
+        bool isDirty = false)
     {
-    }
-
-    /// <summary>保存層を差し替えられるようにするための入口（テストや将来の SQLite 化のため）。</summary>
-    public MainViewModel(IProjectStore store)
-    {
-        _store = store;
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _project = project ?? throw new ArgumentNullException(nameof(project));
         _graph = new TodoGraph(_project);
-        _settings = AppSettings.Load();
+        _filePath = filePath;
+        _recoveryDirectory = recoveryDirectory;
+        DocumentId = documentId ?? Guid.NewGuid();
         Direction = _settings.Direction;
 
-        NewCommand = new RelayCommand(NewProject);
-        OpenCommand = new RelayCommand(OpenProject);
         SaveCommand = new RelayCommand(() => Save());
         SaveAsCommand = new RelayCommand(() => SaveAs());
         AddRootCommand = new RelayCommand(() => AddNode(null, sibling: false));
@@ -78,7 +83,8 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeSelection();
         InitializeView();
         InitializePlanning();
-        LoadStartupProject();
+        LoadProject(project, filePath);
+        IsDirty = isDirty;
     }
 
     // ---- ビューに向けたお知らせ ----
@@ -91,6 +97,12 @@ public sealed partial class MainViewModel : ObservableObject
     public event EventHandler<double>? ZoomStepRequested;
 
     public event EventHandler<NodeViewModel>? CenterOnRequested;
+
+    /// <summary>タブ名、保存先、未保存状態などが変わった。</summary>
+    public event EventHandler? DocumentStateChanged;
+
+    /// <summary>別タブですでに使っている保存先への上書きを防ぐため、ワークスペースが設定する。</summary>
+    public Func<string, bool>? CanSaveToPath { get; set; }
 
     // ---- コレクション ----
 
@@ -106,10 +118,6 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<NodeKind> KindValues { get; } = Enum.GetValues<NodeKind>();
 
     // ---- コマンド ----
-
-    public ICommand NewCommand { get; }
-
-    public ICommand OpenCommand { get; }
 
     public ICommand SaveCommand { get; }
 
@@ -151,6 +159,25 @@ public sealed partial class MainViewModel : ObservableObject
 
     public TodoGraph Graph => _graph;
 
+    public Guid DocumentId { get; }
+
+    public Guid ProjectId => _project.Id;
+
+    public string? FilePath => _filePath;
+
+    public string TabTitle => $"{_project.Name}{(IsDirty ? " *" : string.Empty)}";
+
+    public string FilePathDisplay => string.IsNullOrEmpty(_filePath) ? "未保存のプロジェクト" : _filePath;
+
+    /// <summary>タブを切り替えたときにキャンバス位置を戻すための一時状態。</summary>
+    public double ViewZoom { get; set; } = 1;
+
+    public double ViewPanX { get; set; }
+
+    public double ViewPanY { get; set; }
+
+    public bool HasViewportState { get; set; }
+
     public LayoutDirection Direction { get; private set; } = LayoutDirection.LeftToRight;
 
     public string DirectionLabel => Direction == LayoutDirection.LeftToRight ? "横に流す" : "縦に流す";
@@ -169,7 +196,8 @@ public sealed partial class MainViewModel : ObservableObject
             _project.Name = value;
             MarkDirty();
             OnPropertyChanged();
-            OnPropertyChanged(nameof(WindowTitle));
+            OnPropertyChanged(nameof(WindowTitle), nameof(TabTitle));
+            DocumentStateChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -182,7 +210,8 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (SetProperty(ref _isDirty, value))
             {
-                OnPropertyChanged(nameof(WindowTitle));
+                OnPropertyChanged(nameof(WindowTitle), nameof(TabTitle));
+                DocumentStateChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -268,31 +297,6 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ---- 読み込み・保存 ----
 
-    private void LoadStartupProject()
-    {
-        if (!string.IsNullOrWhiteSpace(_settings.LastFilePath) && File.Exists(_settings.LastFilePath))
-        {
-            try
-            {
-                LoadProject(_store.Load(_settings.LastFilePath), _settings.LastFilePath);
-                StatusMessage = $"前回のプロジェクトを開きました（{Path.GetFileName(_settings.LastFilePath)}）。";
-                return;
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = $"前回のファイルを開けませんでした: {ex.Message}";
-            }
-        }
-
-        if (TryRestoreAutoSave())
-        {
-            return;
-        }
-
-        LoadProject(SampleProject.Create(), null);
-        StatusMessage = "サンプルを表示しています。Ctrl+N で新しいプロジェクトを始められます。";
-    }
-
     private void LoadProject(TodoProject project, string? path, Guid? selectId = null)
     {
         _project = project;
@@ -329,55 +333,9 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedNode));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(ProjectName));
+        OnPropertyChanged(nameof(ProjectId), nameof(FilePath), nameof(FilePathDisplay), nameof(TabTitle));
         IsDirty = false;
         RefreshAll();
-    }
-
-    private void NewProject()
-    {
-        if (!ConfirmDiscard())
-        {
-            return;
-        }
-
-        var project = new TodoProject { Name = "新しいプロジェクト" };
-        var graph = new TodoGraph(project);
-        var start = graph.AddNode(new TodoNode { Title = "スタート", Kind = NodeKind.Start, X = 80, Y = 200 });
-        var goal = graph.AddNode(new TodoNode { Title = "ゴール", Kind = NodeKind.Goal, X = 560, Y = 200 });
-        graph.Connect(start.Id, goal.Id);
-
-        _undo.Clear();
-        _redo.Clear();
-        LoadProject(project, null, start.Id);
-        StatusMessage = "新しいプロジェクトを作りました。スタートを選んで Enter でステップを足していきましょう。";
-    }
-
-    private void OpenProject()
-    {
-        if (!ConfirmDiscard())
-        {
-            return;
-        }
-
-        var dialog = new OpenFileDialog { Filter = _store.FileFilter, Title = "プロジェクトを開く" };
-        if (dialog.ShowDialog() != true)
-        {
-            return;
-        }
-
-        try
-        {
-            var project = _store.Load(dialog.FileName);
-            _undo.Clear();
-            _redo.Clear();
-            LoadProject(project, dialog.FileName);
-            RememberFile(dialog.FileName);
-            StatusMessage = $"{Path.GetFileName(dialog.FileName)} を開きました。";
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"開けませんでした。\n\n{ex.Message}", "ToDoTree", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
     }
 
     public bool Save()
@@ -404,12 +362,26 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool SaveTo(string path)
     {
+        if (CanSaveToPath?.Invoke(path) == false)
+        {
+            MessageBox.Show(
+                "このファイルは別のタブですでに開いています。別の保存先を選んでください。",
+                "ToDoTree",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return false;
+        }
+
         try
         {
             _store.Save(path, _project);
             _filePath = path;
+            DeleteRecoveryFile();
             IsDirty = false;
-            RememberFile(path);
+            _settings.LastFilePath = path;
+            _settings.Save();
+            OnPropertyChanged(nameof(FilePath), nameof(FilePathDisplay));
+            DocumentStateChanged?.Invoke(this, EventArgs.Empty);
             StatusMessage = $"{Path.GetFileName(path)} に保存しました（{DateTime.Now:HH:mm}）。";
             return true;
         }
@@ -418,13 +390,6 @@ public sealed partial class MainViewModel : ObservableObject
             MessageBox.Show($"保存できませんでした。\n\n{ex.Message}", "ToDoTree", MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
-    }
-
-    private void RememberFile(string path)
-    {
-        _settings.LastFilePath = path;
-        _settings.Direction = Direction;
-        _settings.Save();
     }
 
     /// <summary>閉じる前に保存を確認する。閉じてよければ true。</summary>
@@ -436,7 +401,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         var answer = MessageBox.Show(
-            "保存していない変更があります。保存しますか？",
+            $"「{ProjectName}」に保存していない変更があります。保存しますか？",
             "ToDoTree",
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);

@@ -9,9 +9,9 @@ namespace ToDoTree.App.ViewModels;
 public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : ObservableObject
 {
     /// <summary>カードの大きさ。辺の描画位置もこの値を使う。</summary>
-    public const double CardWidth = 210;
+    public const double CardWidth = 224;
 
-    public const double CardHeight = 78;
+    public const double CardHeight = 88;
     private bool _isSelected;
     private bool _isOnCriticalPath;
     private bool _isEditing;

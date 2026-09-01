@@ -176,6 +176,9 @@ public sealed partial class MainViewModel
             ? LayoutDirection.TopToBottom
             : LayoutDirection.LeftToRight;
 
+        _settings.Direction = Direction;
+        _settings.Save();
+
         OnPropertyChanged(nameof(Direction));
         OnPropertyChanged(nameof(DirectionLabel));
         AutoLayout();

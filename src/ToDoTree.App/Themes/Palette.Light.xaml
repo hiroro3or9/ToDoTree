@@ -1,0 +1,115 @@
+<!--
+    明るいテーマの色。ダークと同じキーを必ず両方に用意すること。
+    参照側は StaticResource ではなく DynamicResource を使う（切り替えに追随させるため）。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    mc:Ignorable="po">
+
+    <!-- ==== 画面の地色 ==== -->
+    <SolidColorBrush x:Key="Brush.Window"        Color="#FFF5F6F8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Chrome"        Color="#FFFFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Surface"       Color="#FFFFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SurfaceAlt"    Color="#FFF3F4F7" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SurfaceHover"  Color="#FFEDEFF4" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SurfaceActive" Color="#FFE3E6ED" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Canvas"        Color="#FFFAFBFD" po:Freeze="True" />
+
+    <!-- ==== 枠と区切り ==== -->
+    <SolidColorBrush x:Key="Brush.Border"        Color="#FFE5E8EE" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.BorderStrong"  Color="#FFD3D8E2" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Divider"       Color="#FFEBEDF2" po:Freeze="True" />
+
+    <!-- ==== 文字 ==== -->
+    <SolidColorBrush x:Key="Brush.Text"          Color="#FF1B2030" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.TextSubtle"    Color="#FF697285" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.TextFaint"     Color="#FF9BA3B2" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.TextOnAccent"  Color="#FFFFFFFF" po:Freeze="True" />
+
+    <!-- ==== アクセント ==== -->
+    <SolidColorBrush x:Key="Brush.Accent"        Color="#FF4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentHover"   Color="#FF3B5AE8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentPressed" Color="#FF2F4BCB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentSoft"    Color="#FFEEF2FF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentBorder"  Color="#FFC7D3FF" po:Freeze="True" />
+
+    <!-- ==== 状態色 ==== -->
+    <SolidColorBrush x:Key="Brush.Danger"        Color="#FFDC2626" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.DangerSoft"    Color="#FFFEF0F0" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Warning"       Color="#FFE0640D" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Success"       Color="#FF16A34A" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SuccessSoft"   Color="#FFF1FAF4" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SuccessBorder" Color="#FFC9E9D6" po:Freeze="True" />
+
+    <!-- ==== スクロールバー ==== -->
+    <SolidColorBrush x:Key="Brush.Scroll"        Color="#FFCFD4DE" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.ScrollHover"   Color="#FFAAB2C0" po:Freeze="True" />
+
+    <!-- ==== キャンバスに浮かぶ小窓 ==== -->
+    <SolidColorBrush x:Key="Brush.Overlay"       Color="#F5FFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.OverlayBorder" Color="#FFE5E8EE" po:Freeze="True" />
+
+    <!-- ==== キャンバスの方眼（ドット） ==== -->
+    <DrawingBrush x:Key="Brush.CanvasGrid" TileMode="Tile" Viewport="0,0,26,26" ViewportUnits="Absolute" po:Freeze="True">
+        <DrawingBrush.Drawing>
+            <GeometryDrawing Brush="#FFE0E4EC">
+                <GeometryDrawing.Geometry>
+                    <EllipseGeometry Center="1,1" RadiusX="1.1" RadiusY="1.1" />
+                </GeometryDrawing.Geometry>
+            </GeometryDrawing>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+    <!-- ==== カード ==== -->
+    <SolidColorBrush x:Key="Node.Blocked.Fill"   Color="#FFFFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Blocked.Stroke" Color="#FFDCE1E9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Ready.Fill"     Color="#FFF4FCF7" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Ready.Stroke"   Color="#FF22C55E" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Progress.Fill"  Color="#FFF1F4FF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Progress.Stroke" Color="#FF4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Done.Fill"      Color="#FFF6F7F9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Done.Stroke"    Color="#FFDBE0E7" po:Freeze="True" />
+
+    <SolidColorBrush x:Key="Node.Selected.Stroke" Color="#FF3B5AE8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Critical.Stroke" Color="#FFF97316" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.AtRisk"          Color="#FFEA580C" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Overdue"         Color="#FFDC2626" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Text"            Color="#FF1B2030" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.TextSubtle"      Color="#FF98A0AF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.TextDone"        Color="#FF9AA2B1" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Connector.Fill"  Color="#FFFFFFFF" po:Freeze="True" />
+
+    <!-- 種別を表す色帯 -->
+    <SolidColorBrush x:Key="Kind.Start"     Color="#FF8B5CF6" po:Freeze="True" />
+    <SolidColorBrush x:Key="Kind.Step"      Color="#FFCBD5E1" po:Freeze="True" />
+    <SolidColorBrush x:Key="Kind.Milestone" Color="#FF0EA5E9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Kind.Goal"      Color="#FFF59E0B" po:Freeze="True" />
+
+    <!-- ==== ステップ同士を結ぶ線 ==== -->
+    <SolidColorBrush x:Key="Edge.Normal"    Color="#FFB9C0CE" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Settled"   Color="#FFDCE0E8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Highlight" Color="#FF4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Critical"  Color="#FFF97316" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Selected"  Color="#FF3B5AE8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Preview"   Color="#FF4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Marquee.Fill"   Color="#1F4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Marquee.Stroke" Color="#FF4B6BFB" po:Freeze="True" />
+
+    <!-- ==== ミニマップ ==== -->
+    <SolidColorBrush x:Key="MiniMap.Surface"         Color="#FFF7F8FA" po:Freeze="True" />
+    <SolidColorBrush x:Key="MiniMap.Viewport.Fill"   Color="#144B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="MiniMap.Viewport.Stroke" Color="#FF4B6BFB" po:Freeze="True" />
+
+    <!-- ==== 影 ==== -->
+    <DropShadowEffect x:Key="Effect.Card"    Color="#FF20293D" Opacity="0.13" BlurRadius="14" ShadowDepth="3"
+                      Direction="270" RenderingBias="Performance" po:Freeze="True" />
+    <DropShadowEffect x:Key="Effect.Raised"  Color="#FF20293D" Opacity="0.20" BlurRadius="26" ShadowDepth="7"
+                      Direction="270" RenderingBias="Performance" po:Freeze="True" />
+    <DropShadowEffect x:Key="Effect.Panel"   Color="#FF20293D" Opacity="0.07" BlurRadius="18" ShadowDepth="2"
+                      Direction="270" RenderingBias="Performance" po:Freeze="True" />
+    <DropShadowEffect x:Key="Effect.Popup"   Color="#FF10162A" Opacity="0.24" BlurRadius="24" ShadowDepth="5"
+                      Direction="270" RenderingBias="Performance" po:Freeze="True" />
+
+</ResourceDictionary>

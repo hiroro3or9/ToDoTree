@@ -5,362 +5,609 @@
         xmlns:converters="clr-namespace:ToDoTree.App.Converters"
         xmlns:vm="clr-namespace:ToDoTree.App.ViewModels"
         Title="{Binding WindowTitle}"
-        Height="820" Width="1400" MinHeight="560" MinWidth="960"
-        Background="{StaticResource WindowBackgroundBrush}"
+        Height="860" Width="1440" MinHeight="560" MinWidth="900"
+        Background="{DynamicResource Brush.Window}"
+        TextElement.Foreground="{DynamicResource Brush.Text}"
         TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        UseLayoutRounding="True"
         FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
-        FontSize="13">
+        FontSize="12.5">
 
     <Window.DataContext>
-        <vm:MainViewModel />
+        <vm:WorkspaceViewModel />
     </Window.DataContext>
 
     <Window.Resources>
         <converters:EnumLabelConverter x:Key="EnumLabel" />
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+
+        <!-- ツールバーのアイコン（線画） -->
+        <Style x:Key="ToolIcon" TargetType="Path">
+            <Setter Property="Width" Value="15" />
+            <Setter Property="Height" Value="15" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Stroke" Value="{DynamicResource Brush.TextSubtle}" />
+            <Setter Property="StrokeThickness" Value="1.7" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ヘッダーの検索欄などに置く、枠を持たない入力欄 -->
+        <Style x:Key="BareTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Brush.Accent}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Brush.Accent}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
     </Window.Resources>
 
     <Window.InputBindings>
-        <KeyBinding Modifiers="Ctrl" Key="N" Command="{Binding NewCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="O" Command="{Binding OpenCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding SaveCommand}" />
-        <KeyBinding Modifiers="Ctrl+Shift" Key="S" Command="{Binding SaveAsCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="Z" Command="{Binding UndoCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="Y" Command="{Binding RedoCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="L" Command="{Binding AutoLayoutCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="I" Command="{Binding ImportOutlineCommand}" />
-        <KeyBinding Modifiers="Ctrl+Shift" Key="E" Command="{Binding ExportCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding StartConnectCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="D0" Command="{Binding ZoomFitCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding ZoomInCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding ZoomOutCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="N" Command="{Binding NewProjectCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="O" Command="{Binding OpenProjectCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding ActiveDocument.SaveCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="S" Command="{Binding ActiveDocument.SaveAsCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="Z" Command="{Binding ActiveDocument.UndoCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="Y" Command="{Binding ActiveDocument.RedoCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="L" Command="{Binding ActiveDocument.AutoLayoutCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="I" Command="{Binding ActiveDocument.ImportOutlineCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="E" Command="{Binding ActiveDocument.ExportCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding ActiveDocument.StartConnectCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="D0" Command="{Binding ActiveDocument.ZoomFitCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding ActiveDocument.ZoomInCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding ActiveDocument.ZoomOutCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="D" Command="{Binding ActiveDocument.ToggleThemeCommand}" />
     </Window.InputBindings>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- ツールバー -->
-        <Border Grid.Row="0" Background="{StaticResource PanelBackgroundBrush}"
-                BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,0,0,1" Padding="10,6">
-            <DockPanel LastChildFill="False">
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding NewCommand}" Content="新規" ToolTip="新しいプロジェクト (Ctrl+N)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding OpenCommand}" Content="開く" ToolTip="開く (Ctrl+O)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding SaveCommand}" Content="保存" ToolTip="保存 (Ctrl+S)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ExportCommand}" Content="書き出す"
-                        ToolTip="Markdown / Mermaid で書き出す (Ctrl+Shift+E)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding CopyMermaidCommand}" Content="図をコピー"
-                        ToolTip="Mermaid をクリップボードへ。GitHub や Notion にそのまま貼れます" />
+        <!-- ============ ヘッダー ============ -->
+        <Border Grid.Row="0" DataContext="{Binding ActiveDocument}"
+                Background="{DynamicResource Brush.Chrome}"
+                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1"
+                Padding="14,0" Height="54">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <Border DockPanel.Dock="Left" Width="1" Margin="8,5" Background="{StaticResource PanelBorderBrush}" />
+                <!-- アプリの印 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="26" Height="26" CornerRadius="8" Background="{DynamicResource Brush.Accent}">
+                        <Path Data="M 4.5,12 H 9 M 9,12 V 6.5 H 13.5 M 9,12 V 17.5 H 13.5"
+                              Width="15" Height="15" Stretch="Uniform"
+                              Stroke="{DynamicResource Brush.TextOnAccent}" StrokeThickness="1.8"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="ToDoTree" Style="{StaticResource Text.AppMark}" Margin="9,0,0,0" />
+                    <Border Style="{StaticResource Rule.Vertical}" Height="20" Margin="14,0" VerticalAlignment="Center" />
+                </StackPanel>
 
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ImportOutlineCommand}" Content="まとめて入力"
-                        ToolTip="箇条書きを貼り付けて一気にステップにする (Ctrl+I)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding AddRootCommand}" Content="＋ ステップ" ToolTip="どこにも繋がっていないステップを追加" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding AddChildCommand}" Content="＋ 続き" ToolTip="選択中のステップの続きを追加 (Enter)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding AddSiblingCommand}" Content="＋ 並行" ToolTip="同じ先行にぶら下げて追加 (Shift+Enter)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding StartConnectCommand}" Content="繋ぐ"
-                        ToolTip="ここから繋ぎ始める。矢印キーで相手を選んで Enter (Ctrl+E)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding SplitCommand}" Content="分割"
-                        ToolTip="大きすぎるステップを、細かいステップに割る" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding DeleteCommand}" Content="削除" ToolTip="選択中のステップを削除 (Delete)" />
+                <!-- プロジェクト名 -->
+                <TextBox Grid.Column="1" VerticalAlignment="Center" MaxWidth="520" HorizontalAlignment="Left"
+                         Style="{StaticResource BareTextBox}" FontSize="15" FontWeight="SemiBold"
+                         Text="{Binding ProjectName, UpdateSourceTrigger=LostFocus}"
+                         ToolTip="プロジェクト名" />
 
-                <Border DockPanel.Dock="Left" Width="1" Margin="8,5" Background="{StaticResource PanelBorderBrush}" />
+                <!-- 検索・タグ・配色 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
 
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding AutoLayoutCommand}" Content="自動整列" ToolTip="きれいに並べ直す (Ctrl+L)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ToggleDirectionCommand}" Content="{Binding DirectionLabel}"
-                        ToolTip="流れる向きを切り替える" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ToggleCriticalPathCommand}" Content="{Binding CriticalPathLabel}"
-                        ToolTip="ここが遅れると全体が遅れる、という一番長い鎖を強調する" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ToggleFocusCommand}" Content="{Binding FocusLabel}"
-                        ToolTip="選んだステップに関わる筋だけを表示する" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ExpandAllCommand}" Content="全部開く"
-                        ToolTip="畳んだところと絞り込みをすべて解除する" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ZoomFitCommand}" Content="全体表示" ToolTip="全体を表示 (Ctrl+0)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ZoomOutCommand}" Content="－" ToolTip="縮小 (Ctrl+-)" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding ZoomInCommand}" Content="＋" ToolTip="拡大 (Ctrl++)" />
+                    <Border Width="230" Height="32" CornerRadius="9"
+                            Background="{DynamicResource Brush.SurfaceAlt}"
+                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                        <DockPanel LastChildFill="True">
+                            <Path DockPanel.Dock="Left" Style="{StaticResource ToolIcon}"
+                                  Data="{StaticResource Icon.Search}" Width="13" Height="13" Margin="9,0,7,0" />
+                            <Button DockPanel.Dock="Right" Command="{Binding ClearSearchCommand}"
+                                    Width="24" Height="24" Margin="0,0,4,0" ToolTip="検索をやめる">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Btn.Icon}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SearchText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
+                                      Width="10" Height="10" StrokeThickness="1.9" />
+                            </Button>
+                            <TextBox Style="{StaticResource BareTextBox}" FontSize="12"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="タイトル・メモ・タグから探す" />
+                        </DockPanel>
+                    </Border>
 
-                <Border DockPanel.Dock="Left" Width="1" Margin="8,5" Background="{StaticResource PanelBorderBrush}" />
+                    <ComboBox Width="132" Height="32" Margin="8,0,0,0" Tag="タグで絞り込む"
+                              ItemsSource="{Binding AvailableTags}"
+                              SelectedItem="{Binding SelectedTag}"
+                              IsEditable="False"
+                              ToolTip="タグで絞り込む" />
 
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding UndoCommand}" Content="元に戻す" ToolTip="Ctrl+Z" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButtonStyle}"
-                        Command="{Binding RedoCommand}" Content="やり直す" ToolTip="Ctrl+Y" />
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding ClearTagCommand}"
+                            Width="28" Height="28" Margin="2,0,0,0" ToolTip="タグの絞り込みをやめる">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
+                              Width="10" Height="10" StrokeThickness="1.9" />
+                    </Button>
 
-                <TextBox DockPanel.Dock="Right" Width="220" VerticalContentAlignment="Center"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="タイトル・メモ・タグから探す" />
-                <TextBlock DockPanel.Dock="Right" Text="検索" VerticalAlignment="Center" Margin="12,0,6,0"
-                           Foreground="{StaticResource SubtleTextBrush}" />
-                <ComboBox DockPanel.Dock="Right" Width="130" VerticalContentAlignment="Center"
-                          ItemsSource="{Binding AvailableTags}"
-                          SelectedItem="{Binding SelectedTag}"
-                          IsEditable="False"
-                          ToolTip="タグで絞り込む（Esc 相当は「タグ解除」ボタン）" />
-                <Button DockPanel.Dock="Right" Style="{StaticResource LinkButtonStyle}" Content="タグ解除"
-                        Command="{Binding ClearTagCommand}" ToolTip="タグの絞り込みをやめる" />
+                    <Border Style="{StaticResource Rule.Vertical}" Height="20" Margin="10,0" VerticalAlignment="Center" />
+
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding ToggleThemeCommand}"
+                            ToolTip="{Binding ThemeTooltip}">
+                        <Path Width="16" Height="16">
+                            <Path.Style>
+                                <Style TargetType="Path" BasedOn="{StaticResource ToolIcon}">
+                                    <Setter Property="Data" Value="{StaticResource Icon.Moon}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Data" Value="{StaticResource Icon.Sun}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ プロジェクトタブ ============ -->
+        <Border Grid.Row="1" MinHeight="40" Padding="10,5,10,0"
+                Background="{DynamicResource Brush.Chrome}"
+                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Width="28" Height="28" Margin="8,0,0,5"
+                        Style="{StaticResource Btn.Icon}" Command="{Binding NewProjectCommand}"
+                        Content="＋" FontSize="16" ToolTip="新しいプロジェクトをタブで開く" />
+
+                <TabControl ItemsSource="{Binding Documents}"
+                            SelectedItem="{Binding ActiveDocument, Mode=TwoWay}"
+                            Background="Transparent" BorderThickness="0">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          CanContentScroll="True">
+                                <TabPanel IsItemsHost="True" />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </TabControl.Template>
+
+                    <TabControl.ItemContainerStyle>
+                        <Style TargetType="TabItem">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextSubtle}" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Margin" Value="0,0,4,0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="TabItem">
+                                        <Border x:Name="TabBorder" MinWidth="116" MaxWidth="260" Height="34"
+                                                Padding="12,0,5,0" CornerRadius="9,9,0,0"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}">
+                                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+                                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource Brush.Surface}" />
+                                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </TabControl.ItemContainerStyle>
+
+                    <TabControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ToolTip="{Binding FilePathDisplay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding TabTitle}" MaxWidth="205"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Button Grid.Column="1" Width="20" Height="20" Margin="7,0,0,0"
+                                        Style="{StaticResource Btn.Icon}" Content="×" FontSize="14"
+                                        Command="{Binding DataContext.CloseProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}" ToolTip="このプロジェクトを閉じる" />
+                            </Grid>
+                        </DataTemplate>
+                    </TabControl.ItemTemplate>
+                </TabControl>
             </DockPanel>
         </Border>
 
-        <!-- 本体 -->
-        <Grid Grid.Row="1" Margin="10">
+        <!-- ============ ツールバー ============ -->
+        <Border Grid.Row="2" DataContext="{Binding ActiveDocument}"
+                Background="{DynamicResource Brush.Chrome}"
+                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1"
+                Padding="11,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Style="{StaticResource Btn.Ghost}"
+                            Command="{Binding DataContext.NewProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Content="新規" ToolTip="新しいプロジェクト (Ctrl+N)" />
+                    <Button Style="{StaticResource Btn.Ghost}"
+                            Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Content="開く" ToolTip="開く (Ctrl+O)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding SaveCommand}"
+                            Content="保存" ToolTip="保存 (Ctrl+S)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ExportCommand}"
+                            Content="書き出す" ToolTip="Markdown / Mermaid で書き出す (Ctrl+Shift+E)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding CopyMermaidCommand}"
+                            Content="図をコピー" ToolTip="Mermaid をクリップボードへ。GitHub や Notion にそのまま貼れます" />
+
+                    <Border Style="{StaticResource Rule.Vertical}" Height="20" VerticalAlignment="Center" />
+
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ImportOutlineCommand}"
+                            Content="まとめて入力" ToolTip="箇条書きを貼り付けて一気にステップにする (Ctrl+I)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddRootCommand}"
+                            Content="＋ ステップ" ToolTip="どこにも繋がっていないステップを追加" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddChildCommand}"
+                            Content="＋ 続き" ToolTip="選択中のステップの続きを追加 (Enter)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddSiblingCommand}"
+                            Content="＋ 並行" ToolTip="同じ先行にぶら下げて追加 (Shift+Enter)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding StartConnectCommand}"
+                            Content="繋ぐ" ToolTip="ここから繋ぎ始める。矢印キーで相手を選んで Enter (Ctrl+E)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding SplitCommand}"
+                            Content="分割" ToolTip="大きすぎるステップを、細かいステップに割る" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding DeleteCommand}"
+                            Content="削除" ToolTip="選択中のステップを削除 (Delete)" />
+
+                    <Border Style="{StaticResource Rule.Vertical}" Height="20" VerticalAlignment="Center" />
+
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AutoLayoutCommand}"
+                            Content="自動整列" ToolTip="きれいに並べ直す (Ctrl+L)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleDirectionCommand}"
+                            Content="{Binding DirectionLabel}" ToolTip="流れる向きを切り替える" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleCriticalPathCommand}"
+                            Content="{Binding CriticalPathLabel}"
+                            ToolTip="ここが遅れると全体が遅れる、という一番長い鎖を強調する" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleFocusCommand}"
+                            Content="{Binding FocusLabel}" ToolTip="選んだステップに関わる筋だけを表示する" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ExpandAllCommand}"
+                            Content="全部開く" ToolTip="畳んだところと絞り込みをすべて解除する" />
+                </WrapPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding UndoCommand}" ToolTip="元に戻す (Ctrl+Z)">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Undo}" />
+                    </Button>
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding RedoCommand}" ToolTip="やり直す (Ctrl+Y)">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Redo}" />
+                    </Button>
+
+                    <Border Style="{StaticResource Rule.Vertical}" Height="18" VerticalAlignment="Center" />
+
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding ZoomOutCommand}" ToolTip="縮小 (Ctrl+-)">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Minus}" />
+                    </Button>
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding ZoomInCommand}" ToolTip="拡大 (Ctrl++)">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Plus}" />
+                    </Button>
+                    <Button Style="{StaticResource Btn.Icon}" Command="{Binding ZoomFitCommand}" ToolTip="全体表示 (Ctrl+0)">
+                        <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Fit}" />
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============ 本体 ============ -->
+        <Grid Grid.Row="3" DataContext="{Binding ActiveDocument}" Margin="12,12,12,10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="270" MinWidth="180" />
-                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="284" MinWidth="190" />
+                <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" MinWidth="320" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="330" MinWidth="260" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="336" MinWidth="270" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左：一覧 -->
-            <Border Grid.Column="0" Style="{StaticResource PanelBorderStyle}" Padding="10">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="プロジェクト名" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3" />
-                    <TextBox DockPanel.Dock="Top" Text="{Binding ProjectName, UpdateSourceTrigger=LostFocus}" />
+            <!-- 左：次にやること＋一覧 -->
+            <Grid Grid.Column="0">
+                <Border Style="{StaticResource Panel.Shadow}" />
+                <Border Style="{StaticResource Panel.Card}" Padding="12,10,8,12">
+                    <DockPanel>
 
-                    <Border DockPanel.Dock="Top" Margin="0,12,0,0" Padding="10,8"
-                            Background="#FFF2FBF5" BorderBrush="#FFC9EAD5" BorderThickness="1" CornerRadius="8"
-                            Visibility="{Binding HasNextActions, Converter={StaticResource BoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Text="次にやること" FontSize="11" FontWeight="SemiBold" Foreground="#FF15803D" />
-                            <ItemsControl ItemsSource="{Binding NextActions}" Margin="0,2,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Button Style="{StaticResource LinkButtonStyle}"
-                                                HorizontalContentAlignment="Left" Padding="2,3"
-                                                Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding Node}"
-                                                ToolTip="クリックでこのステップへ移動">
-                                            <StackPanel>
-                                                <TextBlock FontSize="12" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource TextBrush}"
-                                                           TextTrimming="CharacterEllipsis">
-                                                    <Run Text="{Binding RankLabel, Mode=OneWay}" Foreground="#FF15803D" />
-                                                    <Run Text="{Binding Node.Title, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding Reason}" FontSize="10" TextWrapping="Wrap"
-                                                           Foreground="{StaticResource SubtleTextBrush}" />
+                        <!-- 次にやること -->
+                        <Border DockPanel.Dock="Top" Margin="0,2,4,0" Padding="12,10"
+                                Background="{DynamicResource Brush.SuccessSoft}"
+                                BorderBrush="{DynamicResource Brush.SuccessBorder}"
+                                BorderThickness="1" CornerRadius="12"
+                                Visibility="{Binding HasNextActions, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="2,0,0,4">
+                                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                             Fill="{DynamicResource Brush.Success}" />
+                                    <TextBlock Text="次にやること" Margin="7,0,0,0"
+                                               FontSize="11" FontWeight="Bold"
+                                               Foreground="{DynamicResource Brush.Success}" />
+                                </StackPanel>
+                                <ItemsControl ItemsSource="{Binding NextActions}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource Btn.Row}" Padding="7,5"
+                                                    Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding Node}"
+                                                    ToolTip="クリックでこのステップへ移動">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource Brush.Text}"
+                                                               TextTrimming="CharacterEllipsis">
+                                                        <Run Text="{Binding RankLabel, Mode=OneWay}"
+                                                             Foreground="{DynamicResource Brush.Success}" />
+                                                        <Run Text="{Binding Node.Title, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                    <TextBlock Text="{Binding Reason}" FontSize="10.5" TextWrapping="Wrap"
+                                                               Margin="0,1,0,0"
+                                                               Foreground="{DynamicResource Brush.TextSubtle}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 一覧の見出し -->
+                        <Grid DockPanel.Dock="Top" Margin="0,4,4,2">
+                            <TextBlock Text="ステップ一覧" Style="{StaticResource Text.Section}" />
+                            <CheckBox HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,4"
+                                      Content="完了を隠す" IsChecked="{Binding HideCompleted}"
+                                      ToolTip="済んだステップをキャンバスと一覧から外す" />
+                        </Grid>
+
+                        <ListBox x:Name="SidebarList" ItemsSource="{Binding SidebarNodes}"
+                                 SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                                 MouseDoubleClick="OnSidebarDoubleClick"
+                                 Padding="0,0,4,0"
+                                 ToolTip="ダブルクリックでその位置へ移動します">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="3" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" CornerRadius="999" Background="{Binding StatusBrush}" />
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                                       FontSize="12.5"
+                                                       Foreground="{Binding TitleBrush}"
+                                                       TextDecorations="{Binding TitleDecorations}" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10"
+                                                           FontWeight="SemiBold" Foreground="{Binding StatusBrush}" />
+                                                <TextBlock Text="{Binding KindLabel}" FontSize="10" Margin="7,0,0,0"
+                                                           Foreground="{DynamicResource Brush.TextFaint}" />
                                             </StackPanel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </Grid>
 
-                    <CheckBox DockPanel.Dock="Top" Margin="0,12,0,6" Content="完了したものを隠す"
-                              IsChecked="{Binding HideCompleted}" Foreground="{StaticResource SubtleTextBrush}" />
-
-                    <TextBlock DockPanel.Dock="Top" Text="ステップ一覧" Style="{StaticResource SectionHeaderStyle}" />
-
-                    <ListBox x:Name="SidebarList" ItemsSource="{Binding SidebarNodes}"
-                             SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
-                             MouseDoubleClick="OnSidebarDoubleClick"
-                             BorderThickness="0" Background="Transparent"
-                             HorizontalContentAlignment="Stretch"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             ToolTip="ダブルクリックでその位置へ移動します">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,3">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="4" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Rectangle Grid.Column="0" Fill="{Binding StatusBrush}" RadiusX="2" RadiusY="2" />
-                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{Binding TitleBrush}"
-                                                   TextDecorations="{Binding TitleDecorations}" />
-                                        <TextBlock FontSize="10" Foreground="{Binding StatusBrush}">
-                                            <Run Text="{Binding StatusLabel, Mode=OneWay}" />
-                                            <Run Text=" ・ " Foreground="#FFC3C9D4" />
-                                            <Run Text="{Binding KindLabel, Mode=OneWay}" Foreground="#FFA6ADBB" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
-
-            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" Background="Transparent" />
+            <GridSplitter Grid.Column="1" Width="10" HorizontalAlignment="Stretch" />
 
             <!-- 中央：グラフ -->
-            <Border Grid.Column="2" Style="{StaticResource PanelBorderStyle}" Padding="1" ClipToBounds="True">
-                <controls:GraphView x:Name="Graph" />
-            </Border>
+            <Grid Grid.Column="2">
+                <Border Style="{StaticResource Panel.Shadow}" />
+                <Border Style="{StaticResource Panel.Card}" Padding="1" ClipToBounds="True">
+                    <controls:GraphView x:Name="Graph" />
+                </Border>
+            </Grid>
 
-            <GridSplitter Grid.Column="3" Width="8" HorizontalAlignment="Stretch" Background="Transparent" />
+            <GridSplitter Grid.Column="3" Width="10" HorizontalAlignment="Stretch" />
 
             <!-- 右：詳細 -->
-            <Border Grid.Column="4" Style="{StaticResource PanelBorderStyle}" Padding="14,6,14,14">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
-                        <TextBlock Text="選ばれているステップはありません。カードをクリックするか、＋ ステップ で追加してください。"
-                                   TextWrapping="Wrap" Margin="0,14,0,0"
-                                   Foreground="{StaticResource SubtleTextBrush}"
-                                   Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+            <Grid Grid.Column="4">
+                <Border Style="{StaticResource Panel.Shadow}" />
+                <Border Style="{StaticResource Panel.Card}" Padding="16,12,10,14">
+                    <ScrollViewer Style="{StaticResource Scroll.Viewer}" VerticalScrollBarVisibility="Auto"
+                                  Padding="0,0,6,0">
+                        <StackPanel>
 
-                        <StackPanel DataContext="{Binding SelectedNode}"
-                                    Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                            <!-- 何も選んでいないとき -->
+                            <StackPanel Margin="0,26,0,0"
+                                        Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
+                                <Border Width="46" Height="46" CornerRadius="14" HorizontalAlignment="Center"
+                                        Background="{DynamicResource Brush.SurfaceAlt}">
+                                    <Path Data="M 4.5,12 H 9 M 9,12 V 6.5 H 13.5 M 9,12 V 17.5 H 13.5"
+                                          Width="22" Height="22" Stretch="Uniform"
+                                          Stroke="{DynamicResource Brush.TextFaint}" StrokeThickness="1.6"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="ステップを選ぶと、ここに中身が出ます"
+                                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,14,0,0"
+                                           Foreground="{DynamicResource Brush.TextSubtle}" />
+                                <TextBlock Text="カードをクリックするか、＋ ステップ で追加してください"
+                                           TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource Brush.TextFaint}" />
+                            </StackPanel>
 
-                            <TextBlock Text="タイトル" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="OnTitleBoxKeyDown"
-                                     ToolTip="Enter で続きのステップ、Shift+Enter で並行のステップを追加します" />
+                            <!-- 選択中のステップ -->
+                            <StackPanel DataContext="{Binding SelectedNode}"
+                                        Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
 
-                            <Grid Margin="0,0,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="10" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="タイトル" Style="{StaticResource Text.Label}" Margin="2,2,0,5" />
+                                <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="13.5" FontWeight="SemiBold" Padding="10,8"
+                                         KeyDown="OnTitleBoxKeyDown"
+                                         ToolTip="Enter で続きのステップ、Shift+Enter で並行のステップを追加します" />
 
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="状態" Style="{StaticResource FieldLabelStyle}" />
-                                    <ComboBox ItemsSource="{Binding DataContext.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              SelectedItem="{Binding Status}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="種別" Style="{StaticResource FieldLabelStyle}" />
-                                    <ComboBox ItemsSource="{Binding DataContext.KindValues, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              SelectedItem="{Binding Kind}">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
-                                    </ComboBox>
-                                </StackPanel>
-                            </Grid>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="状態" Style="{StaticResource Text.Label}" />
+                                        <ComboBox ItemsSource="{Binding DataContext.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Status}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="10" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="種別" Style="{StaticResource Text.Label}" />
+                                        <ComboBox ItemsSource="{Binding DataContext.KindValues, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                  SelectedItem="{Binding Kind}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
 
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="期限" Style="{StaticResource FieldLabelStyle}" />
-                                    <DatePicker SelectedDate="{Binding DueDate}" />
-                                </StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="10" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="見積り（分）" Style="{StaticResource FieldLabelStyle}" />
-                                    <TextBox Text="{Binding EstimateText, UpdateSourceTrigger=LostFocus}" />
-                                </StackPanel>
-                            </Grid>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="期限" Style="{StaticResource Text.Label}" />
+                                        <DatePicker SelectedDate="{Binding DueDate}" />
+                                    </StackPanel>
 
-                            <TextBlock Text="タグ（, 区切り）" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox Text="{Binding TagsText, UpdateSourceTrigger=LostFocus}" />
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="見積り（分）" Style="{StaticResource Text.Label}" />
+                                        <TextBox Text="{Binding EstimateText, UpdateSourceTrigger=LostFocus}" />
+                                    </StackPanel>
+                                </Grid>
 
-                            <TextBlock Text="メモ" Style="{StaticResource FieldLabelStyle}" />
-                            <TextBox Text="{Binding Notes, UpdateSourceTrigger=LostFocus}"
-                                     AcceptsReturn="True" TextWrapping="Wrap" Height="90"
-                                     VerticalScrollBarVisibility="Auto" />
+                                <TextBlock Text="タグ（, 区切り）" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="{Binding TagsText, UpdateSourceTrigger=LostFocus}" />
 
-                            <CheckBox Margin="0,12,0,0" Content="この位置を固定する（自動整列で動かさない）"
-                                      IsChecked="{Binding IsPinned}" Foreground="{StaticResource SubtleTextBrush}" />
+                                <TextBlock Text="メモ" Style="{StaticResource Text.Label}" />
+                                <TextBox Text="{Binding Notes, UpdateSourceTrigger=LostFocus}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="96"
+                                         VerticalScrollBarVisibility="Auto" />
 
-                            <TextBlock Text="先行（これが終わると着手できる）" Style="{StaticResource SectionHeaderStyle}" />
-                            <TextBlock Text="なし" Foreground="{StaticResource SubtleTextBrush}" FontSize="11"
-                                       Visibility="{Binding HasParents, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-                            <ItemsControl ItemsSource="{Binding Parents}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,1">
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkButtonStyle}"
-                                                    Content="✕" ToolTip="この繋がりを外す"
-                                                    Command="{Binding DataContext.RemoveParentLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button HorizontalContentAlignment="Left" Style="{StaticResource LinkButtonStyle}"
-                                                    Content="{Binding Title}" ToolTip="このステップへ移動"
-                                                    Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                <CheckBox Margin="2,14,0,0" Content="この位置を固定する（自動整列で動かさない）"
+                                          IsChecked="{Binding IsPinned}" />
 
-                            <TextBlock Text="後続（これが終わると進める）" Style="{StaticResource SectionHeaderStyle}" />
-                            <TextBlock Text="なし" Foreground="{StaticResource SubtleTextBrush}" FontSize="11"
-                                       Visibility="{Binding HasChildren, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
-                            <ItemsControl ItemsSource="{Binding Children}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,1">
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource LinkButtonStyle}"
-                                                    Content="✕" ToolTip="この繋がりを外す"
-                                                    Command="{Binding DataContext.RemoveChildLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button HorizontalContentAlignment="Left" Style="{StaticResource LinkButtonStyle}"
-                                                    Content="{Binding Title}" ToolTip="このステップへ移動"
-                                                    Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                <Border Style="{StaticResource Rule.Horizontal}" Margin="0,14" />
+
+                                <TextBlock Text="先行（これが終わると着手できる）" Style="{StaticResource Text.Section}" Margin="2,0,0,6" />
+                                <TextBlock Text="なし" Foreground="{DynamicResource Brush.TextFaint}" FontSize="11" Margin="2,0,0,0"
+                                           Visibility="{Binding HasParents, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                <ItemsControl ItemsSource="{Binding Parents}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,1">
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Icon}"
+                                                        Width="24" Height="24" ToolTip="この繋がりを外す"
+                                                        Command="{Binding DataContext.RemoveParentLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
+                                                          Width="9" Height="9" StrokeThickness="1.9" />
+                                                </Button>
+                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
+                                                        ToolTip="このステップへ移動"
+                                                        Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="後続（これが終わると進める）" Style="{StaticResource Text.Section}" Margin="2,14,0,6" />
+                                <TextBlock Text="なし" Foreground="{DynamicResource Brush.TextFaint}" FontSize="11" Margin="2,0,0,0"
+                                           Visibility="{Binding HasChildren, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+                                <ItemsControl ItemsSource="{Binding Children}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,1">
+                                                <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Icon}"
+                                                        Width="24" Height="24" ToolTip="この繋がりを外す"
+                                                        Command="{Binding DataContext.RemoveChildLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
+                                                          Width="9" Height="9" StrokeThickness="1.9" />
+                                                </Button>
+                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
+                                                        ToolTip="このステップへ移動"
+                                                        Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
-                </ScrollViewer>
-            </Border>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
         </Grid>
 
-        <!-- ステータスバー -->
-        <Border Grid.Row="2" Background="{StaticResource PanelBackgroundBrush}"
-                BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Padding="14,7">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <ProgressBar DockPanel.Dock="Left" Width="130" Height="8" Margin="10,0" Minimum="0" Maximum="1"
-                             Value="{Binding ProgressRatio, Mode=OneWay}" VerticalAlignment="Center"
-                             Foreground="{StaticResource AccentBrush}" />
+        <!-- ============ ステータスバー ============ -->
+        <Border Grid.Row="4" DataContext="{Binding ActiveDocument}"
+                Background="{DynamicResource Brush.Chrome}"
+                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="16,8">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text}" />
+                <ProgressBar DockPanel.Dock="Left" Width="140" Height="6" Margin="12,0" Minimum="0" Maximum="1"
+                             Value="{Binding ProgressRatio, Mode=OneWay}" VerticalAlignment="Center" />
                 <TextBlock DockPanel.Dock="Left" Text="{Binding ReadyText}" Margin="6,0,0,0"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding ForecastText}" Margin="14,0,0,0"
+                           Foreground="{DynamicResource Brush.TextSubtle}" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding ForecastText}" Margin="16,0,0,0"
                            TextTrimming="CharacterEllipsis"
                            Foreground="{Binding ForecastBrush}" VerticalAlignment="Center" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding HiddenSummary}" Margin="14,0,0,0"
-                           Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center" />
-                <TextBlock DockPanel.Dock="Left" Text="{Binding SelectionSummary}" Margin="14,0,0,0"
-                           FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding HiddenSummary}" Margin="16,0,0,0"
+                           Foreground="{DynamicResource Brush.TextFaint}" VerticalAlignment="Center" />
+                <TextBlock DockPanel.Dock="Left" Text="{Binding SelectionSummary}" Margin="16,0,0,0"
+                           FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center" />
                 <TextBlock DockPanel.Dock="Right" Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis"
-                           Foreground="{StaticResource SubtleTextBrush}" VerticalAlignment="Center"
-                           HorizontalAlignment="Right" Margin="12,0,0,0" />
+                           Foreground="{DynamicResource Brush.TextSubtle}" VerticalAlignment="Center"
+                           HorizontalAlignment="Right" Margin="16,0,0,0" />
             </DockPanel>
         </Border>
     </Grid>

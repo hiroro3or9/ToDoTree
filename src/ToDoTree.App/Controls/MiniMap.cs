@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using ToDoTree.App.Services;
 using ToDoTree.App.ViewModels;
 
 namespace ToDoTree.App.Controls;
@@ -10,9 +11,10 @@ public sealed class MiniMap : FrameworkElement
 {
     private const double Padding = 6;
 
-    private static readonly Brush Surface = FrozenBrush("#FFFFFFFF");
-    private static readonly Pen ViewportPen = CreatePen("#FF3B82F6", 1.4);
-    private static readonly Brush ViewportFill = FrozenBrush("#143B82F6");
+    private int _paletteGeneration = -1;
+    private Brush _surface = Brushes.Transparent;
+    private Pen _viewportPen = null!;
+    private Brush _viewportFill = Brushes.Transparent;
 
     private IReadOnlyList<NodeViewModel> _nodes = [];
     private Rect _viewport;
@@ -40,8 +42,10 @@ public sealed class MiniMap : FrameworkElement
             return;
         }
 
+        EnsurePalette();
+
         // クリックを受け取るために、まず全面を塗る。
-        drawingContext.DrawRectangle(Surface, null, new Rect(0, 0, width, height));
+        drawingContext.DrawRoundedRectangle(_surface, null, new Rect(0, 0, width, height), 6, 6);
 
         _bounds = ComputeBounds();
         _scale = Math.Min(
@@ -51,14 +55,33 @@ public sealed class MiniMap : FrameworkElement
         foreach (var node in _nodes)
         {
             var rect = ToMap(new Rect(node.X, node.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight));
-            drawingContext.DrawRectangle(
+            drawingContext.DrawRoundedRectangle(
                 node.StatusBrush,
                 null,
-                new Rect(rect.X, rect.Y, Math.Max(2, rect.Width), Math.Max(2, rect.Height)));
+                new Rect(rect.X, rect.Y, Math.Max(2, rect.Width), Math.Max(2, rect.Height)),
+                1.5,
+                1.5);
         }
 
         var view = ToMap(_viewport);
-        drawingContext.DrawRectangle(ViewportFill, ViewportPen, view);
+        drawingContext.DrawRoundedRectangle(_viewportFill, _viewportPen, view, 3, 3);
+    }
+
+    /// <summary>テーマが変わっていたら色を作り直す。</summary>
+    private void EnsurePalette()
+    {
+        if (_paletteGeneration == ThemeManager.Generation && _viewportPen is not null)
+        {
+            return;
+        }
+
+        _paletteGeneration = ThemeManager.Generation;
+        _surface = ThemeManager.BrushOf("MiniMap.Surface");
+        _viewportFill = ThemeManager.BrushOf("MiniMap.Viewport.Fill");
+
+        var pen = new Pen(ThemeManager.BrushOf("MiniMap.Viewport.Stroke"), 1.4);
+        pen.Freeze();
+        _viewportPen = pen;
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -105,18 +128,4 @@ public sealed class MiniMap : FrameworkElement
         ((world.Y - _bounds.Y) * _scale) + Padding,
         Math.Max(1, world.Width * _scale),
         Math.Max(1, world.Height * _scale));
-
-    private static Pen CreatePen(string hex, double thickness)
-    {
-        var pen = new Pen(FrozenBrush(hex), thickness);
-        pen.Freeze();
-        return pen;
-    }
-
-    private static SolidColorBrush FrozenBrush(string hex)
-    {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
-        brush.Freeze();
-        return brush;
-    }
 }

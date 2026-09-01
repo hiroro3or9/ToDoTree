@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Windows;
 using System.Windows.Media;
+using ToDoTree.App.Services;
 using ToDoTree.App.ViewModels;
 using ToDoTree.Core.Layout;
 
@@ -10,6 +11,7 @@ namespace ToDoTree.App.Controls;
 /// ステップ同士を結ぶ線をまとめて 1 枚に描く層。
 /// 線ごとに要素を作らないので、ノードが増えても軽い。
 /// 形の計算は <see cref="CurveGeometry"/>（Core 側・テスト済み）と共有している。
+/// ペンはテーマから作り、配色が変わったら作り直す。
 /// </summary>
 public sealed class EdgeLayer : FrameworkElement
 {
@@ -19,19 +21,21 @@ public sealed class EdgeLayer : FrameworkElement
         typeof(EdgeLayer),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    private static readonly Pen NormalPen = CreatePen("#FFB6BCCB", 1.8);
-    private static readonly Pen SettledPen = CreatePen("#FFD7DCE6", 1.6);
-    private static readonly Pen HighlightPen = CreatePen("#FF3B82F6", 2.6);
-    private static readonly Pen CriticalPen = CreatePen("#FFF97316", 3.2);
-    private static readonly Pen SelectedPen = CreatePen("#FF1D4ED8", 4);
-    private static readonly Pen PreviewPen = CreateDashedPen("#FF3B82F6");
-    private static readonly Pen MarqueePen = CreatePen("#FF3B82F6", 1);
-    private static readonly Brush MarqueeFill = FrozenBrush("#223B82F6");
-    private static readonly Brush NormalArrow = FrozenBrush("#FFB6BCCB");
-    private static readonly Brush SettledArrow = FrozenBrush("#FFD7DCE6");
-    private static readonly Brush HighlightArrow = FrozenBrush("#FF3B82F6");
-    private static readonly Brush CriticalArrow = FrozenBrush("#FFF97316");
-    private static readonly Brush SelectedArrow = FrozenBrush("#FF1D4ED8");
+    private int _paletteGeneration = -1;
+
+    private Pen _normalPen = null!;
+    private Pen _settledPen = null!;
+    private Pen _highlightPen = null!;
+    private Pen _criticalPen = null!;
+    private Pen _selectedPen = null!;
+    private Pen _previewPen = null!;
+    private Pen _marqueePen = null!;
+    private Brush _marqueeFill = null!;
+    private Brush _normalArrow = null!;
+    private Brush _settledArrow = null!;
+    private Brush _highlightArrow = null!;
+    private Brush _criticalArrow = null!;
+    private Brush _selectedArrow = null!;
 
     private Point? _previewFrom;
     private Point? _previewTo;
@@ -68,6 +72,7 @@ public sealed class EdgeLayer : FrameworkElement
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
+        EnsurePalette();
 
         if (Edges is not null)
         {
@@ -85,17 +90,43 @@ public sealed class EdgeLayer : FrameworkElement
             var (control1, control2) = CurveGeometry.ControlPoints(ToVec(previewFrom), ToVec(previewTo));
             drawingContext.DrawGeometry(
                 null,
-                PreviewPen,
+                _previewPen,
                 BuildCurve(previewFrom, ToPoint(control1), ToPoint(control2), previewTo));
         }
 
         if (_marquee is { } marquee)
         {
-            drawingContext.DrawRectangle(MarqueeFill, MarqueePen, marquee);
+            drawingContext.DrawRoundedRectangle(_marqueeFill, _marqueePen, marquee, 4, 4);
         }
     }
 
-    private static void DrawEdge(DrawingContext drawingContext, EdgeViewModel edge)
+    /// <summary>テーマが変わっていたらペンを作り直す。</summary>
+    private void EnsurePalette()
+    {
+        if (_paletteGeneration == ThemeManager.Generation && _normalPen is not null)
+        {
+            return;
+        }
+
+        _paletteGeneration = ThemeManager.Generation;
+
+        _normalPen = CreatePen("Edge.Normal", 1.8);
+        _settledPen = CreatePen("Edge.Settled", 1.6);
+        _highlightPen = CreatePen("Edge.Highlight", 2.6);
+        _criticalPen = CreatePen("Edge.Critical", 3.2);
+        _selectedPen = CreatePen("Edge.Selected", 4);
+        _previewPen = CreateDashedPen("Edge.Preview");
+        _marqueePen = CreatePen("Marquee.Stroke", 1);
+
+        _marqueeFill = ThemeManager.BrushOf("Marquee.Fill");
+        _normalArrow = ThemeManager.BrushOf("Edge.Normal");
+        _settledArrow = ThemeManager.BrushOf("Edge.Settled");
+        _highlightArrow = ThemeManager.BrushOf("Edge.Highlight");
+        _criticalArrow = ThemeManager.BrushOf("Edge.Critical");
+        _selectedArrow = ThemeManager.BrushOf("Edge.Selected");
+    }
+
+    private void DrawEdge(DrawingContext drawingContext, EdgeViewModel edge)
     {
         var (start, end) = CurveGeometry.Anchors(
             new Vec2(edge.From.X, edge.From.Y),
@@ -105,15 +136,15 @@ public sealed class EdgeLayer : FrameworkElement
 
         var (control1, control2) = CurveGeometry.ControlPoints(start, end);
 
-        var pen = edge.IsSelected ? SelectedPen
-            : edge.IsOnCriticalPath ? CriticalPen
-            : edge.IsHighlighted ? HighlightPen
-            : edge.IsSettled ? SettledPen : NormalPen;
+        var pen = edge.IsSelected ? _selectedPen
+            : edge.IsOnCriticalPath ? _criticalPen
+            : edge.IsHighlighted ? _highlightPen
+            : edge.IsSettled ? _settledPen : _normalPen;
 
-        var arrow = edge.IsSelected ? SelectedArrow
-            : edge.IsOnCriticalPath ? CriticalArrow
-            : edge.IsHighlighted ? HighlightArrow
-            : edge.IsSettled ? SettledArrow : NormalArrow;
+        var arrow = edge.IsSelected ? _selectedArrow
+            : edge.IsOnCriticalPath ? _criticalArrow
+            : edge.IsHighlighted ? _highlightArrow
+            : edge.IsSettled ? _settledArrow : _normalArrow;
 
         var tip = ToPoint(end);
         drawingContext.DrawGeometry(null, pen, BuildCurve(ToPoint(start), ToPoint(control1), ToPoint(control2), tip));
@@ -146,7 +177,7 @@ public sealed class EdgeLayer : FrameworkElement
         var ux = dx / length;
         var uy = dy / length;
         const double size = 9;
-        const double half = 4.5;
+        const double half = 4.2;
 
         var baseX = tip.X - (ux * size);
         var baseY = tip.Y - (uy * size);
@@ -167,9 +198,9 @@ public sealed class EdgeLayer : FrameworkElement
 
     private static Point ToPoint(Vec2 vector) => new(vector.X, vector.Y);
 
-    private static Pen CreatePen(string hex, double thickness)
+    private static Pen CreatePen(string key, double thickness)
     {
-        var pen = new Pen(FrozenBrush(hex), thickness)
+        var pen = new Pen(ThemeManager.BrushOf(key), thickness)
         {
             StartLineCap = PenLineCap.Round,
             EndLineCap = PenLineCap.Round,
@@ -179,9 +210,9 @@ public sealed class EdgeLayer : FrameworkElement
         return pen;
     }
 
-    private static Pen CreateDashedPen(string hex)
+    private static Pen CreateDashedPen(string key)
     {
-        var pen = new Pen(FrozenBrush(hex), 2)
+        var pen = new Pen(ThemeManager.BrushOf(key), 2)
         {
             DashStyle = new DashStyle([4, 3], 0),
             StartLineCap = PenLineCap.Round,
@@ -190,12 +221,5 @@ public sealed class EdgeLayer : FrameworkElement
 
         pen.Freeze();
         return pen;
-    }
-
-    private static SolidColorBrush FrozenBrush(string hex)
-    {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
-        brush.Freeze();
-        return brush;
     }
 }

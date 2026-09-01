@@ -13,7 +13,7 @@
     </UserControl.Resources>
 
     <Grid x:Name="Viewport"
-          Background="{StaticResource CanvasBackgroundBrush}"
+          Background="{DynamicResource Brush.Canvas}"
           ClipToBounds="True"
           Focusable="True"
           FocusVisualStyle="{x:Null}"
@@ -35,7 +35,7 @@
 
             <!-- 方眼（キャンバスと一緒に動く） -->
             <Rectangle Canvas.Left="-6000" Canvas.Top="-6000" Width="12000" Height="12000"
-                       Fill="{StaticResource CanvasGridBrush}" IsHitTestVisible="False" />
+                       Fill="{DynamicResource Brush.CanvasGrid}" IsHitTestVisible="False" />
 
             <!-- ステップ同士を結ぶ線 -->
             <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" />
@@ -57,92 +57,136 @@
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Width="226" Height="78" Opacity="{Binding CardOpacity}">
-                            <Border Width="210" Height="78" HorizontalAlignment="Left"
-                                    CornerRadius="10"
+                        <Grid x:Name="Root" Width="242" Height="88" Opacity="{Binding CardOpacity}">
+
+                            <!-- 影だけを受け持つ板。文字がぼやけないよう、中身とは分けてある。 -->
+                            <Border x:Name="Shadow" Width="224" Height="88" HorizontalAlignment="Left"
+                                    CornerRadius="13" Background="{Binding Fill}"
+                                    Effect="{DynamicResource Effect.Card}"
+                                    IsHitTestVisible="False" />
+
+                            <Border x:Name="Card" Width="224" Height="88" HorizontalAlignment="Left"
+                                    CornerRadius="13"
                                     Background="{Binding Fill}"
                                     BorderBrush="{Binding BorderBrush}"
                                     BorderThickness="{Binding CardBorderThickness}"
-                                    ClipToBounds="True"
                                     Cursor="SizeAll"
                                     ToolTip="{Binding CardTooltip}"
                                     SnapsToDevicePixels="True">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="5" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Rectangle Grid.Column="0" Fill="{Binding KindAccent}" />
+                                    <!-- 種別を表す色帯 -->
+                                    <Border Grid.Column="0" CornerRadius="11,0,0,11" Background="{Binding KindAccent}" />
 
-                                    <Button Grid.Column="1" Tag="collapse"
-                                            Style="{StaticResource ToolButtonStyle}"
-                                            Content="{Binding CollapseLabel}"
-                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                            Margin="0,0,3,2" Padding="4,0" MinWidth="20" FontSize="10"
-                                            Foreground="#FF8A93A5"
-                                            Visibility="{Binding CanCollapse, Converter={StaticResource BoolToVisibility}}"
-                                            ToolTip="この先を畳む / 開く" />
+                                    <Grid Grid.Column="1" Margin="11,8,10,6">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                                    <StackPanel Grid.Column="1" Margin="10,7,26,7">
-                                        <StackPanel Orientation="Horizontal">
+                                        <!-- 状態 -->
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                                            <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                                     Fill="{Binding StatusBrush}" />
                                             <TextBlock Text="{Binding StatusLabel}" FontSize="10" FontWeight="SemiBold"
+                                                       Margin="6,0,0,0" VerticalAlignment="Center"
                                                        Foreground="{Binding StatusBrush}" />
                                             <TextBlock Text="{Binding KindLabel}" FontSize="10" Margin="8,0,0,0"
-                                                       Foreground="#FFA6ADBB" />
-                                            <TextBlock Text="{Binding AlertText}" FontSize="10" Margin="8,0,0,0" FontWeight="SemiBold"
-                                                       Foreground="{Binding AlertBrush}"
-                                                       Visibility="{Binding HasAlert, Converter={StaticResource BoolToVisibility}}" />
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource Node.TextSubtle}" />
+                                            <Border Margin="8,0,0,0" Padding="6,1" CornerRadius="999"
+                                                    VerticalAlignment="Center"
+                                                    Background="{DynamicResource Brush.DangerSoft}"
+                                                    Visibility="{Binding HasAlert, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="{Binding AlertText}" FontSize="9.5" FontWeight="Bold"
+                                                           Foreground="{Binding AlertBrush}" />
+                                            </Border>
                                         </StackPanel>
 
-                                        <Grid Margin="0,2,0,0">
-                                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                        <!-- 名前 -->
+                                        <Grid Grid.Row="1" Margin="0,4,0,0" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold"
                                                        Foreground="{Binding TitleBrush}"
                                                        TextDecorations="{Binding TitleDecorations}"
-                                                       TextWrapping="Wrap" MaxHeight="34" TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="Wrap" MaxHeight="38" TextTrimming="CharacterEllipsis"
+                                                       LineHeight="18" LineStackingStrategy="BlockLineHeight"
                                                        Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
 
                                             <!-- カードの上でそのまま名前を書き換える -->
                                             <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                                                     FontSize="13" FontWeight="SemiBold"
-                                                     Padding="2,0" BorderThickness="1"
-                                                     TextWrapping="Wrap" MaxHeight="34" AcceptsReturn="False"
+                                                     FontSize="13.5" FontWeight="SemiBold"
+                                                     Padding="5,3" VerticalAlignment="Top"
+                                                     TextWrapping="Wrap" MaxHeight="40" AcceptsReturn="False"
                                                      behaviors:FocusBehavior.FocusWhenVisible="True"
                                                      KeyDown="OnCardEditorKeyDown"
                                                      LostKeyboardFocus="OnCardEditorLostFocus"
                                                      Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
                                         </Grid>
 
-                                        <TextBlock Text="{Binding MetaText}" FontSize="10" Margin="0,2,0,0"
-                                                   Foreground="#FFA6ADBB" TextTrimming="CharacterEllipsis"
-                                                   Visibility="{Binding HasMeta, Converter={StaticResource BoolToVisibility}}" />
-                                    </StackPanel>
+                                        <!-- 期限・見積り・タグ と 折りたたみ -->
+                                        <Grid Grid.Row="2">
+                                            <TextBlock Text="{Binding MetaText}" FontSize="10"
+                                                       VerticalAlignment="Center" Margin="0,0,26,0"
+                                                       Foreground="{DynamicResource Node.TextSubtle}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Visibility="{Binding HasMeta, Converter={StaticResource BoolToVisibility}}" />
+
+                                            <Button Tag="collapse"
+                                                    Style="{StaticResource Btn.Chip}"
+                                                    Content="{Binding CollapseLabel}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Padding="6,0" MinWidth="22" FontSize="9.5"
+                                                    Visibility="{Binding CanCollapse, Converter={StaticResource BoolToVisibility}}"
+                                                    ToolTip="この先を畳む / 開く" />
+                                        </Grid>
+                                    </Grid>
                                 </Grid>
                             </Border>
 
                             <!-- ここからドラッグして次のステップへ繋ぐ -->
-                            <Ellipse Tag="connector" Width="16" Height="16"
+                            <Ellipse x:Name="Connector" Tag="connector" Width="18" Height="18"
                                      HorizontalAlignment="Right" VerticalAlignment="Center"
-                                     Fill="White" Stroke="{Binding BorderBrush}" StrokeThickness="2"
-                                     Cursor="Cross"
+                                     Fill="{DynamicResource Node.Connector.Fill}"
+                                     Stroke="{Binding BorderBrush}" StrokeThickness="2.2"
+                                     Opacity="0.5" Cursor="Cross"
                                      ToolTip="ここからドラッグして、次のステップに繋げます" />
                         </Grid>
+
+                        <DataTemplate.Triggers>
+                            <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                                <Setter TargetName="Shadow" Property="Effect" Value="{DynamicResource Effect.Raised}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                                <Setter TargetName="Shadow" Property="Effect" Value="{DynamicResource Effect.Raised}" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </Canvas>
 
         <!-- 全体のどこを見ているか -->
-        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12"
-                Background="#F2FFFFFF" BorderBrush="{StaticResource PanelBorderBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="3">
+        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="14"
+                Background="{DynamicResource Brush.Overlay}"
+                BorderBrush="{DynamicResource Brush.OverlayBorder}"
+                BorderThickness="1" CornerRadius="11" Padding="4">
             <controls:MiniMap x:Name="MiniMapView" Width="184" Height="118" />
         </Border>
 
         <!-- 使い方の小さな案内 -->
-        <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="12"
-                Background="#CCFFFFFF" CornerRadius="8" Padding="10,6" IsHitTestVisible="False">
-            <TextBlock FontSize="11" Foreground="#FF7A8194"
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="14"
+                Background="{DynamicResource Brush.Overlay}"
+                BorderBrush="{DynamicResource Brush.OverlayBorder}"
+                BorderThickness="1" CornerRadius="10" Padding="11,7" IsHitTestVisible="False"
+                MaxWidth="420">
+            <TextBlock FontSize="10.5" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextFaint}"
                        Text="ホイールで拡大縮小 ・ 背景をドラッグで移動 ・ Alt+ドラッグで矩形選択 ・ Ctrl+クリックで複数選択 ・ 右の丸から線を引いて接続 ・ 線をクリックして Delete で外す" />
         </Border>
     </Grid>
