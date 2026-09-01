@@ -1,0 +1,62 @@
+<Window x:Class="ToDoTree.App.Views.OutlineInputWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="まとめて入力"
+        Height="560" Width="640"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}"
+        FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
+        FontSize="13">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock x:Name="HeaderText" Text="やることを箇条書きで貼り付けてください" FontWeight="SemiBold" />
+            <TextBlock x:Name="HintText" Foreground="{StaticResource SubtleTextBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Text="インデント（スペース 2 個 / タブ）で親子になります。選択中のステップの続きとして取り込みます。" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource PanelBorderStyle}" Padding="2">
+            <TextBox x:Name="InputBox"
+                     AcceptsReturn="True" AcceptsTab="True"
+                     TextWrapping="NoWrap"
+                     BorderThickness="0"
+                     FontFamily="Consolas, Yu Gothic UI"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     VerticalContentAlignment="Top"
+                     Padding="8" />
+        </Border>
+
+        <Border Grid.Row="2" Background="#FFF4F5F7" CornerRadius="8" Padding="10,8" Margin="0,10,0,0">
+            <StackPanel>
+                <TextBlock Text="書き方" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource SubtleTextBrush}" />
+                <TextBlock FontFamily="Consolas, Yu Gothic UI" FontSize="11" Margin="0,4,0,0"
+                           Foreground="{StaticResource TextBrush}"
+                           xml:space="preserve">要件をまとめる
+  画面のラフを描く
+  データ構造を決める @9/10 ~2h #設計
+実装する
+  画面を作る ~8h</TextBlock>
+                <TextBlock FontSize="11" Margin="0,6,0,0" Foreground="{StaticResource SubtleTextBrush}" TextWrapping="Wrap"
+                           Text="@9/10 で期限、~2h や ~90m で見積り、#タグ でタグが付きます。行頭の - や ・ は無視されます。" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <TextBlock Text="Ctrl+Enter で取り込み" VerticalAlignment="Center" FontSize="11"
+                       Foreground="{StaticResource SubtleTextBrush}" Margin="0,0,12,0" />
+            <Button Content="キャンセル" Style="{StaticResource ToolButtonStyle}" Padding="16,6"
+                    IsCancel="True" />
+            <Button x:Name="ImportButton" Content="取り込む" Style="{StaticResource ToolButtonStyle}" Padding="16,6"
+                    Margin="8,0,0,0" IsDefault="False" Click="OnImportClick"
+                    Background="{StaticResource AccentSoftBrush}" />
+        </StackPanel>
+    </Grid>
+</Window>
