@@ -7,16 +7,25 @@
 
 ## 動かし方
 
-必要なもの: **.NET 8 SDK**（Windows）
+必要なもの: **.NET 10 SDK**（Windows）
+
+SDK のバージョンは `global.json` で 10.0.1xx 系に固定しています。
 
 ```powershell
 cd C:\W\CSharp\WPF\ToDoTree
 dotnet run --project src\ToDoTree.App
 ```
 
-Visual Studio なら `ToDoTree.sln` を開いて `ToDoTree.App` をスタートアッププロジェクトにして F5。
+Visual Studio なら `ToDoTree.slnx` を開いて `ToDoTree.App` をスタートアッププロジェクトにして F5。
+ソリューションは XML 形式の `.slnx` なので、Visual Studio 2022 17.14 以降（または Visual Studio 2026）が必要です。
 
-Core のテスト（外部パッケージ不要）:
+Core のテスト（TUnit / Microsoft.Testing.Platform）:
+
+```powershell
+dotnet test
+```
+
+テストプロジェクトはそれ自体が実行ファイルなので、直接走らせることもできます。
 
 ```powershell
 dotnet run --project tests\ToDoTree.Core.Tests
@@ -137,17 +146,18 @@ GitHub や Notion に貼るだけで図が出ます。
 ## 構成
 
 ```
-ToDoTree.sln
-├ src/ToDoTree.Core   … 画面に依存しないロジック（net8.0）
+ToDoTree.slnx
+global.json           … .NET SDK の固定（10.0.1xx）と dotnet test のランナー指定（MTP）
+├ src/ToDoTree.Core   … 画面に依存しないロジック（net10.0）
 │   ├ Models          … TodoNode / TodoEdge / TodoProject
 │   ├ Graph           … DAG 操作、循環検出、着手可能判定、進捗、クリティカルパス
 │   ├ Layout          … 階層レイアウト（Sugiyama 風）
 │   └ Storage         … IProjectStore と JSON 実装
-├ src/ToDoTree.App    … WPF（net8.0-windows、MVVM、外部パッケージ無し）
+├ src/ToDoTree.App    … WPF（net10.0-windows、MVVM、外部パッケージ無し）
 │   ├ ViewModels      … MainViewModel / NodeViewModel / EdgeViewModel
 │   ├ Controls        … GraphView（ズーム・パン・ドラッグ）、EdgeLayer（線の描画）
 │   └ Themes          … 配色とスタイル
-└ tests/ToDoTree.Core.Tests … Core のテスト（28 件）
+└ tests/ToDoTree.Core.Tests … Core のテスト（TUnit、73 件）
 ```
 
 保存層は `IProjectStore` で抽象化してあるので、SQLite に替えたくなったら実装をひとつ足すだけです。

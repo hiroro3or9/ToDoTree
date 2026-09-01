@@ -5,200 +5,224 @@ using ToDoTree.Core.Text;
 
 namespace ToDoTree.Core.Tests;
 
-public static class ExportTests
+public class ExportTests
 {
     private static readonly DateTimeOffset Today = new(2026, 9, 1, 12, 0, 0, TimeSpan.FromHours(9));
 
-    public static void Register()
+    // ---- 完了予測 ----
+
+    [Test]
+    [DisplayName("残りが無ければ完了見込みは出ない")]
+    public async Task Forecast_NoWorkNoEstimate()
     {
-        // ---- 完了予測 ----
+        var graph = new TodoGraph(new TodoProject());
+        graph.AddNode(new TodoNode { Title = "済", Status = NodeStatus.Done, EstimateMinutes = 60 });
 
-        MiniTest.Case("残りが無ければ完了見込みは出ない", () =>
+        var forecast = ForecastService.Compute(graph, Today);
+        await Assert.That(forecast.HasWork).IsFalse().Because("残りが無い");
+        await Assert.That(forecast.EstimatedFinish is null).IsTrue().Because("見込み日も出ない");
+    }
+
+    [Test]
+    [DisplayName("履歴が無ければ既定のペースで見積もる")]
+    public async Task Forecast_UsesDefaultPaceWithoutHistory()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        graph.AddNode(new TodoNode { Title = "残り1", EstimateMinutes = 240 });
+        graph.AddNode(new TodoNode { Title = "残り2", EstimateMinutes = 240 });
+
+        var forecast = ForecastService.Compute(graph, Today);
+        await Assert.That(forecast.PaceFromHistory).IsFalse().Because("履歴は使われない");
+        await Assert.That(forecast.MinutesPerDay).IsEqualTo(240d).Because("1 日 4 時間");
+        await Assert.That(forecast.RemainingDays).IsEqualTo(2).Because("2 日かかる");
+        await Assert.That(forecast.EstimatedFinish!.Value.Day).IsEqualTo(3).Because("9/3 completion");
+    }
+
+    [Test]
+    [DisplayName("完了の記録があれば実際のペースを使う")]
+    public async Task Forecast_UsesHistoricalPace()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        graph.AddNode(new TodoNode
         {
-            var graph = new TodoGraph(new TodoProject());
-            graph.AddNode(new TodoNode { Title = "済", Status = NodeStatus.Done, EstimateMinutes = 60 });
+            Title = "済1",
+            Status = NodeStatus.Done,
+            EstimateMinutes = 240,
+            CompletedAt = Today.AddDays(-4),
+        });
+        graph.AddNode(new TodoNode
+        {
+            Title = "済2",
+            Status = NodeStatus.Done,
+            EstimateMinutes = 240,
+            CompletedAt = Today,
+        });
+        graph.AddNode(new TodoNode { Title = "残り", EstimateMinutes = 480 });
 
-            var forecast = ForecastService.Compute(graph, Today);
-            MiniTest.False(forecast.HasWork, "残りが無い");
-            MiniTest.True(forecast.EstimatedFinish is null, "見込み日も出ない");
+        var forecast = ForecastService.Compute(graph, Today);
+        await Assert.That(forecast.PaceFromHistory).IsTrue().Because("履歴が使われる");
+        await Assert.That(forecast.MinutesPerDay).IsEqualTo(120d).Because("4 日で 480 分＝1 日 120 分");
+        await Assert.That(forecast.RemainingDays).IsEqualTo(4).Because("480 分 ÷ 120 分で 4 日");
+    }
+
+    [Test]
+    [DisplayName("ゴールの期限との余裕が出る")]
+    public async Task Forecast_ReportsSlackAgainstGoalDue()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        graph.AddNode(new TodoNode { Title = "残り", EstimateMinutes = 240 });
+        graph.AddNode(new TodoNode
+        {
+            Title = "公開する",
+            Kind = NodeKind.Goal,
+            EstimateMinutes = 0,
+            Due = Today.AddDays(10),
         });
 
-        MiniTest.Case("履歴が無ければ既定のペースで見積もる", () =>
-        {
-            var graph = new TodoGraph(new TodoProject());
-            graph.AddNode(new TodoNode { Title = "残り1", EstimateMinutes = 240 });
-            graph.AddNode(new TodoNode { Title = "残り2", EstimateMinutes = 240 });
+        var forecast = ForecastService.Compute(graph, Today);
+        await Assert.That(forecast.Deadline is not null).IsTrue().Because("締切が拾える");
+        await Assert.That(forecast.SlackDays).IsEqualTo(9).Because("9 日の余裕");
+        await Assert.That(forecast.IsLate).IsFalse().Because("間に合う");
+    }
 
-            var forecast = ForecastService.Compute(graph, Today);
-            MiniTest.False(forecast.PaceFromHistory, "履歴は使われない");
-            MiniTest.Equal(240d, forecast.MinutesPerDay, "1 日 4 時間");
-            MiniTest.Equal(2, forecast.RemainingDays, "2 日かかる");
-            MiniTest.Equal(3, forecast.EstimatedFinish!.Value.Day, "9/3 completion");
+    [Test]
+    [DisplayName("間に合わないときは不足として出る")]
+    public async Task Forecast_ReportsNegativeSlackWhenLate()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        graph.AddNode(new TodoNode { Title = "重い残り", EstimateMinutes = 240 * 10 });
+        graph.AddNode(new TodoNode
+        {
+            Title = "公開する",
+            Kind = NodeKind.Goal,
+            EstimateMinutes = 0,
+            Due = Today.AddDays(3),
         });
 
-        MiniTest.Case("完了の記録があれば実際のペースを使う", () =>
+        var forecast = ForecastService.Compute(graph, Today);
+        await Assert.That(forecast.IsLate).IsTrue().Because("間に合わない");
+        await Assert.That(forecast.SlackDays < 0).IsTrue().Because("不足日数がマイナス");
+    }
+
+    // ---- 書き出し ----
+
+    [Test]
+    [DisplayName("Mermaid に全ステップと全依存が出る")]
+    public async Task ToMermaid_IncludesAllNodesAndEdges()
+    {
+        var project = SampleProject.Create();
+        var mermaid = GraphExporter.ToMermaid(project);
+
+        await Assert.That(mermaid.StartsWith("graph LR")).IsTrue().Because("向きの宣言");
+        await Assert.That(CountOccurrences(mermaid, "-->")).IsEqualTo(project.Edges.Count).Because("辺の数");
+
+        foreach (var node in project.Nodes)
         {
-            var graph = new TodoGraph(new TodoProject());
-            graph.AddNode(new TodoNode
-            {
-                Title = "済1",
-                Status = NodeStatus.Done,
-                EstimateMinutes = 240,
-                CompletedAt = Today.AddDays(-4),
-            });
-            graph.AddNode(new TodoNode
-            {
-                Title = "済2",
-                Status = NodeStatus.Done,
-                EstimateMinutes = 240,
-                CompletedAt = Today,
-            });
-            graph.AddNode(new TodoNode { Title = "残り", EstimateMinutes = 480 });
+            await Assert.That(mermaid.Contains(node.Title)).IsTrue().Because($"{node.Title} が含まれる");
+        }
+    }
 
-            var forecast = ForecastService.Compute(graph, Today);
-            MiniTest.True(forecast.PaceFromHistory, "履歴が使われる");
-            MiniTest.Equal(120d, forecast.MinutesPerDay, "4 日で 480 分＝1 日 120 分");
-            MiniTest.Equal(4, forecast.RemainingDays, "480 分 ÷ 120 分で 4 日");
-        });
+    [Test]
+    [DisplayName("Mermaid で意味を持つ記号が逃がされる")]
+    public async Task ToMermaid_EscapesSpecialCharacters()
+    {
+        var project = new TodoProject();
+        project.Nodes.Add(new TodoNode { Title = "彼は \"重要\" と #言った" });
 
-        MiniTest.Case("ゴールの期限との余裕が出る", () =>
-        {
-            var graph = new TodoGraph(new TodoProject());
-            graph.AddNode(new TodoNode { Title = "残り", EstimateMinutes = 240 });
-            graph.AddNode(new TodoNode
-            {
-                Title = "公開する",
-                Kind = NodeKind.Goal,
-                EstimateMinutes = 0,
-                Due = Today.AddDays(10),
-            });
+        var mermaid = GraphExporter.ToMermaid(project);
+        await Assert.That(mermaid.Contains("#quot;")).IsTrue().Because("引用符が逃がされる");
+        await Assert.That(mermaid.Contains("#35;")).IsTrue().Because("シャープが逃がされる");
+        await Assert.That(mermaid.Contains("\"重要\"")).IsFalse().Because("生の引用符が残らない");
+    }
 
-            var forecast = ForecastService.Compute(graph, Today);
-            MiniTest.True(forecast.Deadline is not null, "締切が拾える");
-            MiniTest.Equal(9, forecast.SlackDays, "9 日の余裕");
-            MiniTest.False(forecast.IsLate, "間に合う");
-        });
+    [Test]
+    [DisplayName("Markdown にチェックボックスと図が出る")]
+    public async Task ToMarkdown_HasCheckboxesAndDiagram()
+    {
+        var project = SampleProject.Create();
+        var markdown = GraphExporter.ToMarkdown(project, Today);
 
-        MiniTest.Case("間に合わないときは不足として出る", () =>
-        {
-            var graph = new TodoGraph(new TodoProject());
-            graph.AddNode(new TodoNode { Title = "重い残り", EstimateMinutes = 240 * 10 });
-            graph.AddNode(new TodoNode
-            {
-                Title = "公開する",
-                Kind = NodeKind.Goal,
-                EstimateMinutes = 0,
-                Due = Today.AddDays(3),
-            });
+        await Assert.That(markdown.Contains("# " + project.Name)).IsTrue().Because("見出し");
+        await Assert.That(markdown.Contains("```mermaid")).IsTrue().Because("図が埋め込まれる");
+        await Assert.That(markdown.Contains("- [x] ")).IsTrue().Because("完了のチェックボックス");
+        await Assert.That(markdown.Contains("- [ ] ")).IsTrue().Because("未完了のチェックボックス");
+        await Assert.That(markdown.Contains("## 次にやること")).IsTrue().Because("次にやること");
+    }
 
-            var forecast = ForecastService.Compute(graph, Today);
-            MiniTest.True(forecast.IsLate, "間に合わない");
-            MiniTest.True(forecast.SlackDays < 0, "不足日数がマイナス");
-        });
+    [Test]
+    [DisplayName("Markdown のステップは先行から並ぶ")]
+    public async Task ToMarkdown_OrdersStepsByPredecessor()
+    {
+        var project = new TodoProject();
+        var graph = new TodoGraph(project);
+        var first = graph.AddNode(new TodoNode { Title = "さきにやる" });
+        var second = graph.AddNode(new TodoNode { Title = "あとでやる" });
+        graph.Connect(first.Id, second.Id);
 
-        // ---- 書き出し ----
+        var markdown = GraphExporter.ToMarkdown(project, Today, includeDiagram: false);
+        var steps = markdown[markdown.IndexOf("## ステップ", StringComparison.Ordinal)..];
+        await Assert.That(
+                steps.IndexOf("さきにやる", StringComparison.Ordinal) < steps.IndexOf("あとでやる", StringComparison.Ordinal))
+            .IsTrue().Because("先行が先に並ぶ");
+        await Assert.That(steps.Contains("先行: さきにやる")).IsTrue().Because("先行が書かれる");
+    }
 
-        MiniTest.Case("Mermaid に全ステップと全依存が出る", () =>
-        {
-            var project = SampleProject.Create();
-            var mermaid = GraphExporter.ToMermaid(project);
+    [Test]
+    [DisplayName("直近で終えたことがまとまる")]
+    public async Task ToMarkdown_SummarizesRecentlyCompleted()
+    {
+        var project = new TodoProject();
+        project.Nodes.Add(new TodoNode { Title = "きのう終えた", Status = NodeStatus.Done, CompletedAt = Today.AddDays(-1) });
+        project.Nodes.Add(new TodoNode { Title = "ずっと前に終えた", Status = NodeStatus.Done, CompletedAt = Today.AddDays(-40) });
 
-            MiniTest.True(mermaid.StartsWith("graph LR"), "向きの宣言");
-            MiniTest.Equal(project.Edges.Count, CountOccurrences(mermaid, "-->"), "辺の数");
+        var markdown = GraphExporter.ToMarkdown(project, Today, includeDiagram: false);
+        var section = markdown[markdown.IndexOf("直近", StringComparison.Ordinal)..];
+        await Assert.That(section.Contains("きのう終えた")).IsTrue().Because("直近のものは載る");
+        await Assert.That(section[..section.IndexOf("## ステップ", StringComparison.Ordinal)].Contains("ずっと前"))
+            .IsFalse().Because("古いものは載らない");
+    }
 
-            foreach (var node in project.Nodes)
-            {
-                MiniTest.True(mermaid.Contains(node.Title), $"{node.Title} が含まれる");
-            }
-        });
+    // ---- ステップの分割 ----
 
-        MiniTest.Case("Mermaid で意味を持つ記号が逃がされる", () =>
-        {
-            var project = new TodoProject();
-            project.Nodes.Add(new TodoNode { Title = "彼は \"重要\" と #言った" });
+    [Test]
+    [DisplayName("分割すると間に子ステップが挟まる")]
+    public async Task Split_InsertsChildStepsInBetween()
+    {
+        var (graph, a, b, c) = GraphTests.Chain();
+        var items = OutlineParser.Parse("下ごしらえ\n仕上げ", Today);
+        var created = StepSplitter.Split(graph, b.Id, items);
 
-            var mermaid = GraphExporter.ToMermaid(project);
-            MiniTest.True(mermaid.Contains("#quot;"), "引用符が逃がされる");
-            MiniTest.True(mermaid.Contains("#35;"), "シャープが逃がされる");
-            MiniTest.False(mermaid.Contains("\"重要\""), "生の引用符が残らない");
-        });
+        await Assert.That(created.Count).IsEqualTo(2).Because("作られた数");
+        await Assert.That(graph.ChildrenOf(b.Id).Any(n => n.Id == created[0].Id)).IsTrue().Because("B の下に入る");
+        await Assert.That(graph.ChildrenOf(b.Id).Any(n => n.Id == c.Id)).IsFalse().Because("B と C の直結は外れる");
+        await Assert.That(graph.ParentsOf(c.Id).Any(n => n.Id == created[1].Id)).IsTrue().Because("末端が C に繋がる");
+        await Assert.That(graph.ParentsOf(b.Id).Any(n => n.Id == a.Id)).IsTrue().Because("B の先行はそのまま");
+        await Assert.That(graph.HasCycle()).IsFalse().Because("DAG のまま");
+    }
 
-        MiniTest.Case("Markdown にチェックボックスと図が出る", () =>
-        {
-            var project = SampleProject.Create();
-            var markdown = GraphExporter.ToMarkdown(project, Today);
+    [Test]
+    [DisplayName("入れ子で分割すると末端だけが後続に繋がる")]
+    public async Task Split_OnlyLeavesConnectToSuccessor()
+    {
+        var (graph, _, b, c) = GraphTests.Chain();
+        var items = OutlineParser.Parse("調べる\n  資料を集める\n  読む", Today);
+        var created = StepSplitter.Split(graph, b.Id, items);
 
-            MiniTest.True(markdown.Contains("# " + project.Name), "見出し");
-            MiniTest.True(markdown.Contains("```mermaid"), "図が埋め込まれる");
-            MiniTest.True(markdown.Contains("- [x] "), "完了のチェックボックス");
-            MiniTest.True(markdown.Contains("- [ ] "), "未完了のチェックボックス");
-            MiniTest.True(markdown.Contains("## 次にやること"), "次にやること");
-        });
+        await Assert.That(created.Count).IsEqualTo(3).Because("作られた数");
+        await Assert.That(graph.ParentsOf(c.Id).Count()).IsEqualTo(2).Because("末端 2 つが C に繋がる");
+        await Assert.That(graph.ChildrenOf(created[0].Id).Any(n => n.Id == c.Id)).IsFalse().Because("途中のものは C に繋がらない");
+    }
 
-        MiniTest.Case("Markdown のステップは先行から並ぶ", () =>
-        {
-            var project = new TodoProject();
-            var graph = new TodoGraph(project);
-            var first = graph.AddNode(new TodoNode { Title = "さきにやる" });
-            var second = graph.AddNode(new TodoNode { Title = "あとでやる" });
-            graph.Connect(first.Id, second.Id);
+    [Test]
+    [DisplayName("後続の無いステップも分割できる")]
+    public async Task Split_WorksWithoutSuccessor()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        var goal = graph.AddNode(new TodoNode { Title = "ゴール", Kind = NodeKind.Goal });
+        var created = StepSplitter.Split(graph, goal.Id, OutlineParser.Parse("準備\n実行", Today));
 
-            var markdown = GraphExporter.ToMarkdown(project, Today, includeDiagram: false);
-            var steps = markdown[markdown.IndexOf("## ステップ", StringComparison.Ordinal)..];
-            MiniTest.True(
-                steps.IndexOf("さきにやる", StringComparison.Ordinal) < steps.IndexOf("あとでやる", StringComparison.Ordinal),
-                "先行が先に並ぶ");
-            MiniTest.True(steps.Contains("先行: さきにやる"), "先行が書かれる");
-        });
-
-        MiniTest.Case("直近で終えたことがまとまる", () =>
-        {
-            var project = new TodoProject();
-            project.Nodes.Add(new TodoNode { Title = "きのう終えた", Status = NodeStatus.Done, CompletedAt = Today.AddDays(-1) });
-            project.Nodes.Add(new TodoNode { Title = "ずっと前に終えた", Status = NodeStatus.Done, CompletedAt = Today.AddDays(-40) });
-
-            var markdown = GraphExporter.ToMarkdown(project, Today, includeDiagram: false);
-            var section = markdown[markdown.IndexOf("直近", StringComparison.Ordinal)..];
-            MiniTest.True(section.Contains("きのう終えた"), "直近のものは載る");
-            MiniTest.False(section[..section.IndexOf("## ステップ", StringComparison.Ordinal)].Contains("ずっと前"), "古いものは載らない");
-        });
-
-        // ---- ステップの分割 ----
-
-        MiniTest.Case("分割すると間に子ステップが挟まる", () =>
-        {
-            var (graph, a, b, c) = GraphTests.Chain();
-            var items = OutlineParser.Parse("下ごしらえ\n仕上げ", Today);
-            var created = StepSplitter.Split(graph, b.Id, items);
-
-            MiniTest.Equal(2, created.Count, "作られた数");
-            MiniTest.True(graph.ChildrenOf(b.Id).Any(n => n.Id == created[0].Id), "B の下に入る");
-            MiniTest.False(graph.ChildrenOf(b.Id).Any(n => n.Id == c.Id), "B と C の直結は外れる");
-            MiniTest.True(graph.ParentsOf(c.Id).Any(n => n.Id == created[1].Id), "末端が C に繋がる");
-            MiniTest.True(graph.ParentsOf(b.Id).Any(n => n.Id == a.Id), "B の先行はそのまま");
-            MiniTest.False(graph.HasCycle(), "DAG のまま");
-        });
-
-        MiniTest.Case("入れ子で分割すると末端だけが後続に繋がる", () =>
-        {
-            var (graph, _, b, c) = GraphTests.Chain();
-            var items = OutlineParser.Parse("調べる\n  資料を集める\n  読む", Today);
-            var created = StepSplitter.Split(graph, b.Id, items);
-
-            MiniTest.Equal(3, created.Count, "作られた数");
-            MiniTest.Equal(2, graph.ParentsOf(c.Id).Count(), "末端 2 つが C に繋がる");
-            MiniTest.False(graph.ChildrenOf(created[0].Id).Any(n => n.Id == c.Id), "途中のものは C に繋がらない");
-        });
-
-        MiniTest.Case("後続の無いステップも分割できる", () =>
-        {
-            var graph = new TodoGraph(new TodoProject());
-            var goal = graph.AddNode(new TodoNode { Title = "ゴール", Kind = NodeKind.Goal });
-            var created = StepSplitter.Split(graph, goal.Id, OutlineParser.Parse("準備\n実行", Today));
-
-            MiniTest.Equal(2, created.Count, "作られた数");
-            MiniTest.False(graph.HasCycle(), "DAG のまま");
-        });
+        await Assert.That(created.Count).IsEqualTo(2).Because("作られた数");
+        await Assert.That(graph.HasCycle()).IsFalse().Because("DAG のまま");
     }
 
     private static int CountOccurrences(string text, string needle)
