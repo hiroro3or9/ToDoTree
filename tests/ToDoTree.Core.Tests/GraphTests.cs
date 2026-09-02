@@ -107,4 +107,62 @@ public class GraphTests
         graph.Connect(b.Id, c.Id);
         return (graph, a, b, c);
     }
+
+    [Test]
+    [DisplayName("線のあいだにステップを挟むと、流れが繋がったままになる")]
+    public async Task InsertBetween_KeepsTheChainConnected()
+    {
+        var (graph, a, b, _) = Chain();
+        var inserted = EdgeInserter.InsertBetween(graph, a.Id, b.Id, new TodoNode { Title = "途中" });
+
+        await Assert.That(inserted is null).IsFalse().Because("挟めた");
+        await Assert.That(graph.ChildrenOf(a.Id).Any(n => n.Id == inserted!.Id)).IsTrue().Because("A の次が新しいステップ");
+        await Assert.That(graph.ChildrenOf(inserted!.Id).Any(n => n.Id == b.Id)).IsTrue().Because("新しいステップの次が B");
+        await Assert.That(graph.ChildrenOf(a.Id).Any(n => n.Id == b.Id)).IsFalse().Because("元の A→B は外れている");
+        await Assert.That(graph.HasCycle()).IsFalse().Because("グラフは DAG のまま");
+    }
+
+    [Test]
+    [DisplayName("挟んだステップは 2 つの中点に置かれる")]
+    public async Task InsertBetween_PlacesTheNodeAtTheMidpoint()
+    {
+        var (graph, a, b, _) = Chain();
+        a.X = 100;
+        a.Y = 40;
+        b.X = 400;
+        b.Y = 240;
+
+        var inserted = EdgeInserter.InsertBetween(graph, a.Id, b.Id, new TodoNode { Title = "途中" });
+
+        await Assert.That(inserted!.X).IsEqualTo(250d).Because("X は中点");
+        await Assert.That(inserted.Y).IsEqualTo(140d).Because("Y は中点");
+    }
+
+    [Test]
+    [DisplayName("線のラベルは、後ろ半分に引き継がれる")]
+    public async Task InsertBetween_MovesTheLabelToTheSecondHalf()
+    {
+        var graph = new TodoGraph(new TodoProject());
+        var a = graph.AddNode(new TodoNode { Title = "A" });
+        var b = graph.AddNode(new TodoNode { Title = "B" });
+        graph.Connect(a.Id, b.Id, "レビュー後");
+
+        var inserted = EdgeInserter.InsertBetween(graph, a.Id, b.Id, new TodoNode { Title = "途中" });
+
+        await Assert.That(graph.OutgoingOf(a.Id)[0].Label is null).IsTrue().Because("前半にラベルは付かない");
+        await Assert.That(graph.OutgoingOf(inserted!.Id)[0].Label).IsEqualTo("レビュー後").Because("後半が引き継ぐ");
+    }
+
+    [Test]
+    [DisplayName("繋がっていない 2 つのあいだには挟めない")]
+    public async Task InsertBetween_DoesNothingWithoutAnEdge()
+    {
+        var (graph, a, _, c) = Chain();
+        var before = graph.NodeCount;
+
+        var inserted = EdgeInserter.InsertBetween(graph, a.Id, c.Id, new TodoNode { Title = "途中" });
+
+        await Assert.That(inserted is null).IsTrue().Because("挟めない");
+        await Assert.That(graph.NodeCount).IsEqualTo(before).Because("ノードは増えない");
+    }
 }
