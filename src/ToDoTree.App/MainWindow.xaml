@@ -358,7 +358,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Button Style="{StaticResource Btn.Row}" Padding="7,5"
-                                                    Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    Command="{Binding DataContext.ActiveDocument.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding Node}"
                                                     ToolTip="クリックでこのステップへ移動">
                                                 <StackPanel>
@@ -463,7 +463,7 @@
 
                             <!-- 選択中のステップ -->
                             <StackPanel DataContext="{Binding SelectedNode}"
-                                        Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                                        Visibility="{Binding DataContext.ActiveDocument.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
 
                                 <TextBlock Text="タイトル" Style="{StaticResource Text.Label}" Margin="2,2,0,5" />
                                 <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
@@ -480,7 +480,7 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="状態" Style="{StaticResource Text.Label}" />
-                                        <ComboBox ItemsSource="{Binding DataContext.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        <ComboBox ItemsSource="{Binding DataContext.ActiveDocument.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
                                                   SelectedItem="{Binding Status}">
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate>
@@ -492,7 +492,7 @@
 
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="種別" Style="{StaticResource Text.Label}" />
-                                        <ComboBox ItemsSource="{Binding DataContext.KindValues, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        <ComboBox ItemsSource="{Binding DataContext.ActiveDocument.KindValues, RelativeSource={RelativeSource AncestorType=Window}}"
                                                   SelectedItem="{Binding Kind}">
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate>
@@ -543,14 +543,14 @@
                                             <DockPanel Margin="0,1">
                                                 <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Icon}"
                                                         Width="24" Height="24" ToolTip="この繋がりを外す"
-                                                        Command="{Binding DataContext.RemoveParentLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Command="{Binding DataContext.ActiveDocument.RemoveParentLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}">
                                                     <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
                                                           Width="9" Height="9" StrokeThickness="1.9" />
                                                 </Button>
                                                 <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
                                                         ToolTip="このステップへ移動"
-                                                        Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Command="{Binding DataContext.ActiveDocument.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
                                             </DockPanel>
                                         </DataTemplate>
@@ -566,14 +566,14 @@
                                             <DockPanel Margin="0,1">
                                                 <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Icon}"
                                                         Width="24" Height="24" ToolTip="この繋がりを外す"
-                                                        Command="{Binding DataContext.RemoveChildLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Command="{Binding DataContext.ActiveDocument.RemoveChildLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}">
                                                     <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
                                                           Width="9" Height="9" StrokeThickness="1.9" />
                                                 </Button>
                                                 <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
                                                         ToolTip="このステップへ移動"
-                                                        Command="{Binding DataContext.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        Command="{Binding DataContext.ActiveDocument.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
                                             </DockPanel>
                                         </DataTemplate>
