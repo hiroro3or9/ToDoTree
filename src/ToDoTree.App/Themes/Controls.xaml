@@ -661,4 +661,91 @@
         </Setter>
     </Style>
 
+    <!-- ================= 右クリックメニュー =================
+        暗い配色でも浮いて見えるよう、影と 1px の枠を自前で持つ。
+        影のぶんだけ内側に余白を取るので、メニューはカーソルから少し離れて出る。
+    -->
+    <Style TargetType="ContextMenu">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="HasDropShadow" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Grid x:Name="Outer" Margin="7">
+                        <Border x:Name="ShadowPlate" CornerRadius="11"
+                                Background="{TemplateBinding Background}"
+                                Effect="{DynamicResource Effect.Popup}" />
+                        <Border CornerRadius="11" MinWidth="204" Padding="5"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                SnapsToDevicePixels="True">
+                            <StackPanel IsItemsHost="True"
+                                        KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!--
+                            透過ポップアップが使えないと HasDropShadow は false に丸められる。
+                            そのときに余白を残すと、影ではなく地の色が縁として出てしまう。
+                        -->
+                        <Trigger Property="HasDropShadow" Value="False">
+                            <Setter TargetName="Outer" Property="Margin" Value="0" />
+                            <Setter TargetName="ShadowPlate" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="7"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <!-- 見出しにはステップの名前が入る。「_」を下線扱いされると消えてしまう。 -->
+                            <ContentPresenter Grid.Column="0" ContentSource="Header"
+                                              RecognizesAccessKey="False" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{TemplateBinding InputGestureText}"
+                                       Margin="20,0,0,0" VerticalAlignment="Center" FontSize="10.5"
+                                       Foreground="{DynamicResource Brush.TextFaint}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextFaint}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- メニューの区切り線は、この決まったキーで引かれる -->
+    <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Margin="9,5" Background="{DynamicResource Brush.Divider}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
