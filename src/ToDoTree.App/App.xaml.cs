@@ -10,8 +10,10 @@ public partial class App : Application
     {
         DispatcherUnhandledException += OnUnhandledException;
 
-        // 前回選んでいた配色で始める。
-        ThemeManager.Apply(AppSettings.Load().Theme);
+        // 前回選んでいた配色と表示モードで始める。
+        var settings = AppSettings.Load();
+        ThemeManager.Apply(settings.Theme);
+        NodeMetrics.Apply(settings.NodeStyle);
 
         base.OnStartup(e);
     }

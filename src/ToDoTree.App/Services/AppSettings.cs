@@ -31,6 +31,9 @@ public sealed class AppSettings
     /// <summary>明るい配色か暗い配色か。</summary>
     public AppTheme Theme { get; set; } = AppTheme.Light;
 
+    /// <summary>カード表示か、丸ひとつのミニマル表示か。</summary>
+    public NodeStyle NodeStyle { get; set; } = NodeStyle.Card;
+
     public static AppSettings Load()
     {
         try

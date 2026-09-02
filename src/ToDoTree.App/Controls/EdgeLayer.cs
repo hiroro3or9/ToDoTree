@@ -11,7 +11,7 @@ namespace ToDoTree.App.Controls;
 /// ステップ同士を結ぶ線をまとめて 1 枚に描く層。
 /// 線ごとに要素を作らないので、ノードが増えても軽い。
 /// 形の計算は <see cref="CurveGeometry"/>（Core 側・テスト済み）と共有している。
-/// ペンはテーマから作り、配色が変わったら作り直す。
+/// ペンはテーマから作り、配色か表示モードが変わったら作り直す。
 /// </summary>
 public sealed class EdgeLayer : FrameworkElement
 {
@@ -22,6 +22,10 @@ public sealed class EdgeLayer : FrameworkElement
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     private int _paletteGeneration = -1;
+    private int _styleGeneration = -1;
+
+    private double _arrowSize = 9;
+    private double _arrowHalf = 4.2;
 
     private Pen _normalPen = null!;
     private Pen _settledPen = null!;
@@ -100,21 +104,29 @@ public sealed class EdgeLayer : FrameworkElement
         }
     }
 
-    /// <summary>テーマが変わっていたらペンを作り直す。</summary>
+    /// <summary>テーマか表示モードが変わっていたら、ペンを作り直す。</summary>
     private void EnsurePalette()
     {
-        if (_paletteGeneration == ThemeManager.Generation && _normalPen is not null)
+        if (_paletteGeneration == ThemeManager.Generation
+            && _styleGeneration == NodeMetrics.Generation
+            && _normalPen is not null)
         {
             return;
         }
 
         _paletteGeneration = ThemeManager.Generation;
+        _styleGeneration = NodeMetrics.Generation;
 
-        _normalPen = CreatePen("Edge.Normal", 1.8);
-        _settledPen = CreatePen("Edge.Settled", 1.6);
-        _highlightPen = CreatePen("Edge.Highlight", 2.6);
-        _criticalPen = CreatePen("Edge.Critical", 3.2);
-        _selectedPen = CreatePen("Edge.Selected", 4);
+        // ミニマル表示では箱が小さいので、同じ太さだと線ばかりが目立つ。
+        var minimal = NodeMetrics.IsMinimal;
+        _arrowSize = minimal ? 6.5 : 9;
+        _arrowHalf = minimal ? 3.2 : 4.2;
+
+        _normalPen = CreatePen("Edge.Normal", minimal ? 1.2 : 1.8);
+        _settledPen = CreatePen("Edge.Settled", minimal ? 1.1 : 1.6);
+        _highlightPen = CreatePen("Edge.Highlight", minimal ? 1.8 : 2.6);
+        _criticalPen = CreatePen("Edge.Critical", minimal ? 2.2 : 3.2);
+        _selectedPen = CreatePen("Edge.Selected", minimal ? 2.8 : 4);
         _previewPen = CreateDashedPen("Edge.Preview");
         _marqueePen = CreatePen("Marquee.Stroke", 1);
 
@@ -148,7 +160,7 @@ public sealed class EdgeLayer : FrameworkElement
 
         var tip = ToPoint(end);
         drawingContext.DrawGeometry(null, pen, BuildCurve(ToPoint(start), ToPoint(control1), ToPoint(control2), tip));
-        DrawArrowHead(drawingContext, ToPoint(control2), tip, arrow);
+        DrawArrowHead(drawingContext, ToPoint(control2), tip, arrow, _arrowSize, _arrowHalf);
     }
 
     private static StreamGeometry BuildCurve(Point start, Point control1, Point control2, Point end)
@@ -164,7 +176,13 @@ public sealed class EdgeLayer : FrameworkElement
         return geometry;
     }
 
-    private static void DrawArrowHead(DrawingContext drawingContext, Point from, Point tip, Brush brush)
+    private static void DrawArrowHead(
+        DrawingContext drawingContext,
+        Point from,
+        Point tip,
+        Brush brush,
+        double size,
+        double half)
     {
         var dx = tip.X - from.X;
         var dy = tip.Y - from.Y;
@@ -176,8 +194,6 @@ public sealed class EdgeLayer : FrameworkElement
 
         var ux = dx / length;
         var uy = dy / length;
-        const double size = 9;
-        const double half = 4.2;
 
         var baseX = tip.X - (ux * size);
         var baseY = tip.Y - (uy * size);

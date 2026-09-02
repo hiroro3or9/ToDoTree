@@ -1,3 +1,4 @@
+using ToDoTree.App.Services;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
 using ToDoTree.Core.Models;
@@ -157,7 +158,7 @@ public sealed partial class MainViewModel
     public void AutoLayout()
     {
         PushUndo();
-        LayeredLayoutEngine.Apply(_graph, new LayoutOptions { Direction = Direction });
+        LayeredLayoutEngine.Apply(_graph, NodeMetrics.LayoutFor(Direction));
 
         foreach (var node in Nodes)
         {
