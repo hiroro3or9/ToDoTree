@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using ToDoTree.App.Services;
 using ToDoTree.App.Views;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
@@ -140,7 +141,7 @@ public sealed partial class MainViewModel
             _byId[model.Id] = vm;
         }
 
-        LayeredLayoutEngine.Apply(_graph, new LayoutOptions { Direction = Direction });
+        LayeredLayoutEngine.Apply(_graph, NodeMetrics.LayoutFor(Direction));
         foreach (var node in Nodes)
         {
             node.NotifyPositionChanged();

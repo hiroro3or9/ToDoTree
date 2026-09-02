@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using ToDoTree.App.Services;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
 
@@ -8,10 +9,13 @@ namespace ToDoTree.App.ViewModels;
 /// <summary>キャンバス上の 1 枚のカード。</summary>
 public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : ObservableObject
 {
-    /// <summary>カードの大きさ。辺の描画位置もこの値を使う。</summary>
-    public const double CardWidth = 224;
+    /// <summary>
+    /// 箱の大きさ。辺の描画位置・矩形選択・全体表示・ミニマップも、この値を見ている。
+    /// 表示モードで変わるので定数ではなく <see cref="NodeMetrics"/> を通す。
+    /// </summary>
+    public static double CardWidth => NodeMetrics.Width;
 
-    public const double CardHeight = 88;
+    public static double CardHeight => NodeMetrics.Height;
     private bool _isSelected;
     private bool _isOnCriticalPath;
     private bool _isEditing;
@@ -243,7 +247,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         {
             if (SetProperty(ref _isOnCriticalPath, value))
             {
-                OnPropertyChanged(nameof(BorderBrush), nameof(CardBorderThickness));
+                OnPropertyChanged(nameof(BorderBrush), nameof(CardBorderThickness), nameof(HasRing), nameof(RingBrush));
             }
         }
     }
@@ -300,6 +304,44 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     public bool IsOverdue => Model.IsOverdue;
 
+    // ---- ミニマル表示（丸ひとつ）のための値 ----
+
+    /// <summary>丸の塗り。進行中と完了だけ塗りつぶし、あとは中抜きにする。</summary>
+    public Brush DotFill => Readiness switch
+    {
+        Readiness.InProgress => NodePalette.StrokeOf(Readiness.InProgress),
+        Readiness.Done or Readiness.Cancelled => NodePalette.DoneTextBrush,
+        _ => Brushes.Transparent,
+    };
+
+    public Brush DotStroke => NodePalette.StrokeOf(Readiness);
+
+    /// <summary>着手できるものだけ輪郭を太くして、目が先に行くようにする。</summary>
+    public double DotStrokeThickness => Readiness switch
+    {
+        Readiness.Ready => 2.2,
+        Readiness.InProgress or Readiness.Done or Readiness.Cancelled => 0,
+        _ => 1.5,
+    };
+
+    /// <summary>進行中の丸のまわりに敷く、薄い輪。</summary>
+    public bool HasHalo => Readiness == Readiness.InProgress;
+
+    /// <summary>丸の外側の輪。最長経路と種別の両方に当たるときは、最長経路を優先する。</summary>
+    public bool HasRing => IsOnCriticalPath || Kind is NodeKind.Start or NodeKind.Milestone or NodeKind.Goal;
+
+    public Brush RingBrush => IsOnCriticalPath ? NodePalette.CriticalStroke : NodePalette.AccentOf(Kind);
+
+    /// <summary>選択したときだけ敷く、行の地色。</summary>
+    public Brush RowFill => IsSelected ? NodePalette.RowSelectedFill : Brushes.Transparent;
+
+    public Brush RowStroke => IsSelected ? NodePalette.RowSelectedStroke : Brushes.Transparent;
+
+    /// <summary>畳んでいるときに名前のうしろへ添える「＋3」。</summary>
+    public string CollapsedBadge => IsCollapsed && HiddenCount > 0 ? $"＋{HiddenCount}" : string.Empty;
+
+    public bool HasCollapsedBadge => CollapsedBadge.Length > 0;
+
     public string MetaText
     {
         get
@@ -351,7 +393,9 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         {
             if (SetProperty(ref _isSelected, value))
             {
-                OnPropertyChanged(nameof(BorderBrush), nameof(CardBorderThickness), nameof(ZIndex));
+                OnPropertyChanged(
+                    nameof(BorderBrush), nameof(CardBorderThickness), nameof(ZIndex),
+                    nameof(RowFill), nameof(RowStroke));
             }
         }
     }
@@ -412,7 +456,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         {
             if (SetProperty(ref _isCollapsed, value))
             {
-                OnPropertyChanged(nameof(CollapseLabel));
+                OnPropertyChanged(nameof(CollapseLabel), nameof(CollapsedBadge), nameof(HasCollapsedBadge));
             }
         }
     }
@@ -425,7 +469,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         {
             if (SetProperty(ref _hiddenCount, value))
             {
-                OnPropertyChanged(nameof(CollapseLabel));
+                OnPropertyChanged(nameof(CollapseLabel), nameof(CollapsedBadge), nameof(HasCollapsedBadge));
             }
         }
     }
@@ -459,6 +503,16 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         nameof(CardOpacity),
         nameof(TitleDecorations),
         nameof(IsOverdue),
+        nameof(DotFill),
+        nameof(DotStroke),
+        nameof(DotStrokeThickness),
+        nameof(HasHalo),
+        nameof(HasRing),
+        nameof(RingBrush),
+        nameof(RowFill),
+        nameof(RowStroke),
+        nameof(CollapsedBadge),
+        nameof(HasCollapsedBadge),
         nameof(IsAtRisk),
         nameof(AlertText),
         nameof(HasAlert),

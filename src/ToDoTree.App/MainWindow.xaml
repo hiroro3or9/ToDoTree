@@ -63,6 +63,7 @@
         <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding ActiveDocument.ZoomInCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding ActiveDocument.ZoomOutCommand}" />
         <KeyBinding Modifiers="Ctrl+Shift" Key="D" Command="{Binding ActiveDocument.ToggleThemeCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="M" Command="{Binding ActiveDocument.ToggleNodeStyleCommand}" />
     </Window.InputBindings>
 
     <Grid>
@@ -292,6 +293,8 @@
                             Content="自動整列" ToolTip="きれいに並べ直す (Ctrl+L)" />
                     <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleDirectionCommand}"
                             Content="{Binding DirectionLabel}" ToolTip="流れる向きを切り替える" />
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleNodeStyleCommand}"
+                            Content="{Binding NodeStyleLabel}" ToolTip="{Binding NodeStyleTooltip}" />
                     <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleCriticalPathCommand}"
                             Content="{Binding CriticalPathLabel}"
                             ToolTip="ここが遅れると全体が遅れる、という一番長い鎖を強調する" />
