@@ -16,8 +16,9 @@
 | 構造 | DAG（1ノードが複数の親を持てる／循環は禁止） |
 | 描画 | WPF Canvas に自前描画（ズーム・パン・ドラッグ） |
 | 保存 | `IProjectStore` で抽象化し、既定は JSON ファイル（後で SQLite に差し替え可能） |
-| 依存 | 実行時の外部 NuGet 依存ゼロ（テストのみ xUnit） |
-| ターゲット | .NET 8 / `net8.0-windows`（Core は `net8.0`） |
+| 依存 | 実行時の外部 NuGet 依存ゼロ（テストのみ TUnit） |
+| テスト | TUnit（Microsoft.Testing.Platform）。`dotnet test` / 直接実行のどちらでも走る |
+| ターゲット | .NET 10 / `net10.0-windows`（Core は `net10.0`） |
 
 ## 2. データモデル
 

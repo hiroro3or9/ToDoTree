@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src\ToDoTree.Core\ToDoTree.Core.csproj" />
+  <Project Path="src\ToDoTree.App\ToDoTree.App.csproj" />
+  <Project Path="tests\ToDoTree.Core.Tests\ToDoTree.Core.Tests.csproj" />
+</Solution>
