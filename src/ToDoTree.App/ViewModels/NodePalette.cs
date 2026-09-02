@@ -1,64 +1,54 @@
 using System.Windows.Media;
+using ToDoTree.App.Services;
 using ToDoTree.Core.Models;
 
 namespace ToDoTree.App.ViewModels;
 
-/// <summary>状態がひと目で分かるようにするための色。</summary>
+/// <summary>
+/// 状態がひと目で分かるようにするための色。
+/// 実体は Themes/Palette.Light.xaml / Palette.Dark.xaml にあり、いま適用中のテーマから引く。
+/// 切り替えたあとは <see cref="MainViewModel.RefreshAll"/> で通知し直せば塗り替わる。
+/// </summary>
 public static class NodePalette
 {
-    public static readonly Brush ReadyFill = Frozen("#FFF1FDF5");
-    public static readonly Brush ReadyStroke = Frozen("#FF22C55E");
+    public static Brush SelectedStroke => ThemeManager.BrushOf("Node.Selected.Stroke");
 
-    public static readonly Brush InProgressFill = Frozen("#FFEFF6FF");
-    public static readonly Brush InProgressStroke = Frozen("#FF3B82F6");
+    public static Brush CriticalStroke => ThemeManager.BrushOf("Node.Critical.Stroke");
 
-    public static readonly Brush BlockedFill = Frozen("#FFFFFFFF");
-    public static readonly Brush BlockedStroke = Frozen("#FFD9DEE8");
+    public static Brush AtRiskBrush => ThemeManager.BrushOf("Node.AtRisk");
 
-    public static readonly Brush DoneFill = Frozen("#FFF5F6F8");
-    public static readonly Brush DoneStroke = Frozen("#FFCED4DF");
+    public static Brush OverdueBrush => ThemeManager.BrushOf("Node.Overdue");
 
-    public static readonly Brush SelectedStroke = Frozen("#FF1D4ED8");
-    public static readonly Brush CriticalStroke = Frozen("#FFF97316");
-    public static readonly Brush AtRiskBrush = Frozen("#FFEA580C");
-    public static readonly Brush OverdueBrush = Frozen("#FFDC2626");
-    public static readonly Brush TextBrush = Frozen("#FF1F2430");
-    public static readonly Brush SubtleTextBrush = Frozen("#FF7A8194");
-    public static readonly Brush DoneTextBrush = Frozen("#FF9AA2B1");
+    public static Brush TextBrush => ThemeManager.BrushOf("Node.Text");
 
-    public static readonly Brush StartAccent = Frozen("#FF8B5CF6");
-    public static readonly Brush StepAccent = Frozen("#FFCBD5E1");
-    public static readonly Brush MilestoneAccent = Frozen("#FF0EA5E9");
-    public static readonly Brush GoalAccent = Frozen("#FFF59E0B");
+    public static Brush SubtleTextBrush => ThemeManager.BrushOf("Node.TextSubtle");
 
+    public static Brush DoneTextBrush => ThemeManager.BrushOf("Node.TextDone");
+
+    public static Brush ConnectorFill => ThemeManager.BrushOf("Node.Connector.Fill");
+
+    /// <summary>種別を表すカード左端の色帯。</summary>
     public static Brush AccentOf(NodeKind kind) => kind switch
     {
-        NodeKind.Start => StartAccent,
-        NodeKind.Milestone => MilestoneAccent,
-        NodeKind.Goal => GoalAccent,
-        _ => StepAccent,
+        NodeKind.Start => ThemeManager.BrushOf("Kind.Start"),
+        NodeKind.Milestone => ThemeManager.BrushOf("Kind.Milestone"),
+        NodeKind.Goal => ThemeManager.BrushOf("Kind.Goal"),
+        _ => ThemeManager.BrushOf("Kind.Step"),
     };
 
     public static Brush FillOf(Readiness readiness) => readiness switch
     {
-        Readiness.Ready => ReadyFill,
-        Readiness.InProgress => InProgressFill,
-        Readiness.Done or Readiness.Cancelled => DoneFill,
-        _ => BlockedFill,
+        Readiness.Ready => ThemeManager.BrushOf("Node.Ready.Fill"),
+        Readiness.InProgress => ThemeManager.BrushOf("Node.Progress.Fill"),
+        Readiness.Done or Readiness.Cancelled => ThemeManager.BrushOf("Node.Done.Fill"),
+        _ => ThemeManager.BrushOf("Node.Blocked.Fill"),
     };
 
     public static Brush StrokeOf(Readiness readiness) => readiness switch
     {
-        Readiness.Ready => ReadyStroke,
-        Readiness.InProgress => InProgressStroke,
-        Readiness.Done or Readiness.Cancelled => DoneStroke,
-        _ => BlockedStroke,
+        Readiness.Ready => ThemeManager.BrushOf("Node.Ready.Stroke"),
+        Readiness.InProgress => ThemeManager.BrushOf("Node.Progress.Stroke"),
+        Readiness.Done or Readiness.Cancelled => ThemeManager.BrushOf("Node.Done.Stroke"),
+        _ => ThemeManager.BrushOf("Node.Blocked.Stroke"),
     };
-
-    private static SolidColorBrush Frozen(string hex)
-    {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
-        brush.Freeze();
-        return brush;
-    }
 }

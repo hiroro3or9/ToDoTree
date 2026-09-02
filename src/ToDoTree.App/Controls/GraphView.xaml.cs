@@ -45,13 +45,26 @@ public partial class GraphView : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         Viewport.Focus();
-        Dispatcher.BeginInvoke(new Action(ZoomToFit), System.Windows.Threading.DispatcherPriority.Loaded);
+        Dispatcher.BeginInvoke(
+            new Action(() =>
+            {
+                if (_viewModel?.HasViewportState == true)
+                {
+                    RestoreViewport(_viewModel);
+                }
+                else
+                {
+                    ZoomToFit();
+                }
+            }),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (_viewModel is not null)
         {
+            CaptureViewport(_viewModel);
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.ZoomToFitRequested -= OnZoomToFitRequested;
             _viewModel.ZoomStepRequested -= OnZoomStepRequested;
@@ -68,6 +81,28 @@ public partial class GraphView : UserControl
             _viewModel.ZoomStepRequested += OnZoomStepRequested;
             _viewModel.CenterOnRequested += OnCenterOnRequested;
             _viewModel.EnsureVisibleRequested += OnEnsureVisibleRequested;
+
+            if (IsLoaded)
+            {
+                Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        if (_viewModel is null)
+                        {
+                            return;
+                        }
+
+                        if (_viewModel.HasViewportState)
+                        {
+                            RestoreViewport(_viewModel);
+                        }
+                        else
+                        {
+                            ZoomToFit();
+                        }
+                    }),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
+            }
         }
 
         EdgeRenderer.Redraw();
@@ -89,6 +124,7 @@ public partial class GraphView : UserControl
         }
 
         var scale = Math.Max(0.01, ZoomTransform.ScaleX);
+        CaptureViewport(_viewModel);
         var world = new Rect(
             -PanTransform.X / scale,
             -PanTransform.Y / scale,
@@ -96,6 +132,25 @@ public partial class GraphView : UserControl
             Math.Max(1, Viewport.ActualHeight / scale));
 
         MiniMapView.Update([.. _viewModel.Nodes.Where(n => n.IsVisible)], world);
+    }
+
+    private void CaptureViewport(MainViewModel viewModel)
+    {
+        viewModel.ViewZoom = Math.Max(MinZoom, ZoomTransform.ScaleX);
+        viewModel.ViewPanX = PanTransform.X;
+        viewModel.ViewPanY = PanTransform.Y;
+        viewModel.HasViewportState = true;
+    }
+
+    private void RestoreViewport(MainViewModel viewModel)
+    {
+        var zoom = Math.Clamp(viewModel.ViewZoom, MinZoom, MaxZoom);
+        ZoomTransform.ScaleX = zoom;
+        ZoomTransform.ScaleY = zoom;
+        PanTransform.X = viewModel.ViewPanX;
+        PanTransform.Y = viewModel.ViewPanY;
+        EdgeRenderer.Redraw();
+        SyncMiniMap();
     }
 
     private void OnMiniMapNavigate(object? sender, Point world)

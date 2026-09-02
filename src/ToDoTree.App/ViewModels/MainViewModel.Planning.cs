@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
 using ToDoTree.App.Views;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
@@ -14,12 +13,6 @@ namespace ToDoTree.App.ViewModels;
 /// <summary>「次に何をやるか」を助ける部分：優先順位、最長経路、期限の逆算、自動保存。</summary>
 public sealed partial class MainViewModel
 {
-    private static readonly string AutoSavePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "ToDoTree",
-        "autosave.todotree.json");
-
-    private DispatcherTimer? _autoSaveTimer;
     private bool _showCriticalPath;
 
     /// <summary>いま手を付けるべき上位のステップ。</summary>
@@ -60,11 +53,6 @@ public sealed partial class MainViewModel
         ExportCommand = new RelayCommand(Export);
         CopyMermaidCommand = new RelayCommand(CopyMermaid);
         SplitCommand = new RelayCommand(SplitStep, () => SelectedNode is not null);
-
-        // 変更したまま閉じてしまっても失わないように、定期的に書き出す。
-        _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        _autoSaveTimer.Tick += (_, _) => AutoSave();
-        _autoSaveTimer.Start();
     }
 
     /// <summary>最長経路・期限の逆算・次にやることをまとめて計算し直す。</summary>
@@ -214,7 +202,10 @@ public sealed partial class MainViewModel
 
     // ---- 自動保存 ----
 
-    private void AutoSave()
+    public string RecoveryFilePath => Path.Combine(_recoveryDirectory, $"{DocumentId:N}.todotree.json");
+
+    /// <summary>ワークスペースの共通タイマーから呼び出される。</summary>
+    public void AutoSave()
     {
         if (!IsDirty)
         {
@@ -231,8 +222,8 @@ public sealed partial class MainViewModel
             }
             else
             {
-                // まだ保存先が決まっていないものは、退避用の場所に控えておく。
-                _store.Save(AutoSavePath, _project);
+                // 未保存タブ同士が上書きし合わないよう、タブごとに退避する。
+                _store.Save(RecoveryFilePath, _project);
             }
         }
         catch
@@ -241,24 +232,18 @@ public sealed partial class MainViewModel
         }
     }
 
-    /// <summary>保存先の決まっていない作業が残っていれば拾い上げる。</summary>
-    private bool TryRestoreAutoSave()
+    public void DeleteRecoveryFile()
     {
-        if (!File.Exists(AutoSavePath))
-        {
-            return false;
-        }
-
         try
         {
-            LoadProject(_store.Load(AutoSavePath), null);
-            IsDirty = true;
-            StatusMessage = "前回の続きを復元しました（まだ保存先が決まっていません。Ctrl+S で保存してください）。";
-            return true;
+            if (File.Exists(RecoveryFilePath))
+            {
+                File.Delete(RecoveryFilePath);
+            }
         }
         catch
         {
-            return false;
+            // 復旧用ファイルを消せなくても、編集中の作業は止めない。
         }
     }
 }

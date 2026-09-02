@@ -17,7 +17,19 @@ public sealed class AppSettings
 
     public string? LastFilePath { get; set; }
 
+    /// <summary>前回終了時に開いていたプロジェクト。LastFilePath は旧形式との互換用に残す。</summary>
+    public List<ProjectSessionState> OpenProjects { get; set; } = [];
+
+    /// <summary>前回選択していたタブ。</summary>
+    public Guid? ActiveDocumentId { get; set; }
+
+    /// <summary>複数タブ形式でセッションを書き込んだことがあるか。</summary>
+    public bool HasWorkspaceSession { get; set; }
+
     public LayoutDirection Direction { get; set; } = LayoutDirection.LeftToRight;
+
+    /// <summary>明るい配色か暗い配色か。</summary>
+    public AppTheme Theme { get; set; } = AppTheme.Light;
 
     public static AppSettings Load()
     {
@@ -26,7 +38,9 @@ public sealed class AppSettings
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
-                return JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+                settings.OpenProjects ??= [];
+                return settings;
             }
         }
         catch
@@ -54,4 +68,20 @@ public sealed class AppSettings
             // 保存できなくても致命的ではない。
         }
     }
+}
+
+/// <summary>再起動後にプロジェクトタブを復元するための表示状態。</summary>
+public sealed class ProjectSessionState
+{
+    public Guid DocumentId { get; set; }
+
+    public string? FilePath { get; set; }
+
+    public double Zoom { get; set; } = 1;
+
+    public double PanX { get; set; }
+
+    public double PanY { get; set; }
+
+    public bool HasViewportState { get; set; }
 }
