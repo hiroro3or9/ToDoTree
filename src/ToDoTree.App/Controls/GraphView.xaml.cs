@@ -34,6 +34,9 @@ public partial class GraphView : UserControl
     private Point _pressScreen;
     private bool _movedSincePress;
 
+    /// <summary>右クリックでメニューを用意した直後だけ true。キーボードからの要求と区別する。</summary>
+    private bool _menuRequested;
+
     public GraphView()
     {
         InitializeComponent();
@@ -174,6 +177,87 @@ public partial class GraphView : UserControl
     public void FocusCanvas() => Viewport.Focus();
 
     // ---- マウス ----
+
+    /// <summary>
+    /// 右クリック。押した場所を見て、線・ステップ・背景のどのメニューを出すかを決める。
+    /// メニュー自体は GraphView.xaml のリソースにあり、ここでは Viewport に差し替えるだけ。
+    /// 実際に開くのは、このあとの右ボタンを離したときの標準の動き。
+    /// </summary>
+    private void OnViewportPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        Viewport.ContextMenu = null;
+
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        // 接続中・パン中・矩形選択中・ドラッグ中は、その操作を邪魔しない。
+        if (_connectSource is not null || _panning || _marqueeStart is not null || _dragGroup.Count > 0)
+        {
+            return;
+        }
+
+        // 名前を書き換えている入力欄では、切り取り・貼り付けの標準メニューに任せる。
+        if (FindAncestor<TextBox>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        // ミニマップの上では出さない（全体図をクリックして飛ぶための場所なので）。
+        if (FindAncestor<MiniMap>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        var world = e.GetPosition(Surface);
+        _viewModel.SetMenuAnchor(world.X, world.Y);
+        Viewport.Focus();
+
+        if (FindNodeElement(e.OriginalSource as DependencyObject)?.DataContext is NodeViewModel node)
+        {
+            // まとめて選んでいるときは、その選択を保ったままメニューを出す。
+            if (!(_viewModel.SelectionCount > 1 && _viewModel.IsSelected(node)))
+            {
+                _viewModel.SelectOnly(node);
+            }
+
+            ShowMenu("NodeMenu");
+            return;
+        }
+
+        var tolerance = EdgeHitTolerance / Math.Max(0.2, ZoomTransform.ScaleX);
+        if (_viewModel.FindEdgeAt(world.X, world.Y, tolerance) is { } edge)
+        {
+            _viewModel.SelectEdge(edge);
+            ShowMenu("EdgeMenu");
+            return;
+        }
+
+        ShowMenu("CanvasMenu");
+    }
+
+    private void ShowMenu(string key)
+    {
+        Viewport.ContextMenu = (ContextMenu)FindResource(key);
+        _menuRequested = true;
+    }
+
+    /// <summary>
+    /// キーボードのメニューキーなど、右クリック以外から開こうとしたときは出さない。
+    /// 直前に割り当てたメニューがそのまま残っているので、
+    /// 中身も「どこを指していたか」も古いまま開いてしまうため。
+    /// </summary>
+    private void OnViewportContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (!_menuRequested)
+        {
+            Viewport.ContextMenu = null;
+            e.Handled = true;
+        }
+
+        _menuRequested = false;
+    }
 
     private void OnViewportPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

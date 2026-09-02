@@ -15,9 +15,6 @@ public sealed partial class MainViewModel
 
         var model = new TodoNode { Title = "新しいステップ" };
         _graph.AddNode(model);
-        var vm = new NodeViewModel(model, this);
-        Nodes.Add(vm);
-        _byId[model.Id] = vm;
 
         if (anchor is not null)
         {
@@ -35,6 +32,80 @@ public sealed partial class MainViewModel
         }
 
         PlaceNear(model, anchor, sibling);
+
+        var vm = Attach(model);
+        StatusMessage = anchor is null
+            ? "ステップを追加しました。"
+            : sibling ? "同じ先行にぶら下げて追加しました。" : "続きのステップを追加しました。";
+        return vm;
+    }
+
+    /// <summary>キャンバスの指定した場所にステップを足す（背景の右クリックから）。</summary>
+    public NodeViewModel AddNodeAt(double x, double y)
+    {
+        PushUndo();
+
+        var model = new TodoNode { Title = "新しいステップ" };
+        _graph.AddNode(model);
+        model.X = x;
+        model.Y = y;
+        NudgeUntilFree(model);
+
+        var vm = Attach(model);
+        StatusMessage = "ステップを追加しました。";
+        return vm;
+    }
+
+    /// <summary>繋がっている 2 つのステップのあいだに、新しいステップを挟む（線の右クリックから）。</summary>
+    public NodeViewModel? InsertOnEdge(EdgeViewModel? edge)
+    {
+        edge ??= SelectedEdge;
+        if (edge is null)
+        {
+            return null;
+        }
+
+        // 挟めないときに履歴だけ積まないよう、線がまだ生きているか先に確かめる。
+        if (!_graph.OutgoingOf(edge.From.Id).Any(e => e.ToId == edge.To.Id))
+        {
+            StatusMessage = "この線はもうありません。";
+            return null;
+        }
+
+        var fromTitle = edge.From.Title;
+        var toTitle = edge.To.Title;
+
+        PushUndo();
+
+        var model = new TodoNode { Title = "新しいステップ" };
+        if (EdgeInserter.InsertBetween(_graph, edge.From.Id, edge.To.Id, model) is null)
+        {
+            // グラフは元のまま。空振りの履歴を残すと、Ctrl+Z が一度素通りしてしまう。
+            DropLastUndo();
+            StatusMessage = "この線には挟めませんでした。";
+            return null;
+        }
+
+        // 中点は、ふつうの間隔だと前後のカードに重なる。空いているところまでずらす。
+        // 線の上にきちんと載せたいときは、そのあと Ctrl+L で並べ直してもらう。
+        NudgeUntilFree(model);
+
+        ClearEdgeSelection();
+        var vm = Attach(model);
+        StatusMessage = $"「{fromTitle}」と「{toTitle}」のあいだに挟みました。Ctrl+L で並べ直せます。";
+        return vm;
+    }
+
+    /// <summary>
+    /// 作ったモデルを画面に載せ、選んで、その場で名前を打てる状態にする。
+    /// 追加系の操作はどれも最後にこれを通る。
+    /// </summary>
+    private NodeViewModel Attach(TodoNode model)
+    {
+        var vm = new NodeViewModel(model, this);
+        Nodes.Add(vm);
+        _byId[model.Id] = vm;
+
         vm.NotifyPositionChanged();
         RebuildEdges();
         SelectedNode = vm;
@@ -45,10 +116,25 @@ public sealed partial class MainViewModel
 
         // 追加した直後は、そのカードの上でそのまま名前を打てる。
         BeginEdit(vm);
-        StatusMessage = anchor is null
-            ? "ステップを追加しました。"
-            : sibling ? "同じ先行にぶら下げて追加しました。" : "続きのステップを追加しました。";
         return vm;
+    }
+
+    /// <summary>置いた場所が埋まっていたら、流れと直交する向きに空くまでずらす。</summary>
+    private void NudgeUntilFree(TodoNode model)
+    {
+        var horizontal = Direction == LayoutDirection.LeftToRight;
+
+        for (var guard = 0; guard < 40 && Overlaps(model.X, model.Y); guard++)
+        {
+            if (horizontal)
+            {
+                model.Y += NodeViewModel.CardHeight + 26;
+            }
+            else
+            {
+                model.X += NodeViewModel.CardWidth + 26;
+            }
+        }
     }
 
     /// <summary>重ならない場所を探して置く。</summary>
@@ -257,6 +343,15 @@ public sealed partial class MainViewModel
         }
 
         _redo.Clear();
+    }
+
+    /// <summary>直前に積んだ履歴を捨てる（結局なにも変えなかったとき用）。</summary>
+    private void DropLastUndo()
+    {
+        if (_undo.Count > 0)
+        {
+            _undo.RemoveAt(_undo.Count - 1);
+        }
     }
 
     public void Undo()

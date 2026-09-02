@@ -12,6 +12,40 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
         <!--
+            右クリックのメニュー。押した場所（線・ステップ・背景）で
+            GraphView.xaml.cs が出し分ける。DataContext は Viewport から受け継ぐ。
+        -->
+        <ContextMenu x:Key="EdgeMenu">
+            <!-- 線は細いので、掴んだのがどれかを名前で確かめられるようにする -->
+            <MenuItem Header="{Binding EdgeMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
+            <Separator />
+            <MenuItem Header="ここにステップを挟む" Command="{Binding InsertOnEdgeCommand}" />
+            <MenuItem Header="この線を外す" InputGestureText="Delete" Command="{Binding DeleteEdgeCommand}" />
+        </ContextMenu>
+
+        <ContextMenu x:Key="NodeMenu">
+            <MenuItem Header="続きを追加" InputGestureText="Enter" Command="{Binding AddChildCommand}" />
+            <MenuItem Header="並行して追加" InputGestureText="Shift+Enter" Command="{Binding AddSiblingCommand}" />
+            <MenuItem Header="ここから繋ぐ" InputGestureText="Ctrl+E" Command="{Binding StartConnectCommand}" />
+            <Separator />
+            <MenuItem Header="完了 / 未着手" InputGestureText="Space" Command="{Binding ToggleDoneCommand}" />
+            <MenuItem Header="この先を畳む / 開く" Command="{Binding CollapseSelectedCommand}" />
+            <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
+            <MenuItem Header="分割" Command="{Binding SplitCommand}" />
+            <Separator />
+            <MenuItem Header="削除" InputGestureText="Delete" Command="{Binding DeleteCommand}" />
+        </ContextMenu>
+
+        <ContextMenu x:Key="CanvasMenu">
+            <MenuItem Header="ここにステップを追加" Command="{Binding AddNodeHereCommand}" />
+            <MenuItem Header="まとめて入力" InputGestureText="Ctrl+I" Command="{Binding ImportOutlineCommand}" />
+            <Separator />
+            <MenuItem Header="自動整列" InputGestureText="Ctrl+L" Command="{Binding AutoLayoutCommand}" />
+            <MenuItem Header="全体表示" InputGestureText="Ctrl+0" Command="{Binding ZoomFitCommand}" />
+            <MenuItem Header="全部開く" Command="{Binding ExpandAllCommand}" />
+        </ContextMenu>
+
+        <!--
             ステップのカード。状態・種別・期限・見積り・タグまで載せる、標準の見た目。
             大きさは NodeViewModel.CardWidth / CardHeight と揃えること（線の接続位置がずれる）。
         -->
@@ -253,6 +287,8 @@
           FocusVisualStyle="{x:Null}"
           MouseWheel="OnViewportMouseWheel"
           PreviewMouseLeftButtonDown="OnViewportPreviewMouseLeftButtonDown"
+          PreviewMouseRightButtonDown="OnViewportPreviewMouseRightButtonDown"
+          ContextMenuOpening="OnViewportContextMenuOpening"
           MouseLeftButtonUp="OnViewportMouseLeftButtonUp"
           MouseDown="OnViewportMouseDown"
           MouseUp="OnViewportMouseUp"

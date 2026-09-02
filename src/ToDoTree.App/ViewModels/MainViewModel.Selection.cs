@@ -163,6 +163,7 @@ public sealed partial class MainViewModel
 
         OnPropertyChanged(nameof(SelectedEdge));
         OnPropertyChanged(nameof(HasSelectedEdge));
+        OnPropertyChanged(nameof(EdgeMenuHeader));
         NotifyVisualsChanged();
     }
 
@@ -177,6 +178,7 @@ public sealed partial class MainViewModel
         SelectedEdge = null;
         OnPropertyChanged(nameof(SelectedEdge));
         OnPropertyChanged(nameof(HasSelectedEdge));
+        OnPropertyChanged(nameof(EdgeMenuHeader));
     }
 
     /// <summary>キャンバス上の座標に線があれば返す。</summary>
