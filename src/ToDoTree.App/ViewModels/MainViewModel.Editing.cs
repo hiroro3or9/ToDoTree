@@ -272,7 +272,7 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>キャンバス上でドラッグして繋いだときに呼ばれる。</summary>
-    public bool TryConnect(Guid fromId, Guid toId)
+    public bool TryConnect(Guid fromId, Guid toId, ConnectionSide fromSide = ConnectionSide.Auto, ConnectionSide toSide = ConnectionSide.Auto)
     {
         var check = _graph.CanConnect(fromId, toId);
         if (!check.IsOk())
@@ -282,7 +282,12 @@ public sealed partial class MainViewModel
         }
 
         PushUndo();
-        _graph.Connect(fromId, toId);
+        var edge = _graph.Connect(fromId, toId);
+        if (edge is not null)
+        {
+            edge.FromSide = fromSide;
+            edge.ToSide = toSide;
+        }
         RebuildEdges();
         MarkDirty();
         RefreshAll();
