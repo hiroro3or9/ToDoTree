@@ -332,11 +332,6 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     public Brush RingBrush => IsOnCriticalPath ? NodePalette.CriticalStroke : NodePalette.AccentOf(Kind);
 
-    /// <summary>選択したときだけ敷く、行の地色。</summary>
-    public Brush RowFill => IsSelected ? NodePalette.RowSelectedFill : Brushes.Transparent;
-
-    public Brush RowStroke => IsSelected ? NodePalette.RowSelectedStroke : Brushes.Transparent;
-
     /// <summary>畳んでいるときに名前のうしろへ添える「＋3」。</summary>
     public string CollapsedBadge => IsCollapsed && HiddenCount > 0 ? $"＋{HiddenCount}" : string.Empty;
 
@@ -393,9 +388,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         {
             if (SetProperty(ref _isSelected, value))
             {
-                OnPropertyChanged(
-                    nameof(BorderBrush), nameof(CardBorderThickness), nameof(ZIndex),
-                    nameof(RowFill), nameof(RowStroke));
+                OnPropertyChanged(nameof(BorderBrush), nameof(CardBorderThickness), nameof(ZIndex));
             }
         }
     }
@@ -509,8 +502,6 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         nameof(HasHalo),
         nameof(HasRing),
         nameof(RingBrush),
-        nameof(RowFill),
-        nameof(RowStroke),
         nameof(CollapsedBadge),
         nameof(HasCollapsedBadge),
         nameof(IsAtRisk),

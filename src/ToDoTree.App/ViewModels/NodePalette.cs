@@ -27,11 +27,6 @@ public static class NodePalette
 
     public static Brush ConnectorFill => ThemeManager.BrushOf("Node.Connector.Fill");
 
-    /// <summary>ミニマル表示で、選択中の行に敷く地色。</summary>
-    public static Brush RowSelectedFill => ThemeManager.BrushOf("Node.Row.Selected.Fill");
-
-    public static Brush RowSelectedStroke => ThemeManager.BrushOf("Node.Row.Selected.Stroke");
-
     /// <summary>種別を表すカード左端の色帯。</summary>
     public static Brush AccentOf(NodeKind kind) => kind switch
     {
