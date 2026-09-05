@@ -5,6 +5,7 @@
         xmlns:converters="clr-namespace:ToDoTree.App.Converters"
         xmlns:vm="clr-namespace:ToDoTree.App.ViewModels"
         Title="{Binding WindowTitle}"
+        Icon="Assets/AppIcon.ico"
         Height="860" Width="1440" MinHeight="560" MinWidth="900"
         Background="{DynamicResource Brush.Window}"
         TextElement.Foreground="{DynamicResource Brush.Text}"

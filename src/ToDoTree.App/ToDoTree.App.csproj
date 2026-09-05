@@ -9,9 +9,11 @@
     <LangVersion>latest</LangVersion>
     <RootNamespace>ToDoTree.App</RootNamespace>
     <AssemblyName>ToDoTree</AssemblyName>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Assets\AppIcon.ico" />
     <ProjectReference Include="..\ToDoTree.Core\ToDoTree.Core.csproj" />
   </ItemGroup>
 
