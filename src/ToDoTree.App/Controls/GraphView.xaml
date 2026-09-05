@@ -163,119 +163,110 @@
         </DataTemplate>
 
         <!--
-            ミニマル表示。丸ひとつと名前だけにして、密度を上げる。
-            箱は 200x28（NodeViewModel.CardWidth / CardHeight と同じ）で、線は箱の右端から出る。
-            名前の上を線が横切らないよう、丸ではなく箱の端を接続点にしてある。
+            ミニマル表示。丸ひとつと線だけにする。
+            箱は 24x24（NodeViewModel.CardWidth / CardHeight と同じ）で、丸そのものが箱。
+            名前は箱の外に出るので、カーソルを乗せたときと選んでいるときだけ、右横に出す。
+            Grid は中身を切り取らないので、はみ出したまま描かれる。
         -->
         <DataTemplate x:Key="NodeMinimalTemplate">
-            <Grid x:Name="Root" Width="200" Height="28" Opacity="{Binding CardOpacity}">
+            <Grid x:Name="Root" Width="24" Height="24" Opacity="{Binding CardOpacity}"
+                  Background="Transparent" Cursor="SizeAll"
+                  ToolTip="{Binding CardTooltip}">
 
-                <!-- 選択中の行に敷く地。透明でも当たり判定は効くので、掴む面も兼ねる。 -->
-                <Border x:Name="Row" CornerRadius="9"
-                        Background="{Binding RowFill}"
-                        BorderBrush="{Binding RowStroke}"
-                        BorderThickness="1"
-                        Cursor="SizeAll"
-                        ToolTip="{Binding CardTooltip}"
-                        SnapsToDevicePixels="True" />
+                <!-- 畳んでいる印。この先にまだ続きがあることを、外側の破線で示す。 -->
+                <Ellipse Width="24" Height="24" StrokeThickness="1" StrokeDashArray="2 2"
+                         Stroke="{DynamicResource Node.TextSubtle}"
+                         Visibility="{Binding IsCollapsed, Converter={StaticResource BoolToVisibility}}" />
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="26" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                <!-- 進行中のまわりに敷く、薄い輪 -->
+                <Ellipse Width="20" Height="20" Fill="{Binding DotFill}" Opacity="0.2"
+                         Visibility="{Binding HasHalo, Converter={StaticResource BoolToVisibility}}" />
 
-                    <!-- 状態を表す丸 -->
-                    <Grid Grid.Column="0">
-                        <Ellipse Width="19" Height="19" Fill="{Binding DotFill}" Opacity="0.2"
-                                 Visibility="{Binding HasHalo, Converter={StaticResource BoolToVisibility}}" />
-                        <Ellipse Width="19" Height="19"
-                                 Stroke="{Binding RingBrush}" StrokeThickness="1.8"
-                                 Visibility="{Binding HasRing, Converter={StaticResource BoolToVisibility}}" />
-                        <Ellipse Width="12" Height="12"
-                                 Fill="{Binding DotFill}"
-                                 Stroke="{Binding DotStroke}"
-                                 StrokeThickness="{Binding DotStrokeThickness}" />
-                    </Grid>
+                <!-- 最長経路・種別を表す外側の輪 -->
+                <Ellipse Width="20" Height="20"
+                         Stroke="{Binding RingBrush}" StrokeThickness="1.8"
+                         Visibility="{Binding HasRing, Converter={StaticResource BoolToVisibility}}" />
 
-                    <!-- 名前 -->
-                    <Grid Grid.Column="1" Margin="3,0,0,0">
-                        <TextBlock Text="{Binding Title}" FontSize="12"
+                <!-- 状態を表す丸 -->
+                <Ellipse Width="13" Height="13"
+                         Fill="{Binding DotFill}"
+                         Stroke="{Binding DotStroke}"
+                         StrokeThickness="{Binding DotStrokeThickness}" />
+
+                <!-- 選んでいる印 -->
+                <Ellipse Width="24" Height="24" StrokeThickness="2"
+                         Stroke="{DynamicResource Node.Selected.Stroke}"
+                         Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- 期限超過・要着手の印。文字は出さず、肩に点を置くだけ。 -->
+                <Ellipse Width="6" Height="6" Margin="0,-1,-1,0"
+                         HorizontalAlignment="Right" VerticalAlignment="Top"
+                         Fill="{Binding AlertBrush}"
+                         Visibility="{Binding HasAlert, Converter={StaticResource BoolToVisibility}}" />
+
+                <!-- ここからドラッグして次のステップへ繋ぐ -->
+                <Ellipse x:Name="Connector" Tag="connector" Width="12" Height="12"
+                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-7,0"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding DotStroke}" StrokeThickness="2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="ここからドラッグして、次のステップに繋げます" />
+
+                <!--
+                    名前。丸の右横に、浮かせて出す。
+                    箱の外にあるが Root の子なので、この上にカーソルがあっても
+                    Root.IsMouseOver は true のまま＝出したまま押せる。
+                -->
+                <Border x:Name="Chip" Visibility="Collapsed"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        Margin="36,0,0,0" Padding="9,3"
+                        Background="{DynamicResource Brush.Overlay}"
+                        BorderBrush="{DynamicResource Brush.OverlayBorder}"
+                        BorderThickness="1" CornerRadius="8">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Title}" FontSize="12" MaxWidth="240"
                                    VerticalAlignment="Center"
                                    Foreground="{Binding TitleBrush}"
                                    TextDecorations="{Binding TitleDecorations}"
                                    TextTrimming="CharacterEllipsis"
                                    Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
 
-                        <TextBox x:Name="Editor" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="12" Padding="4,1" VerticalAlignment="Center"
+                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="12" Width="196" Padding="3,1" VerticalAlignment="Center"
                                  AcceptsReturn="False"
                                  behaviors:FocusBehavior.FocusWhenVisible="True"
                                  KeyDown="OnCardEditorKeyDown"
                                  LostKeyboardFocus="OnCardEditorLostFocus"
                                  Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
-                    </Grid>
 
-                    <!-- 期限超過・要着手の印。文字は出さず、点だけ。 -->
-                    <Ellipse Grid.Column="2" Width="5" Height="5" Margin="3,0,3,0"
-                             VerticalAlignment="Center"
-                             Fill="{Binding AlertBrush}"
-                             Visibility="{Binding HasAlert, Converter={StaticResource BoolToVisibility}}" />
-
-                    <!-- 畳んだ数。ボタンはカーソルが乗ったときだけ出す。 -->
-                    <Grid Grid.Column="3" Margin="0,0,4,0">
-                        <TextBlock x:Name="Badge" Text="{Binding CollapsedBadge}" FontSize="10.5"
+                        <TextBlock Text="{Binding CollapsedBadge}" FontSize="10.5" Margin="8,0,0,0"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource Node.TextSubtle}"
                                    Visibility="{Binding HasCollapsedBadge, Converter={StaticResource BoolToVisibility}}" />
 
-                        <Button x:Name="Collapse" Tag="collapse"
-                                Style="{StaticResource Btn.Chip}"
+                        <Button Tag="collapse" Style="{StaticResource Btn.Chip}"
                                 Content="{Binding CollapseLabel}"
+                                Margin="8,0,0,0" Padding="5,0" MinWidth="20" FontSize="9.5"
                                 VerticalAlignment="Center"
-                                Padding="5,0" MinWidth="20" FontSize="9.5"
-                                Visibility="Collapsed"
+                                Visibility="{Binding CanCollapse, Converter={StaticResource BoolToVisibility}}"
                                 ToolTip="この先を畳む / 開く" />
-                    </Grid>
-                </Grid>
-
-                <!-- ここからドラッグして次のステップへ繋ぐ -->
-                <Ellipse x:Name="Connector" Tag="connector" Width="14" Height="14"
-                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,-7,0"
-                         Fill="{DynamicResource Node.Connector.Fill}"
-                         Stroke="{Binding BorderBrush}" StrokeThickness="2"
-                         Opacity="0" Cursor="Cross"
-                         ToolTip="ここからドラッグして、次のステップに繋げます" />
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <DataTemplate.Triggers>
                 <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Chip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="Chip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
                 </DataTrigger>
-
-                <!-- 選択していない行だけ、カーソルで薄く浮かせる -->
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding IsMouseOver, ElementName=Root}" Value="True" />
-                        <Condition Binding="{Binding IsSelected}" Value="False" />
-                    </MultiDataTrigger.Conditions>
-                    <Setter TargetName="Row" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
-                </MultiDataTrigger>
-
-                <!-- 畳めるステップの上にカーソルがあるときだけ、ボタンに持ち替える -->
-                <MultiDataTrigger>
-                    <MultiDataTrigger.Conditions>
-                        <Condition Binding="{Binding IsMouseOver, ElementName=Root}" Value="True" />
-                        <Condition Binding="{Binding CanCollapse}" Value="True" />
-                    </MultiDataTrigger.Conditions>
-                    <Setter TargetName="Collapse" Property="Visibility" Value="Visible" />
-                    <Setter TargetName="Badge" Property="Visibility" Value="Collapsed" />
-                </MultiDataTrigger>
+                <!-- 名前を書き換えている最中は、カーソルが外れても出したままにする -->
+                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                    <Setter TargetName="Chip" Property="Visibility" Value="Visible" />
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>
@@ -334,6 +325,12 @@
                         <Setter Property="Canvas.Top" Value="{Binding Y}" />
                         <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}" />
                         <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
+                        <Style.Triggers>
+                            <!-- ミニマル表示の名前は箱からはみ出すので、隣に隠されないよう持ち上げる -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Panel.ZIndex" Value="350" />
+                            </Trigger>
+                        </Style.Triggers>
                     </Style>
                 </ItemsControl.ItemContainerStyle>
             </ItemsControl>

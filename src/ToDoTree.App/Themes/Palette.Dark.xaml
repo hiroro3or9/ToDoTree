@@ -81,10 +81,6 @@
     <SolidColorBrush x:Key="Node.TextDone"        Color="#FF6B7486" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Connector.Fill"  Color="#FF1C212B" po:Freeze="True" />
 
-    <!-- ミニマル表示で選択中の行に敷く地色 -->
-    <SolidColorBrush x:Key="Node.Row.Selected.Fill"   Color="#FF1E2639" po:Freeze="True" />
-    <SolidColorBrush x:Key="Node.Row.Selected.Stroke" Color="#FF3B4870" po:Freeze="True" />
-
     <!-- 種別を表す色帯 -->
     <SolidColorBrush x:Key="Kind.Start"     Color="#FFA78BFA" po:Freeze="True" />
     <SolidColorBrush x:Key="Kind.Step"      Color="#FF3E4657" po:Freeze="True" />
