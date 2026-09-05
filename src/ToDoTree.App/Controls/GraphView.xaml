@@ -195,14 +195,25 @@
         <!--
             ミニマル表示。丸ひとつと線だけにする。
             箱は 24x24（NodeViewModel.CardWidth / CardHeight と同じ）で、丸そのものが箱。
-            名前は箱の外に出るので、カーソルを乗せたときと選んでいるときだけ、右横に出す。
+            短い名前は丸の下に常時表示し、選択・ホバー時には右横に詳細を出す。
             Grid は中身を切り取らないので、はみ出したまま描かれる。
         -->
         <DataTemplate x:Key="NodeMinimalTemplate">
+            <!-- 13px の丸と偶数径の輪を同心に保つため、半端な座標を丸めない。 -->
             <Grid x:Name="Root" Width="24" Height="24" Opacity="{Binding CardOpacity}"
+                  UseLayoutRounding="False" SnapsToDevicePixels="False"
                   Background="Transparent" Cursor="SizeAll"
                   ToolTip="{Binding CardTooltip}">
 
+                <!-- 名前を常時表示して、丸だけでもタスクを識別できるようにする。 -->
+                <Border Width="96" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="-36,34,-36,-30" Background="{DynamicResource Brush.Canvas}"
+                        Padding="3,1" CornerRadius="3" IsHitTestVisible="False">
+                    <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
+                               Foreground="{Binding TitleBrush}"
+                               TextDecorations="{Binding TitleDecorations}"
+                               TextTrimming="CharacterEllipsis" />
+                </Border>
                 <!-- 畳んでいる印。この先にまだ続きがあることを、外側の破線で示す。 -->
                 <Ellipse Width="24" Height="24" StrokeThickness="1" StrokeDashArray="2 2"
                          Stroke="{DynamicResource Node.TextSubtle}"
