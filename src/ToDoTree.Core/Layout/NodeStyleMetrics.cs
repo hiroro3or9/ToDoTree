@@ -6,7 +6,7 @@ public enum NodeStyle
     /// <summary>状態・種別・期限・見積り・タグまで載せたカード。</summary>
     Card,
 
-    /// <summary>丸ひとつだけ。名前はカーソルを乗せたときと、選んでいるときに出る。</summary>
+    /// <summary>丸と短い名前。選択・ホバー時には名前全体と操作を表示する。</summary>
     Minimal,
 }
 
@@ -19,7 +19,7 @@ public enum NodeStyle
 /// </summary>
 public static class NodeStyleMetrics
 {
-    // ミニマルの箱は丸ひとつぶん。名前は箱の外に、必要なときだけ出す。
+    // ミニマルの箱は丸ひとつぶん。短い名前は箱の下にはみ出して表示する。
     public static double WidthOf(NodeStyle style) => style == NodeStyle.Minimal ? 24 : 224;
 
     public static double HeightOf(NodeStyle style) => style == NodeStyle.Minimal ? 24 : 88;
@@ -32,7 +32,7 @@ public static class NodeStyleMetrics
     public static double FlowGapOf(NodeStyle style) => style == NodeStyle.Minimal ? 90 : 66;
 
     /// <summary>流れと直交する向きの余白。詰まって見えない程度に空ける。</summary>
-    public static double CrossGapOf(NodeStyle style) => style == NodeStyle.Minimal ? 22 : 40;
+    public static double CrossGapOf(NodeStyle style) => style == NodeStyle.Minimal ? 80 : 40;
 
     /// <summary>レイヤ（世代）が進む向きの間隔。</summary>
     public static double LayerSpacingOf(NodeStyle style, LayoutDirection direction) =>

@@ -4,6 +4,7 @@ using System.Windows.Media;
 using ToDoTree.App.Services;
 using ToDoTree.App.ViewModels;
 using ToDoTree.Core.Layout;
+using ToDoTree.Core.Models;
 
 namespace ToDoTree.App.Controls;
 
@@ -41,6 +42,8 @@ public sealed class EdgeLayer : FrameworkElement
     private Brush _criticalArrow = null!;
     private Brush _selectedArrow = null!;
 
+    private (Vec2 Control1, Vec2 Control2)? _previewControls;
+    private ConnectionSide _previewSide;
     private Point? _previewFrom;
     private Point? _previewTo;
     private Rect? _marquee;
@@ -57,10 +60,20 @@ public sealed class EdgeLayer : FrameworkElement
     }
 
     /// <summary>接続中のガイド線。null を渡すと消える。</summary>
-    public void SetPreview(Point? from, Point? to)
+    public void SetPreview(Point? from, Point? to, ConnectionSide side = ConnectionSide.Auto)
     {
+        _previewControls = null;
+        _previewSide = side;
         _previewFrom = from;
         _previewTo = to;
+        InvalidateVisual();
+    }
+
+    public void SetPreviewCurve((Vec2 Start, Vec2 End, Vec2 Control1, Vec2 Control2) curve)
+    {
+        _previewFrom = ToPoint(curve.Start);
+        _previewTo = ToPoint(curve.End);
+        _previewControls = (curve.Control1, curve.Control2);
         InvalidateVisual();
     }
 
@@ -92,6 +105,8 @@ public sealed class EdgeLayer : FrameworkElement
         if (_previewFrom is { } previewFrom && _previewTo is { } previewTo)
         {
             var (control1, control2) = CurveGeometry.ControlPoints(ToVec(previewFrom), ToVec(previewTo));
+            control1 = CurveGeometry.SourceControlPoint(ToVec(previewFrom), ToVec(previewTo), control1, _previewSide);
+            if (_previewControls is { } controls) (control1, control2) = controls;
             drawingContext.DrawGeometry(
                 null,
                 _previewPen,
@@ -140,13 +155,11 @@ public sealed class EdgeLayer : FrameworkElement
 
     private void DrawEdge(DrawingContext drawingContext, EdgeViewModel edge)
     {
-        var (start, end) = CurveGeometry.Anchors(
+        var (start, end, control1, control2) = CurveGeometry.BetweenNodes(
             new Vec2(edge.From.X, edge.From.Y),
             new Vec2(edge.To.X, edge.To.Y),
             NodeViewModel.CardWidth,
-            NodeViewModel.CardHeight);
-
-        var (control1, control2) = CurveGeometry.ControlPoints(start, end);
+            NodeViewModel.CardHeight, edge.Model.FromSide, edge.Model.ToSide);
 
         var pen = edge.IsSelected ? _selectedPen
             : edge.IsOnCriticalPath ? _criticalPen

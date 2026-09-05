@@ -190,13 +190,11 @@ public sealed partial class MainViewModel
 
         foreach (var edge in Edges)
         {
-            var (start, end) = CurveGeometry.Anchors(
+            var (start, end, control1, control2) = CurveGeometry.BetweenNodes(
                 new Vec2(edge.From.X, edge.From.Y),
                 new Vec2(edge.To.X, edge.To.Y),
                 NodeViewModel.CardWidth,
-                NodeViewModel.CardHeight);
-
-            var (control1, control2) = CurveGeometry.ControlPoints(start, end);
+                NodeViewModel.CardHeight, edge.Model.FromSide, edge.Model.ToSide);
             var distance = CurveGeometry.DistanceToCurve(point, start, control1, control2, end);
 
             if (distance <= bestDistance)

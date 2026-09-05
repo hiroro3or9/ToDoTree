@@ -1,0 +1,6 @@
+Generated with the built-in image_gen tool.
+
+Use case: logo-brand. Asset type: Windows desktop app icon for ToDoTree, a minimal task dependency tree app. Generate one polished square icon, 1024x1024, no text. A bold white branching tree of three circular task nodes joined with smooth thick paths, with a clear checkmark integrated in the largest node. Centered on a rich indigo-blue rounded square tile, restrained subtle gradient, flat frontal view, crisp simple silhouette readable at 16px. Generous but compact inner padding, tile fills about 90% of canvas. True transparent background outside rounded tile. No letters, no mockup, no extra objects, no external shadow. Calm modern productivity app aesthetic.
+
+AppIcon.png: original generated artwork.
+AppIcon.ico: aspect-preserving PNG frames at 16, 20, 24, 32, 40, 48, 64, 128, 256 pixels.

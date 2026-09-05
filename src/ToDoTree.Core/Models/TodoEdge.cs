@@ -11,5 +11,12 @@ public sealed class TodoEdge
 
     public string? Label { get; set; }
 
+    public ConnectionSide FromSide { get; set; }
+
+    public ConnectionSide ToSide { get; set; }
+
     public TodoEdge Clone() => (TodoEdge)MemberwiseClone();
 }
+
+/// <summary>接続元の辺。既存の線は位置関係から自動決定する。</summary>
+public enum ConnectionSide { Auto, Right, Top, Bottom, Left }

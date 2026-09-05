@@ -5,12 +5,32 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using ToDoTree.App.ViewModels;
 using ToDoTree.Core.Graph;
+using ToDoTree.Core.Layout;
+using ToDoTree.Core.Models;
 
 namespace ToDoTree.App.Controls;
 
 /// <summary>ズーム・パン・ドラッグ・複数選択ができるグラフのキャンバス。</summary>
 public partial class GraphView : UserControl
 {
+    public static readonly DependencyProperty IsConnectionDraggingProperty = DependencyProperty.Register(
+        nameof(IsConnectionDragging), typeof(bool), typeof(GraphView), new PropertyMetadata(false));
+
+    public bool IsConnectionDragging
+    {
+        get => (bool)GetValue(IsConnectionDraggingProperty);
+        private set => SetValue(IsConnectionDraggingProperty, value);
+    }
+
+    private static ConnectionSide SideOf(DependencyObject? hit) => (hit as FrameworkElement)?.Tag switch
+    {
+        "connector-top" => ConnectionSide.Top,
+        "connector-bottom" => ConnectionSide.Bottom,
+        "connector-left" => ConnectionSide.Left,
+        "connector" => ConnectionSide.Right,
+        _ => ConnectionSide.Auto,
+    };
+
     private const double MinZoom = 0.25;
     private const double MaxZoom = 2.5;
 
@@ -22,6 +42,7 @@ public partial class GraphView : UserControl
     private readonly List<(NodeViewModel Node, Vector Offset)> _dragGroup = [];
     private bool _dragUndoPushed;
 
+    private ConnectionSide _connectSide;
     private NodeViewModel? _connectSource;
 
     private bool _panning;
@@ -304,10 +325,18 @@ public partial class GraphView : UserControl
                 return;
             }
 
-            if ((e.OriginalSource as FrameworkElement)?.Tag as string == "connector")
+            if ((e.OriginalSource as FrameworkElement)?.Tag is string connectorTag && connectorTag is "connector" or "connector-top" or "connector-bottom" or "connector-left")
             {
                 _viewModel.SelectOnly(node);
                 _connectSource = node;
+                IsConnectionDragging = true;
+                _connectSide = connectorTag switch
+                {
+                    "connector-top" => ConnectionSide.Top,
+                    "connector-bottom" => ConnectionSide.Bottom,
+                    "connector-left" => ConnectionSide.Left,
+                    _ => ConnectionSide.Right,
+                };
                 UpdatePreviewLine(world);
                 Viewport.CaptureMouse();
                 e.Handled = true;
@@ -354,6 +383,7 @@ public partial class GraphView : UserControl
 
     private void BeginDrag(NodeViewModel node, Point world)
     {
+        IsConnectionDragging = false;
         _dragGroup.Clear();
         _dragUndoPushed = false;
 
@@ -424,11 +454,12 @@ public partial class GraphView : UserControl
 
         if (_connectSource is not null)
         {
-            var target = FindNodeElement(HitTestAt(e.GetPosition(Viewport)))?.DataContext as NodeViewModel;
+            var hit = HitTestAt(e.GetPosition(Viewport));
+            var target = FindNodeElement(hit)?.DataContext as NodeViewModel;
 
             if (target is not null && target.Id != _connectSource.Id)
             {
-                _viewModel.TryConnect(_connectSource.Id, target.Id);
+                _viewModel.TryConnect(_connectSource.Id, target.Id, _connectSide, SideOf(hit));
             }
             else if (target is null)
             {
@@ -436,6 +467,7 @@ public partial class GraphView : UserControl
             }
 
             _connectSource = null;
+            IsConnectionDragging = false;
             EdgeRenderer.SetPreview(null, null);
         }
         else if (_marqueeStart is { } start)
@@ -491,6 +523,7 @@ public partial class GraphView : UserControl
 
     private void EndInteraction()
     {
+        IsConnectionDragging = false;
         _dragGroup.Clear();
         _panning = false;
         _marqueeStart = null;
@@ -510,10 +543,21 @@ public partial class GraphView : UserControl
         }
 
         var from = new Point(
-            _connectSource.X + NodeViewModel.CardWidth,
-            _connectSource.Y + (NodeViewModel.CardHeight / 2));
+            _connectSource.X + (_connectSide switch { ConnectionSide.Left => 0, ConnectionSide.Right => NodeViewModel.CardWidth, _ => NodeViewModel.CardWidth / 2 }),
+            _connectSource.Y + (_connectSide switch { ConnectionSide.Top => 0, ConnectionSide.Bottom => NodeViewModel.CardHeight, _ => NodeViewModel.CardHeight / 2 }));
 
-        EdgeRenderer.SetPreview(from, world);
+        var hit = HitTestAt(Surface.TranslatePoint(world, Viewport));
+        var target = FindNodeElement(hit)?.DataContext as NodeViewModel;
+        if (target is not null && target.Id != _connectSource.Id)
+        {
+            EdgeRenderer.SetPreviewCurve(CurveGeometry.BetweenNodes(
+                new Vec2(_connectSource.X, _connectSource.Y), new Vec2(target.X, target.Y),
+                NodeViewModel.CardWidth, NodeViewModel.CardHeight, _connectSide, SideOf(hit)));
+        }
+        else
+        {
+            EdgeRenderer.SetPreview(from, world, _connectSide);
+        }
     }
 
     /// <summary>キーボードで接続中は、相手までのガイド線を出す。</summary>
@@ -671,6 +715,7 @@ public partial class GraphView : UserControl
                 else
                 {
                     _connectSource = null;
+            IsConnectionDragging = false;
                     EdgeRenderer.SetPreview(null, null);
                     _viewModel.SelectOnly(null);
                 }

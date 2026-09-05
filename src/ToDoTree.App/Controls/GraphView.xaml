@@ -148,15 +148,45 @@
                          Stroke="{Binding BorderBrush}" StrokeThickness="2.2"
                          Opacity="0.5" Cursor="Cross"
                          ToolTip="ここからドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="TopConnector" Tag="connector-top" Width="18" Height="18"
+                         HorizontalAlignment="Center" VerticalAlignment="Top"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding BorderBrush}" StrokeThickness="2.2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="上からドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="BottomConnector" Tag="connector-bottom" Width="18" Height="18"
+                         HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding BorderBrush}" StrokeThickness="2.2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="下からドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="LeftConnector" Tag="connector-left" Width="18" Height="18"
+                         HorizontalAlignment="Left" VerticalAlignment="Center"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding BorderBrush}" StrokeThickness="2.2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="左からドラッグして、次のステップに繋げます" />
             </Grid>
 
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsConnectionDragging, RelativeSource={RelativeSource AncestorType={x:Type controls:GraphView}}}" Value="True">
+                    <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
+                </DataTrigger>
                 <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
                     <Setter TargetName="Shadow" Property="Effect" Value="{DynamicResource Effect.Raised}" />
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
                     <Setter TargetName="Shadow" Property="Effect" Value="{DynamicResource Effect.Raised}" />
                 </DataTrigger>
             </DataTemplate.Triggers>
@@ -165,14 +195,25 @@
         <!--
             ミニマル表示。丸ひとつと線だけにする。
             箱は 24x24（NodeViewModel.CardWidth / CardHeight と同じ）で、丸そのものが箱。
-            名前は箱の外に出るので、カーソルを乗せたときと選んでいるときだけ、右横に出す。
+            短い名前は丸の下に常時表示し、選択・ホバー時には右横に詳細を出す。
             Grid は中身を切り取らないので、はみ出したまま描かれる。
         -->
         <DataTemplate x:Key="NodeMinimalTemplate">
+            <!-- 13px の丸と偶数径の輪を同心に保つため、半端な座標を丸めない。 -->
             <Grid x:Name="Root" Width="24" Height="24" Opacity="{Binding CardOpacity}"
+                  UseLayoutRounding="False" SnapsToDevicePixels="False"
                   Background="Transparent" Cursor="SizeAll"
                   ToolTip="{Binding CardTooltip}">
 
+                <!-- 名前を常時表示して、丸だけでもタスクを識別できるようにする。 -->
+                <Border Width="96" HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="-36,34,-36,-30" Background="{DynamicResource Brush.Canvas}"
+                        Padding="3,1" CornerRadius="3" IsHitTestVisible="False">
+                    <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
+                               Foreground="{Binding TitleBrush}"
+                               TextDecorations="{Binding TitleDecorations}"
+                               TextTrimming="CharacterEllipsis" />
+                </Border>
                 <!-- 畳んでいる印。この先にまだ続きがあることを、外側の破線で示す。 -->
                 <Ellipse Width="24" Height="24" StrokeThickness="1" StrokeDashArray="2 2"
                          Stroke="{DynamicResource Node.TextSubtle}"
@@ -211,6 +252,24 @@
                          Stroke="{Binding DotStroke}" StrokeThickness="2"
                          Opacity="0" Cursor="Cross"
                          ToolTip="ここからドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="TopConnector" Tag="connector-top" Width="12" Height="12"
+                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,-7,0,0"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding DotStroke}" StrokeThickness="2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="上からドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="BottomConnector" Tag="connector-bottom" Width="12" Height="12"
+                         HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,-7"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding DotStroke}" StrokeThickness="2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="下からドラッグして、次のステップに繋げます" />
+                <Ellipse x:Name="LeftConnector" Tag="connector-left" Width="12" Height="12"
+                         HorizontalAlignment="Left" VerticalAlignment="Center" Margin="-7,0,0,0"
+                         Fill="{DynamicResource Node.Connector.Fill}"
+                         Stroke="{Binding DotStroke}" StrokeThickness="2"
+                         Opacity="0" Cursor="Cross"
+                         ToolTip="左からドラッグして、次のステップに繋げます" />
 
                 <!--
                     名前。丸の右横に、浮かせて出す。
@@ -255,13 +314,25 @@
             </Grid>
 
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsConnectionDragging, RelativeSource={RelativeSource AncestorType={x:Type controls:GraphView}}}" Value="True">
+                    <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
+                </DataTrigger>
                 <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
                     <Setter TargetName="Chip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
                 </Trigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                     <Setter TargetName="Chip" Property="Visibility" Value="Visible" />
                     <Setter TargetName="Connector" Property="Opacity" Value="1" />
+                    <Setter TargetName="TopConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="BottomConnector" Property="Opacity" Value="1" />
+                    <Setter TargetName="LeftConnector" Property="Opacity" Value="1" />
                 </DataTrigger>
                 <!-- 名前を書き換えている最中は、カーソルが外れても出したままにする -->
                 <DataTrigger Binding="{Binding IsEditing}" Value="True">
