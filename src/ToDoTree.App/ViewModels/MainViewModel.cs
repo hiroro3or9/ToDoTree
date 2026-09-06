@@ -299,6 +299,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void LoadProject(TodoProject project, string? path, Guid? selectId = null)
     {
+        ClearEdgeSelection();
         _project = project;
         _graph = new TodoGraph(project);
         _filePath = path;

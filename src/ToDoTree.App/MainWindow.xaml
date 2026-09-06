@@ -80,7 +80,7 @@
         <Border Grid.Row="0" DataContext="{Binding ActiveDocument}"
                 Background="{DynamicResource Brush.Chrome}"
                 BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1"
-                Padding="14,0" Height="54">
+                Padding="20,0" Height="68">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -90,7 +90,7 @@
 
                 <!-- アプリの印 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="26" Height="26" CornerRadius="8" Background="{DynamicResource Brush.Accent}">
+                    <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource Brush.Accent}">
                         <Path Data="M 4.5,12 H 9 M 9,12 V 6.5 H 13.5 M 9,12 V 17.5 H 13.5"
                               Width="15" Height="15" Stretch="Uniform"
                               Stroke="{DynamicResource Brush.TextOnAccent}" StrokeThickness="1.8"
@@ -103,7 +103,7 @@
 
                 <!-- プロジェクト名 -->
                 <TextBox Grid.Column="1" VerticalAlignment="Center" MaxWidth="520" HorizontalAlignment="Left"
-                         Style="{StaticResource BareTextBox}" FontSize="15" FontWeight="SemiBold"
+                         Style="{StaticResource BareTextBox}" FontSize="18" FontWeight="SemiBold"
                          Text="{Binding ProjectName, UpdateSourceTrigger=LostFocus}"
                          ToolTip="プロジェクト名" />
 
@@ -258,51 +258,64 @@
                 </Grid.ColumnDefinitions>
 
                 <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource Btn.Ghost}"
-                            Command="{Binding DataContext.NewProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Content="新規" ToolTip="新しいプロジェクト (Ctrl+N)" />
-                    <Button Style="{StaticResource Btn.Ghost}"
-                            Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Content="開く" ToolTip="開く (Ctrl+O)" />
+                    <Button Style="{StaticResource Btn.Ghost}" Content="ファイル ▾" Click="OnToolbarMenuClick"
+                            Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+                            ToolTip="プロジェクトの作成・読み込み・保存・書き出し">
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="新しいプロジェクト" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N" />
+                                <MenuItem Header="開く" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O" />
+                                <Separator />
+                                <MenuItem Header="保存" Command="{Binding ActiveDocument.SaveCommand}" InputGestureText="Ctrl+S" />
+                                <MenuItem Header="名前を付けて保存" Command="{Binding ActiveDocument.SaveAsCommand}" InputGestureText="Ctrl+Shift+S" />
+                                <Separator />
+                                <MenuItem Header="書き出す" Command="{Binding ActiveDocument.ExportCommand}" InputGestureText="Ctrl+Shift+E" />
+                                <MenuItem Header="図をコピー（Mermaid）" Command="{Binding ActiveDocument.CopyMermaidCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                     <Button Style="{StaticResource Btn.Ghost}" Command="{Binding SaveCommand}"
                             Content="保存" ToolTip="保存 (Ctrl+S)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ExportCommand}"
-                            Content="書き出す" ToolTip="Markdown / Mermaid で書き出す (Ctrl+Shift+E)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding CopyMermaidCommand}"
-                            Content="図をコピー" ToolTip="Mermaid をクリップボードへ。GitHub や Notion にそのまま貼れます" />
 
                     <Border Style="{StaticResource Rule.Vertical}" Height="20" VerticalAlignment="Center" />
 
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ImportOutlineCommand}"
-                            Content="まとめて入力" ToolTip="箇条書きを貼り付けて一気にステップにする (Ctrl+I)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddRootCommand}"
-                            Content="＋ ステップ" ToolTip="どこにも繋がっていないステップを追加" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddChildCommand}"
-                            Content="＋ 続き" ToolTip="選択中のステップの続きを追加 (Enter)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AddSiblingCommand}"
-                            Content="＋ 並行" ToolTip="同じ先行にぶら下げて追加 (Shift+Enter)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding StartConnectCommand}"
-                            Content="繋ぐ" ToolTip="ここから繋ぎ始める。矢印キーで相手を選んで Enter (Ctrl+E)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding SplitCommand}"
-                            Content="分割" ToolTip="大きすぎるステップを、細かいステップに割る" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding DeleteCommand}"
-                            Content="削除" ToolTip="選択中のステップを削除 (Delete)" />
+                    <Button Style="{StaticResource Btn.Primary}" Command="{Binding AddChildCommand}"
+                            Content="＋ 続き" ToolTip="選択中のステップの続きを追加 (Enter)" Margin="2,0,6,0" />
+                    <Button Style="{StaticResource Btn.Ghost}" Content="ステップ ▾" Click="OnToolbarMenuClick"
+                            ToolTip="ステップの追加・接続・分割・削除">
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="独立したステップを追加" Command="{Binding AddRootCommand}" />
+                                <MenuItem Header="続きを追加" Command="{Binding AddChildCommand}" InputGestureText="Enter" />
+                                <MenuItem Header="並行して追加" Command="{Binding AddSiblingCommand}" InputGestureText="Shift+Enter" />
+                                <MenuItem Header="まとめて入力" Command="{Binding ImportOutlineCommand}" InputGestureText="Ctrl+I" />
+                                <Separator />
+                                <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" InputGestureText="Ctrl+E" />
+                                <MenuItem Header="分割" Command="{Binding SplitCommand}" />
+                                <Separator />
+                                <MenuItem Header="削除" Command="{Binding DeleteCommand}" InputGestureText="Delete" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
 
                     <Border Style="{StaticResource Rule.Vertical}" Height="20" VerticalAlignment="Center" />
 
                     <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AutoLayoutCommand}"
                             Content="自動整列" ToolTip="きれいに並べ直す (Ctrl+L)" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleDirectionCommand}"
-                            Content="{Binding DirectionLabel}" ToolTip="流れる向きを切り替える" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleNodeStyleCommand}"
-                            Content="{Binding NodeStyleLabel}" ToolTip="{Binding NodeStyleTooltip}" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleCriticalPathCommand}"
-                            Content="{Binding CriticalPathLabel}"
-                            ToolTip="ここが遅れると全体が遅れる、という一番長い鎖を強調する" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ToggleFocusCommand}"
-                            Content="{Binding FocusLabel}" ToolTip="選んだステップに関わる筋だけを表示する" />
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding ExpandAllCommand}"
-                            Content="全部開く" ToolTip="畳んだところと絞り込みをすべて解除する" />
+                    <Button Style="{StaticResource Btn.Ghost}" Content="表示 ▾" Click="OnToolbarMenuClick"
+                            ToolTip="配置方向・カード表示・最長経路・フォーカス">
+                        <Button.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="{Binding DirectionLabel}" Command="{Binding ToggleDirectionCommand}" ToolTip="流れる向きを切り替える" />
+                                <MenuItem Header="{Binding NodeStyleLabel}" Command="{Binding ToggleNodeStyleCommand}"
+                                          InputGestureText="Ctrl+Shift+M" ToolTip="{Binding NodeStyleTooltip}" />
+                                <Separator />
+                                <MenuItem Header="{Binding CriticalPathLabel}" Command="{Binding ToggleCriticalPathCommand}" />
+                                <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
+                                <MenuItem Header="全部開く" Command="{Binding ExpandAllCommand}" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                 </WrapPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
@@ -329,7 +342,7 @@
         </Border>
 
         <!-- ============ 本体 ============ -->
-        <Grid Grid.Row="3" DataContext="{Binding ActiveDocument}" Margin="12,12,12,10">
+        <Grid Grid.Row="3" DataContext="{Binding ActiveDocument}" Margin="16,16,16,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="284" MinWidth="190" />
                 <ColumnDefinition Width="10" />
@@ -344,6 +357,13 @@
                 <Border Style="{StaticResource Panel.Card}" Padding="12,10,8,12">
                     <DockPanel>
 
+                        <Border DockPanel.Dock="Top" Margin="0,2,4,14" Padding="14" CornerRadius="12" Background="{DynamicResource Brush.AccentSoft}" BorderBrush="{DynamicResource Brush.AccentBorder}" BorderThickness="1">
+                            <StackPanel>
+                                <TextBlock Text="プロジェクトの進捗" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}" />
+                                <TextBlock Text="{Binding ProgressText}" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,10" TextWrapping="Wrap" />
+                                <ProgressBar Height="7" Minimum="0" Maximum="1" Value="{Binding ProgressRatio, Mode=OneWay}" />
+                            </StackPanel>
+                        </Border>
                         <!-- 次にやること -->
                         <Border DockPanel.Dock="Top" Margin="0,2,4,0" Padding="12,10"
                                 Background="{DynamicResource Brush.SuccessSoft}"
@@ -431,7 +451,19 @@
             <Grid Grid.Column="2">
                 <Border Style="{StaticResource Panel.Shadow}" />
                 <Border Style="{StaticResource Panel.Card}" Padding="1" ClipToBounds="True">
-                    <controls:GraphView x:Name="Graph" />
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Padding="18,14" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="ゴールへの道のり" FontSize="16" FontWeight="SemiBold" />
+                                    <TextBlock Text="ステップをつないで、次の一歩を明確に。" Margin="0,4,8,0" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Style="{StaticResource Btn.Outline}" Command="{Binding ZoomFitCommand}" Content="全体表示" VerticalAlignment="Center" ToolTip="全体表示 (Ctrl+0)" />
+                            </Grid>
+                        </Border>
+                        <controls:GraphView x:Name="Graph" />
+                    </DockPanel>
                 </Border>
             </Grid>
 

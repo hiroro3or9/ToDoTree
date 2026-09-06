@@ -41,6 +41,8 @@ public partial class GraphView : UserControl
 
     private readonly List<(NodeViewModel Node, Vector Offset)> _dragGroup = [];
     private bool _dragUndoPushed;
+    private bool _draggingWaypoint;
+    private Vector _waypointOffset;
 
     private ConnectionSide _connectSide;
     private NodeViewModel? _connectSource;
@@ -64,6 +66,7 @@ public partial class GraphView : UserControl
         DataContextChanged += OnDataContextChanged;
         MiniMapView.Navigate += OnMiniMapNavigate;
         Loaded += OnLoaded;
+        Viewport.LostMouseCapture += (_, _) => _draggingWaypoint = false;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -96,6 +99,7 @@ public partial class GraphView : UserControl
             _viewModel.EnsureVisibleRequested -= OnEnsureVisibleRequested;
         }
 
+        EndInteraction();
         _viewModel = e.NewValue as MainViewModel;
 
         if (_viewModel is not null)
@@ -214,7 +218,7 @@ public partial class GraphView : UserControl
         }
 
         // 接続中・パン中・矩形選択中・ドラッグ中は、その操作を邪魔しない。
-        if (_connectSource is not null || _panning || _marqueeStart is not null || _dragGroup.Count > 0)
+        if (_connectSource is not null || _panning || _marqueeStart is not null || _dragGroup.Count > 0 || _draggingWaypoint)
         {
             return;
         }
@@ -248,6 +252,12 @@ public partial class GraphView : UserControl
         }
 
         var tolerance = EdgeHitTolerance / Math.Max(0.2, ZoomTransform.ScaleX);
+        if (_viewModel.FindWaypointAt(new Vec2(world.X, world.Y), tolerance) is { } waypoint)
+        {
+            _viewModel.SelectWaypoint(waypoint.Edge, waypoint.Index);
+            ShowMenu("WaypointMenu");
+            return;
+        }
         if (_viewModel.FindEdgeAt(world.X, world.Y, tolerance) is { } edge)
         {
             _viewModel.SelectEdge(edge);
@@ -366,10 +376,23 @@ public partial class GraphView : UserControl
             return;
         }
 
+        if (_viewModel.FindWaypointAt(new Vec2(world.X, world.Y), EdgeHitTolerance / Math.Max(0.2, ZoomTransform.ScaleX)) is { } waypoint)
+        {
+            _viewModel.SelectWaypoint(waypoint.Edge, waypoint.Index);
+            var position = waypoint.Edge.Model.Waypoints[waypoint.Index];
+            _waypointOffset = new Vector(position.X - world.X, position.Y - world.Y);
+            _draggingWaypoint = true;
+            _dragUndoPushed = false;
+            Viewport.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         // 背景でも、線の近くをクリックしたらその線を選ぶ。
         if (_viewModel.FindEdgeAt(world.X, world.Y, EdgeHitTolerance / Math.Max(0.2, ZoomTransform.ScaleX)) is { } edge)
         {
             _viewModel.SelectEdge(edge);
+            if (e.ClickCount >= 2) _viewModel.AddWaypoint(new Vec2(world.X, world.Y));
             e.Handled = true;
             return;
         }
@@ -403,6 +426,20 @@ public partial class GraphView : UserControl
         if (!_movedSincePress && (screen - _pressScreen).Length > 3)
         {
             _movedSincePress = true;
+        }
+
+        if (_draggingWaypoint && e.LeftButton == MouseButtonState.Pressed)
+        {
+            if (!_movedSincePress) return;
+            if (!_dragUndoPushed)
+            {
+                _viewModel?.PushUndo();
+                _dragUndoPushed = true;
+            }
+            var position = e.GetPosition(Surface);
+            _viewModel?.MoveWaypoint(new Vec2(position.X + _waypointOffset.X, position.Y + _waypointOffset.Y));
+            e.Handled = true;
+            return;
         }
 
         if (_dragGroup.Count > 0 && e.LeftButton == MouseButtonState.Pressed)
@@ -523,6 +560,7 @@ public partial class GraphView : UserControl
 
     private void EndInteraction()
     {
+        _draggingWaypoint = false;
         IsConnectionDragging = false;
         _dragGroup.Clear();
         _panning = false;
@@ -550,9 +588,11 @@ public partial class GraphView : UserControl
         var target = FindNodeElement(hit)?.DataContext as NodeViewModel;
         if (target is not null && target.Id != _connectSource.Id)
         {
-            EdgeRenderer.SetPreviewCurve(CurveGeometry.BetweenNodes(
+            EdgeRenderer.SetPreviewRoute(EdgeRouting.Route(
                 new Vec2(_connectSource.X, _connectSource.Y), new Vec2(target.X, target.Y),
-                NodeViewModel.CardWidth, NodeViewModel.CardHeight, _connectSide, SideOf(hit)));
+                NodeViewModel.CardWidth, NodeViewModel.CardHeight,
+                _viewModel!.Nodes.Where(n => n.IsVisible && n.Id != _connectSource.Id && n.Id != target.Id)
+                    .Select(n => new Vec2(n.X, n.Y)).ToArray(), _connectSide, SideOf(hit)));
         }
         else
         {
@@ -673,7 +713,8 @@ public partial class GraphView : UserControl
                 break;
 
             case Key.Delete:
-                _viewModel.DeleteSelected();
+                if (_viewModel.SelectedWaypointIndex >= 0) _viewModel.RemoveWaypoint();
+                else _viewModel.DeleteSelected();
                 e.Handled = true;
                 break;
 
@@ -777,6 +818,14 @@ public partial class GraphView : UserControl
         var minY = shown.Min(n => n.Y);
         var maxX = shown.Max(n => n.X) + NodeViewModel.CardWidth;
         var maxY = shown.Max(n => n.Y) + NodeViewModel.CardHeight;
+
+        foreach (var point in _viewModel.Edges.Where(e => e.From.IsVisible && e.To.IsVisible).SelectMany(e => e.Model.Waypoints))
+        {
+            minX = Math.Min(minX, point.X - 8);
+            minY = Math.Min(minY, point.Y - 8);
+            maxX = Math.Max(maxX, point.X + 8);
+            maxY = Math.Max(maxY, point.Y + 8);
+        }
 
         var width = Math.Max(1, maxX - minX);
         var height = Math.Max(1, maxY - minY);
