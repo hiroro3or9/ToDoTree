@@ -56,7 +56,7 @@
         <KeyBinding Modifiers="Ctrl+Shift" Key="S" Command="{Binding ActiveDocument.SaveAsCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="Z" Command="{Binding ActiveDocument.UndoCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="Y" Command="{Binding ActiveDocument.RedoCommand}" />
-        <KeyBinding Modifiers="Ctrl" Key="L" Command="{Binding ActiveDocument.AutoLayoutCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="L" Command="{Binding ActiveDocument.AlignCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="I" Command="{Binding ActiveDocument.ImportOutlineCommand}" />
         <KeyBinding Modifiers="Ctrl+Shift" Key="E" Command="{Binding ActiveDocument.ExportCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding ActiveDocument.StartConnectCommand}" />
@@ -306,8 +306,9 @@
 
                     <Border Style="{StaticResource Rule.Vertical}" Height="20" VerticalAlignment="Center" />
 
-                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AutoLayoutCommand}"
-                            Content="自動整列" ToolTip="きれいに並べ直す (Ctrl+L)" />
+                    <!-- ブロックを選んでいるときは、その中だけが対象になる。文言で対象を示す。 -->
+                    <Button Style="{StaticResource Btn.Ghost}" Command="{Binding AlignCommand}"
+                            Content="{Binding AlignLabel}" ToolTip="{Binding AlignTooltip}" />
                     <Button Style="{StaticResource Btn.Ghost}" Content="表示 ▾" Click="OnToolbarMenuClick"
                             ToolTip="配置方向・カード表示・最長経路・フォーカス">
                         <Button.ContextMenu>
@@ -315,6 +316,11 @@
                                 <MenuItem Header="{Binding DirectionLabel}" Command="{Binding ToggleDirectionCommand}" ToolTip="流れる向きを切り替える" />
                                 <MenuItem Header="{Binding NodeStyleLabel}" Command="{Binding ToggleNodeStyleCommand}"
                                           InputGestureText="Ctrl+Shift+M" ToolTip="{Binding NodeStyleTooltip}" />
+                                <Separator />
+                                <MenuItem Header="中を整列" Command="{Binding LayoutBlockCommand}"
+                                          ToolTip="{Binding BlockLayoutHint}" ToolTipService.ShowOnDisabled="True" />
+                                <MenuItem Header="全体を整列" Command="{Binding AutoLayoutCommand}"
+                                          ToolTip="ブロックの中は動かさず、未所属のステップを並べ直します" />
                                 <Separator />
                                 <MenuItem Header="{Binding CriticalPathLabel}" Command="{Binding ToggleCriticalPathCommand}" />
                                 <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />

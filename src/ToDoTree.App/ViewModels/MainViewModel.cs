@@ -99,6 +99,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public event EventHandler<NodeViewModel>? CenterOnRequested;
 
+    /// <summary>メニューやボタンから操作したあと、キャンバスにフォーカスを戻してほしい。</summary>
+    public event EventHandler? FocusCanvasRequested;
+
     /// <summary>タブ名、保存先、未保存状態などが変わった。</summary>
     public event EventHandler? DocumentStateChanged;
 

@@ -30,6 +30,18 @@ public sealed class EdgeViewModel(TodoEdge model, NodeViewModel from, NodeViewMo
         }
         return _route;
     }
+
+    /// <summary>
+    /// 次に描くときに経路を計算し直す。
+    /// カードがまとまって動いたあとは、その線に繋がっていない辺も障害物の並びが変わっている。
+    /// </summary>
+    public void InvalidateRoute()
+    {
+        _route = null;
+        _routeInputs = null;
+        _waypointInputs = null;
+    }
+
     public TodoEdge Model { get; } = model;
 
     public NodeViewModel From { get; } = from;
