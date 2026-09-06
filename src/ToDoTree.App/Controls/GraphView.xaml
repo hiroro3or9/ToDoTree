@@ -528,6 +528,9 @@
             </ItemsControl>
         </Canvas>
 
+        <controls:AlignmentGuideLayer x:Name="AlignmentGuides" IsHitTestVisible="False"
+                                      GuideBrush="{DynamicResource AlignmentGuideBrush}" />
+
         <!-- 全体のどこを見ているか -->
         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="14"
                 Background="{DynamicResource Brush.Overlay}"

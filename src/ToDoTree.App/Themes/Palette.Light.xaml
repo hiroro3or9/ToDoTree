@@ -127,4 +127,5 @@
     <DropShadowEffect x:Key="Effect.Popup"   Color="#FF10162A" Opacity="0.24" BlurRadius="24" ShadowDepth="5"
                       Direction="270" RenderingBias="Performance" po:Freeze="True" />
 
+    <SolidColorBrush x:Key="AlignmentGuideBrush" Color="#2563EB" />
 </ResourceDictionary>

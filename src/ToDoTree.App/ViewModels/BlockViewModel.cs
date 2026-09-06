@@ -110,7 +110,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     }
 
     public string Tooltip => CanMove
-        ? $"{Title}（{CountText}）\n見出しをドラッグでまとめて移動 ・ ダブルクリックで名前を変更"
+        ? $"{Title}（{CountText}）\nドラッグで位置合わせ・Altで自由移動 ・ ダブルクリックで名前を変更"
         : $"{Title}（{CountText}）\n隠れているステップがあるので、いまは動かせません";
 
     /// <summary>掴めるときだけ「動かせる」カーソルにする。</summary>
