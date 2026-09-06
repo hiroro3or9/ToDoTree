@@ -19,8 +19,19 @@
             <!-- 線は細いので、掴んだのがどれかを名前で確かめられるようにする -->
             <MenuItem Header="{Binding EdgeMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
             <Separator />
+            <MenuItem Header="ここに通過点を追加" Command="{Binding AddWaypointCommand}" />
+            <MenuItem Header="通過点をすべて解除" Command="{Binding ClearWaypointsCommand}" />
+            <Separator />
             <MenuItem Header="ここにステップを挟む" Command="{Binding InsertOnEdgeCommand}" />
             <MenuItem Header="この線を外す" InputGestureText="Delete" Command="{Binding DeleteEdgeCommand}" />
+        </ContextMenu>
+
+        <ContextMenu x:Key="WaypointMenu">
+            <MenuItem Header="滑らかにする" IsCheckable="True"
+                      IsChecked="{Binding IsSelectedWaypointSmooth, Mode=OneWay}" Command="{Binding ToggleWaypointSmoothCommand}" />
+            <Separator />
+            <MenuItem Header="この通過点を削除" InputGestureText="Delete" Command="{Binding RemoveWaypointCommand}" />
+            <MenuItem Header="通過点をすべて解除" Command="{Binding ClearWaypointsCommand}" />
         </ContextMenu>
 
         <ContextMenu x:Key="NodeMenu">
@@ -52,6 +63,11 @@
         <DataTemplate x:Key="NodeCardTemplate">
             <Grid x:Name="Root" Width="242" Height="88" Opacity="{Binding CardOpacity}">
 
+                <!-- 選択の輪郭はカードの外側に置き、接続位置とカード寸法を保つ。 -->
+                <Border Width="232" Height="96" Margin="-4,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                        CornerRadius="17" BorderThickness="2" BorderBrush="{DynamicResource Brush.Accent}"
+                        Opacity="0.45" IsHitTestVisible="False"
+                        Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
                 <!-- 影だけを受け持つ板。文字がぼやけないよう、中身とは分けてある。 -->
                 <Border x:Name="Shadow" Width="224" Height="88" HorizontalAlignment="Left"
                         CornerRadius="13" Background="{Binding Fill}"
@@ -371,7 +387,7 @@
                        Visibility="{Binding IsMinimalView, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
 
             <!-- ステップ同士を結ぶ線 -->
-            <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" />
+            <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" Nodes="{Binding Nodes}" />
 
             <!-- ステップのカード -->
             <ItemsControl x:Name="NodeHost" ItemsSource="{Binding Nodes}">

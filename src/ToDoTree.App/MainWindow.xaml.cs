@@ -20,6 +20,14 @@ public partial class MainWindow : Window
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e) =>
         _workspace = e.NewValue as WorkspaceViewModel;
 
+    private void OnToolbarMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { ContextMenu: { } menu } button) return;
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
     private void OnTitleBoxKeyDown(object sender, KeyEventArgs e)
     {
         var viewModel = _workspace?.ActiveDocument;

@@ -169,11 +169,14 @@ public sealed partial class MainViewModel
 
     private void ClearEdgeSelection()
     {
+        SelectedWaypointIndex = -1;
+        OnPropertyChanged(nameof(IsSelectedWaypointSmooth));
         if (SelectedEdge is null)
         {
             return;
         }
 
+        SelectedEdge.SelectedWaypointIndex = -1;
         SelectedEdge.IsSelected = false;
         SelectedEdge = null;
         OnPropertyChanged(nameof(SelectedEdge));
@@ -190,13 +193,8 @@ public sealed partial class MainViewModel
 
         foreach (var edge in Edges)
         {
-            var (start, end, control1, control2) = CurveGeometry.BetweenNodes(
-                new Vec2(edge.From.X, edge.From.Y),
-                new Vec2(edge.To.X, edge.To.Y),
-                NodeViewModel.CardWidth,
-                NodeViewModel.CardHeight, edge.Model.FromSide, edge.Model.ToSide);
-            var distance = CurveGeometry.DistanceToCurve(point, start, control1, control2, end);
-
+            if (!edge.From.IsVisible || !edge.To.IsVisible) continue;
+            var distance = EdgeRouting.Distance(point, edge.GetRoute(Nodes));
             if (distance <= bestDistance)
             {
                 bestDistance = distance;

@@ -31,13 +31,13 @@
         <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="CornerRadius" Value="16" />
     </Style>
 
     <!-- パネルの後ろに敷いて影だけを出す板。 -->
     <Style x:Key="Panel.Shadow" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
-        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="CornerRadius" Value="16" />
         <Setter Property="Effect" Value="{DynamicResource Effect.Panel}" />
         <Setter Property="IsHitTestVisible" Value="False" />
     </Style>

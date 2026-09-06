@@ -22,6 +22,16 @@ public sealed class EdgeLayer : FrameworkElement
         typeof(EdgeLayer),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty NodesProperty = DependencyProperty.Register(
+        nameof(Nodes), typeof(IEnumerable<NodeViewModel>), typeof(EdgeLayer),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public IEnumerable<NodeViewModel>? Nodes
+    {
+        get => (IEnumerable<NodeViewModel>?)GetValue(NodesProperty);
+        set => SetValue(NodesProperty, value);
+    }
+
     private int _paletteGeneration = -1;
     private int _styleGeneration = -1;
 
@@ -43,6 +53,7 @@ public sealed class EdgeLayer : FrameworkElement
     private Brush _selectedArrow = null!;
 
     private (Vec2 Control1, Vec2 Control2)? _previewControls;
+    private IReadOnlyList<Vec2>? _previewRoute;
     private ConnectionSide _previewSide;
     private Point? _previewFrom;
     private Point? _previewTo;
@@ -62,6 +73,7 @@ public sealed class EdgeLayer : FrameworkElement
     /// <summary>接続中のガイド線。null を渡すと消える。</summary>
     public void SetPreview(Point? from, Point? to, ConnectionSide side = ConnectionSide.Auto)
     {
+        _previewRoute = null;
         _previewControls = null;
         _previewSide = side;
         _previewFrom = from;
@@ -71,9 +83,18 @@ public sealed class EdgeLayer : FrameworkElement
 
     public void SetPreviewCurve((Vec2 Start, Vec2 End, Vec2 Control1, Vec2 Control2) curve)
     {
+        _previewRoute = null;
         _previewFrom = ToPoint(curve.Start);
         _previewTo = ToPoint(curve.End);
         _previewControls = (curve.Control1, curve.Control2);
+        InvalidateVisual();
+    }
+
+    public void SetPreviewRoute(IReadOnlyList<Vec2> route)
+    {
+        _previewRoute = route;
+        _previewFrom = ToPoint(route[0]);
+        _previewTo = ToPoint(route[^1]);
         InvalidateVisual();
     }
 
@@ -110,7 +131,7 @@ public sealed class EdgeLayer : FrameworkElement
             drawingContext.DrawGeometry(
                 null,
                 _previewPen,
-                BuildCurve(previewFrom, ToPoint(control1), ToPoint(control2), previewTo));
+                _previewRoute is { } route ? BuildRoute(route) : BuildCurve(previewFrom, ToPoint(control1), ToPoint(control2), previewTo));
         }
 
         if (_marquee is { } marquee)
@@ -155,11 +176,7 @@ public sealed class EdgeLayer : FrameworkElement
 
     private void DrawEdge(DrawingContext drawingContext, EdgeViewModel edge)
     {
-        var (start, end, control1, control2) = CurveGeometry.BetweenNodes(
-            new Vec2(edge.From.X, edge.From.Y),
-            new Vec2(edge.To.X, edge.To.Y),
-            NodeViewModel.CardWidth,
-            NodeViewModel.CardHeight, edge.Model.FromSide, edge.Model.ToSide);
+        var route = edge.GetRoute(Nodes ?? []);
 
         var pen = edge.IsSelected ? _selectedPen
             : edge.IsOnCriticalPath ? _criticalPen
@@ -171,11 +188,29 @@ public sealed class EdgeLayer : FrameworkElement
             : edge.IsHighlighted ? _highlightArrow
             : edge.IsSettled ? _settledArrow : _normalArrow;
 
-        var tip = ToPoint(end);
-        drawingContext.DrawGeometry(null, pen, BuildCurve(ToPoint(start), ToPoint(control1), ToPoint(control2), tip));
-        DrawArrowHead(drawingContext, ToPoint(control2), tip, arrow, _arrowSize, _arrowHalf);
+        var tip = ToPoint(route[^1]);
+        drawingContext.DrawGeometry(null, pen, BuildRoute(route));
+        DrawArrowHead(drawingContext, ToPoint(route[^2]), tip, arrow, _arrowSize, _arrowHalf);
+        for (var i = 0; i < edge.Model.Waypoints.Count; i++)
+        {
+            var selected = edge.IsSelected && edge.SelectedWaypointIndex == i;
+            drawingContext.DrawEllipse(ThemeManager.BrushOf(selected ? "Brush.Accent" : "Brush.Surface"),
+                edge.IsSelected ? _selectedPen : _normalPen, ToPoint(edge.Model.Waypoints[i].ToVector()),
+                selected ? 6 : 5, selected ? 6 : 5);
+        }
     }
 
+    private static StreamGeometry BuildRoute(IReadOnlyList<Vec2> route)
+    {
+        var geometry = new StreamGeometry();
+        using (var context = geometry.Open())
+        {
+            context.BeginFigure(ToPoint(route[0]), false, false);
+            context.PolyLineTo(route.Skip(1).Select(ToPoint).ToArray(), true, false);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
     private static StreamGeometry BuildCurve(Point start, Point control1, Point control2, Point end)
     {
         var geometry = new StreamGeometry();
@@ -231,6 +266,7 @@ public sealed class EdgeLayer : FrameworkElement
     {
         var pen = new Pen(ThemeManager.BrushOf(key), thickness)
         {
+            LineJoin = PenLineJoin.Round,
             StartLineCap = PenLineCap.Round,
             EndLineCap = PenLineCap.Round,
         };
@@ -244,6 +280,7 @@ public sealed class EdgeLayer : FrameworkElement
         var pen = new Pen(ThemeManager.BrushOf(key), 2)
         {
             DashStyle = new DashStyle([4, 3], 0),
+            LineJoin = PenLineJoin.Round,
             StartLineCap = PenLineCap.Round,
             EndLineCap = PenLineCap.Round,
         };

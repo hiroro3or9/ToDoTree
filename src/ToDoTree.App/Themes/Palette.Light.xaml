@@ -9,31 +9,31 @@
                     mc:Ignorable="po">
 
     <!-- ==== 画面の地色 ==== -->
-    <SolidColorBrush x:Key="Brush.Window"        Color="#FFF5F6F8" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.Chrome"        Color="#FFFFFFFF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Window"        Color="#FFEAF0F3" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Chrome"        Color="#FFF8FBFC" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.Surface"       Color="#FFFFFFFF" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.SurfaceAlt"    Color="#FFF3F4F7" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.SurfaceAlt"    Color="#FFF0F5F6" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.SurfaceHover"  Color="#FFEDEFF4" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.SurfaceActive" Color="#FFE3E6ED" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.Canvas"        Color="#FFFAFBFD" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Canvas"        Color="#FFF3F8F9" po:Freeze="True" />
 
     <!-- ==== 枠と区切り ==== -->
-    <SolidColorBrush x:Key="Brush.Border"        Color="#FFE5E8EE" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Border"        Color="#FFD8E4E8" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.BorderStrong"  Color="#FFD3D8E2" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.Divider"       Color="#FFEBEDF2" po:Freeze="True" />
 
     <!-- ==== 文字 ==== -->
-    <SolidColorBrush x:Key="Brush.Text"          Color="#FF1B2030" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.TextSubtle"    Color="#FF697285" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.TextFaint"     Color="#FF9BA3B2" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Text"          Color="#FF192D40" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.TextSubtle"    Color="#FF536D7C" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.TextFaint"     Color="#FF667E8C" po:Freeze="True" />
     <SolidColorBrush x:Key="Brush.TextOnAccent"  Color="#FFFFFFFF" po:Freeze="True" />
 
     <!-- ==== アクセント ==== -->
-    <SolidColorBrush x:Key="Brush.Accent"        Color="#FF4B6BFB" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.AccentHover"   Color="#FF3B5AE8" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.AccentPressed" Color="#FF2F4BCB" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.AccentSoft"    Color="#FFEEF2FF" po:Freeze="True" />
-    <SolidColorBrush x:Key="Brush.AccentBorder"  Color="#FFC7D3FF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.Accent"        Color="#FF087F73" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentHover"   Color="#FF06685F" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentPressed" Color="#FF05564F" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentSoft"    Color="#FFE5F5F0" po:Freeze="True" />
+    <SolidColorBrush x:Key="Brush.AccentBorder"  Color="#FFACD9CB" po:Freeze="True" />
 
     <!-- ==== 状態色 ==== -->
     <SolidColorBrush x:Key="Brush.Danger"        Color="#FFDC2626" po:Freeze="True" />
@@ -56,7 +56,7 @@
         <DrawingBrush.Drawing>
             <GeometryDrawing Brush="#FFE0E4EC">
                 <GeometryDrawing.Geometry>
-                    <EllipseGeometry Center="1,1" RadiusX="1.1" RadiusY="1.1" />
+                    <EllipseGeometry Center="1,1" RadiusX="0.8" RadiusY="0.8" />
                 </GeometryDrawing.Geometry>
             </GeometryDrawing>
         </DrawingBrush.Drawing>
@@ -72,13 +72,13 @@
     <SolidColorBrush x:Key="Node.Done.Fill"      Color="#FFF6F7F9" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Done.Stroke"    Color="#FFDBE0E7" po:Freeze="True" />
 
-    <SolidColorBrush x:Key="Node.Selected.Stroke" Color="#FF3B5AE8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Selected.Stroke" Color="#FF087F73" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Critical.Stroke" Color="#FFF97316" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.AtRisk"          Color="#FFEA580C" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Overdue"         Color="#FFDC2626" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Text"            Color="#FF1B2030" po:Freeze="True" />
-    <SolidColorBrush x:Key="Node.TextSubtle"      Color="#FF98A0AF" po:Freeze="True" />
-    <SolidColorBrush x:Key="Node.TextDone"        Color="#FF9AA2B1" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.TextSubtle"      Color="#FF617887" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.TextDone"        Color="#FF71828B" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Connector.Fill"  Color="#FFFFFFFF" po:Freeze="True" />
 
     <!-- 種別を表す色帯 -->
@@ -90,9 +90,9 @@
     <!-- ==== ステップ同士を結ぶ線 ==== -->
     <SolidColorBrush x:Key="Edge.Normal"    Color="#FFB9C0CE" po:Freeze="True" />
     <SolidColorBrush x:Key="Edge.Settled"   Color="#FFDCE0E8" po:Freeze="True" />
-    <SolidColorBrush x:Key="Edge.Highlight" Color="#FF4B6BFB" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Highlight" Color="#FF087F73" po:Freeze="True" />
     <SolidColorBrush x:Key="Edge.Critical"  Color="#FFF97316" po:Freeze="True" />
-    <SolidColorBrush x:Key="Edge.Selected"  Color="#FF3B5AE8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Selected"  Color="#FF087F73" po:Freeze="True" />
     <SolidColorBrush x:Key="Edge.Preview"   Color="#FF4B6BFB" po:Freeze="True" />
     <SolidColorBrush x:Key="Marquee.Fill"   Color="#1F4B6BFB" po:Freeze="True" />
     <SolidColorBrush x:Key="Marquee.Stroke" Color="#FF4B6BFB" po:Freeze="True" />
