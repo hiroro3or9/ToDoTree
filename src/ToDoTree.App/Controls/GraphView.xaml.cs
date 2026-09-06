@@ -57,6 +57,12 @@ public partial class GraphView : UserControl
     private Point _pressScreen;
     private bool _movedSincePress;
 
+    /// <summary>見出しを押さえたブロック。しきい値を超えたところで移動が始まる。</summary>
+    private BlockViewModel? _blockPress;
+    private Point _blockPressScreen;
+    private Point _blockPressWorld;
+    private bool _blockDragActive;
+
     /// <summary>右クリックでメニューを用意した直後だけ true。キーボードからの要求と区別する。</summary>
     private bool _menuRequested;
 
@@ -66,7 +72,14 @@ public partial class GraphView : UserControl
         DataContextChanged += OnDataContextChanged;
         MiniMapView.Navigate += OnMiniMapNavigate;
         Loaded += OnLoaded;
-        Viewport.LostMouseCapture += (_, _) => _draggingWaypoint = false;
+        Viewport.LostMouseCapture += (_, _) =>
+        {
+            _draggingWaypoint = false;
+
+            // 予期しないキャプチャ喪失は「移動をやめた」扱いにする。
+            // 確定に伴う通常の解放では、この時点ですでに印を落としてある。
+            CancelBlockDragIfActive();
+        };
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -91,6 +104,10 @@ public partial class GraphView : UserControl
     {
         if (_viewModel is not null)
         {
+            // 移動は取り消し、名前の書き換えは確定してからタブを離れる。
+            CancelBlockDragIfActive();
+            _viewModel.EndBlockRename(commit: true);
+
             CaptureViewport(_viewModel);
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.ZoomToFitRequested -= OnZoomToFitRequested;
@@ -159,7 +176,10 @@ public partial class GraphView : UserControl
             Math.Max(1, Viewport.ActualWidth / scale),
             Math.Max(1, Viewport.ActualHeight / scale));
 
-        MiniMapView.Update([.. _viewModel.Nodes.Where(n => n.IsVisible)], world);
+        MiniMapView.Update(
+            [.. _viewModel.Nodes.Where(n => n.IsVisible)],
+            [.. _viewModel.Blocks.Where(b => b.IsVisible)],
+            world);
     }
 
     private void CaptureViewport(MainViewModel viewModel)
@@ -218,7 +238,8 @@ public partial class GraphView : UserControl
         }
 
         // 接続中・パン中・矩形選択中・ドラッグ中は、その操作を邪魔しない。
-        if (_connectSource is not null || _panning || _marqueeStart is not null || _dragGroup.Count > 0 || _draggingWaypoint)
+        if (_connectSource is not null || _panning || _marqueeStart is not null
+            || _dragGroup.Count > 0 || _draggingWaypoint || _blockDragActive)
         {
             return;
         }
@@ -262,6 +283,14 @@ public partial class GraphView : UserControl
         {
             _viewModel.SelectEdge(edge);
             ShowMenu("EdgeMenu");
+            return;
+        }
+
+        // 見出しは線より奥に描いてあるので、線・通過点を先に見てからここへ来る。
+        if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
+        {
+            _viewModel.SelectBlock(block);
+            ShowMenu("BlockMenu");
             return;
         }
 
@@ -397,6 +426,28 @@ public partial class GraphView : UserControl
             return;
         }
 
+        // ブロックの見出し。囲みの本体は当たり判定を持たないので、ここへ来るのは見出しだけ。
+        if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
+        {
+            _viewModel.SelectBlock(block);
+
+            if (e.ClickCount >= 2)
+            {
+                _viewModel.BeginBlockRename(block);
+                e.Handled = true;
+                return;
+            }
+
+            // 押した瞬間の座標を控える。差分はここから毎回計算し、足し込まない。
+            _blockPress = block;
+            _blockPressScreen = _pressScreen;
+            _blockPressWorld = world;
+            _blockDragActive = false;
+            Viewport.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         _panning = true;
         _panStartScreen = _pressScreen;
         _panStartX = PanTransform.X;
@@ -426,6 +477,33 @@ public partial class GraphView : UserControl
         if (!_movedSincePress && (screen - _pressScreen).Length > 3)
         {
             _movedSincePress = true;
+        }
+
+        if (_blockPress is { } pending && e.LeftButton == MouseButtonState.Pressed)
+        {
+            if (!_blockDragActive)
+            {
+                // 開始判定は画面座標。ズーム倍率で掴みやすさが変わらないようにする。
+                var moved = screen - _blockPressScreen;
+                if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance
+                    && Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+                {
+                    return;
+                }
+
+                if (_viewModel?.BeginBlockDrag(pending) != true)
+                {
+                    _blockPress = null;
+                    return;
+                }
+
+                _blockDragActive = true;
+            }
+
+            var here = e.GetPosition(Surface);
+            _viewModel?.UpdateBlockDrag(here.X - _blockPressWorld.X, here.Y - _blockPressWorld.Y);
+            e.Handled = true;
+            return;
         }
 
         if (_draggingWaypoint && e.LeftButton == MouseButtonState.Pressed)
@@ -485,6 +563,23 @@ public partial class GraphView : UserControl
     {
         if (_viewModel is null)
         {
+            EndInteraction();
+            return;
+        }
+
+        if (_blockPress is not null)
+        {
+            var wasDragging = _blockDragActive;
+
+            // 先に印を落としてから確定する。キャプチャの解放で「取り消し」に化けないように。
+            _blockPress = null;
+            _blockDragActive = false;
+
+            if (wasDragging)
+            {
+                _viewModel.CommitBlockDrag();
+            }
+
             EndInteraction();
             return;
         }
@@ -560,6 +655,7 @@ public partial class GraphView : UserControl
 
     private void EndInteraction()
     {
+        CancelBlockDragIfActive();
         _draggingWaypoint = false;
         IsConnectionDragging = false;
         _dragGroup.Clear();
@@ -571,6 +667,20 @@ public partial class GraphView : UserControl
         {
             Viewport.ReleaseMouseCapture();
         }
+    }
+
+    /// <summary>移動の途中なら取り消して、押した瞬間の位置へ戻す。</summary>
+    private void CancelBlockDragIfActive()
+    {
+        _blockPress = null;
+
+        if (!_blockDragActive)
+        {
+            return;
+        }
+
+        _blockDragActive = false;
+        _viewModel?.CancelBlockDrag();
     }
 
     private void UpdatePreviewLine(Point world)
@@ -663,6 +773,44 @@ public partial class GraphView : UserControl
         }
     }
 
+    // ---- ブロックの見出しの入力欄 ----
+
+    private void OnBlockEditorKeyDown(object sender, KeyEventArgs e)
+    {
+        if (_viewModel is null)
+        {
+            return;
+        }
+
+        // 日本語変換の途中に押した Enter は、WPF が Key.ImeProcessed として届ける。
+        // ここで拾うと変換の確定と名前の確定が同時に起きるので、そのまま入力に任せる。
+        if (e.Key == Key.ImeProcessed)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                _viewModel.EndBlockRename(commit: true);
+                Viewport.Focus();
+                e.Handled = true;
+                break;
+
+            case Key.Escape:
+                _viewModel.EndBlockRename(commit: false);
+                Viewport.Focus();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void OnBlockEditorLostFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // 外側をクリックしたら、そこで確定する。
+        _viewModel?.EndBlockRename(commit: true);
+    }
+
     // ---- キーボード ----
 
     private void OnViewportKeyDown(object sender, KeyEventArgs e)
@@ -683,6 +831,7 @@ public partial class GraphView : UserControl
 
         if (control && e.Key == Key.A)
         {
+            // 矩形選択と Ctrl+A は、これまでどおりステップだけを対象にする。
             _viewModel.SelectAllNodes();
             e.Handled = true;
             return;
@@ -691,6 +840,34 @@ public partial class GraphView : UserControl
         if (control && shift && e.Key == Key.Down)
         {
             _viewModel.SelectBranch();
+            e.Handled = true;
+            return;
+        }
+
+        if (control && shift && e.Key == Key.G)
+        {
+            _viewModel.UngroupSelectedBlock();
+            e.Handled = true;
+            return;
+        }
+
+        if (control && e.Key == Key.G)
+        {
+            _viewModel.GroupSelectedNodes();
+            e.Handled = true;
+            return;
+        }
+
+        // ブロックを選んでいるあいだは、ステップの追加・完了・削除を割り当てない。
+        // 囲みの解除は Ctrl+Shift+G か右クリックのメニューだけで行う。
+        if (_viewModel.HasSelectedBlock && e.Key is Key.Enter or Key.Space or Key.Delete)
+        {
+            _viewModel.StatusMessage = e.Key switch
+            {
+                Key.Delete => "ブロックを選んでいます。囲みを外すには Ctrl+Shift+G を押してください。",
+                _ => "ブロックを選んでいます。中のステップを操作するには、カードを選び直してください。",
+            };
+
             e.Handled = true;
             return;
         }
@@ -723,6 +900,11 @@ public partial class GraphView : UserControl
                 e.Handled = true;
                 break;
 
+            case Key.F2 when _viewModel.HasSelectedBlock:
+                _viewModel.BeginBlockRename(_viewModel.SelectedBlock);
+                e.Handled = true;
+                break;
+
             case Key.F2:
                 _viewModel.BeginEdit(null);
                 e.Handled = true;
@@ -749,14 +931,22 @@ public partial class GraphView : UserControl
                 break;
 
             case Key.Escape:
-                if (_viewModel.IsConnecting)
+                if (_blockDragActive)
+                {
+                    CancelBlockDragIfActive();
+                }
+                else if (_viewModel.IsConnecting)
                 {
                     _viewModel.CancelKeyboardConnect();
+                }
+                else if (_viewModel.HasSelectedBlock)
+                {
+                    _viewModel.SelectBlock(null);
                 }
                 else
                 {
                     _connectSource = null;
-            IsConnectionDragging = false;
+                    IsConnectionDragging = false;
                     EdgeRenderer.SetPreview(null, null);
                     _viewModel.SelectOnly(null);
                 }
@@ -827,6 +1017,15 @@ public partial class GraphView : UserControl
             maxY = Math.Max(maxY, point.Y + 8);
         }
 
+        // 囲みは見出しのぶんカードより上へ出る。切れないよう、その範囲も含める。
+        foreach (var block in _viewModel.Blocks.Where(b => b.IsVisible))
+        {
+            minX = Math.Min(minX, block.X);
+            minY = Math.Min(minY, block.Y);
+            maxX = Math.Max(maxX, block.X + block.Width);
+            maxY = Math.Max(maxY, block.Y + block.Height);
+        }
+
         var width = Math.Max(1, maxX - minX);
         var height = Math.Max(1, maxY - minY);
         const double padding = 70;
@@ -892,6 +1091,22 @@ public partial class GraphView : UserControl
         while (source is not null)
         {
             if (source is FrameworkElement element && element.DataContext is NodeViewModel)
+            {
+                return element;
+            }
+
+            source = ParentOf(source);
+        }
+
+        return null;
+    }
+
+    /// <summary>ブロックの見出し（囲みの中で当たり判定を持つ唯一の部品）を探す。</summary>
+    private static FrameworkElement? FindBlockElement(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is FrameworkElement element && element.DataContext is BlockViewModel)
             {
                 return element;
             }

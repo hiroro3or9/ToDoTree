@@ -34,6 +34,10 @@ public sealed partial class MainViewModel
         PlaceNear(model, anchor, sibling);
 
         var vm = Attach(model);
+
+        // 起点がブロックの中にあるなら、続きも同じまとまりの一部として扱う。
+        InheritBlock(anchor?.Id, [model.Id]);
+
         StatusMessage = anchor is null
             ? "ステップを追加しました。"
             : sibling ? "同じ先行にぶら下げて追加しました。" : "続きのステップを追加しました。";
@@ -90,8 +94,15 @@ public sealed partial class MainViewModel
         // 線の上にきちんと載せたいときは、そのあと Ctrl+L で並べ直してもらう。
         NudgeUntilFree(model);
 
+        var fromId = edge.From.Id;
+        var toId = edge.To.Id;
+
         ClearEdgeSelection();
         var vm = Attach(model);
+
+        // 線をまたいで挟むので、両端が同じ囲みのときだけ「その中に挟んだ」と言える。
+        InheritBlockFromEdge(fromId, toId, model.Id);
+
         StatusMessage = $"「{fromTitle}」と「{toTitle}」のあいだに挟みました。Ctrl+L で並べ直せます。";
         return vm;
     }
@@ -208,6 +219,9 @@ public sealed partial class MainViewModel
             _byId.Remove(node.Id);
         }
 
+        // 所属も同じ履歴単位で落とす。最後の 1 件を消したときは囲みごと消える。
+        ForgetBlockMembership(removing);
+
         RebuildEdges();
         SelectOnly(fallback);
         MarkDirty();
@@ -243,8 +257,24 @@ public sealed partial class MainViewModel
 
     public void AutoLayout()
     {
+        CommitPendingBlockEdit();
+
+        var options = BuildLayoutOptions();
+
+        // 全部が固定なら、動かすものが無い。空の履歴と未保存の印だけが増えるのを避ける。
+        var movable = Nodes.Count(n =>
+            !options.IsFixed(n.Id) && !(options.RespectPinned && n.Model.IsPinned));
+
+        if (movable == 0)
+        {
+            StatusMessage = Nodes.Count == 0
+                ? "並べ直すステップがありません。"
+                : "動かせるステップがありません（すべてブロック所属か位置固定です）。";
+            return;
+        }
+
         PushUndo();
-        LayeredLayoutEngine.Apply(_graph, NodeMetrics.LayoutFor(Direction));
+        LayeredLayoutEngine.Apply(_graph, options);
 
         foreach (var node in Nodes)
         {
@@ -254,7 +284,9 @@ public sealed partial class MainViewModel
         MarkDirty();
         NotifyVisualsChanged();
         ZoomToFitRequested?.Invoke(this, EventArgs.Empty);
-        StatusMessage = "自動整列しました（位置を固定したステップはそのままです）。";
+        StatusMessage = HasBlocks
+            ? "ブロックの配置を保持して整列しました（中のステップは動きません）。"
+            : "自動整列しました（位置を固定したステップはそのままです）。";
     }
 
     public void ToggleDirection()
@@ -341,7 +373,8 @@ public sealed partial class MainViewModel
         _lastUndoKey = key ?? Guid.NewGuid().ToString("N");
         _lastUndoAt = now;
 
-        _undo.Add(_project.DeepClone());
+        // 「そのとき何を選んでいたか」も一緒に控える。戻したときの選択が自然に続く。
+        _undo.Add(new HistoryEntry(_project.DeepClone(), CaptureSelection()));
         if (_undo.Count > MaxHistory)
         {
             _undo.RemoveAt(0);
@@ -361,17 +394,18 @@ public sealed partial class MainViewModel
 
     public void Undo()
     {
+        CommitPendingBlockEdit();
+
         if (_undo.Count == 0)
         {
             return;
         }
 
-        var snapshot = _undo[^1];
+        var entry = _undo[^1];
         _undo.RemoveAt(_undo.Count - 1);
-        _redo.Add(_project.DeepClone());
+        _redo.Add(new HistoryEntry(_project.DeepClone(), CaptureSelection()));
 
-        var selectedId = SelectedNode?.Id;
-        LoadProject(snapshot, _filePath, selectedId);
+        LoadProject(entry.Project, _filePath, entry.Selection);
         IsDirty = true;
         _lastUndoKey = string.Empty;
         StatusMessage = "元に戻しました。";
@@ -379,17 +413,18 @@ public sealed partial class MainViewModel
 
     public void Redo()
     {
+        CommitPendingBlockEdit();
+
         if (_redo.Count == 0)
         {
             return;
         }
 
-        var snapshot = _redo[^1];
+        var entry = _redo[^1];
         _redo.RemoveAt(_redo.Count - 1);
-        _undo.Add(_project.DeepClone());
+        _undo.Add(new HistoryEntry(_project.DeepClone(), CaptureSelection()));
 
-        var selectedId = SelectedNode?.Id;
-        LoadProject(snapshot, _filePath, selectedId);
+        LoadProject(entry.Project, _filePath, entry.Selection);
         IsDirty = true;
         _lastUndoKey = string.Empty;
         StatusMessage = "やり直しました。";
@@ -399,13 +434,23 @@ public sealed partial class MainViewModel
 
     public void MarkDirty() => IsDirty = true;
 
-    public void NotifyVisualsChanged() => VisualsChanged?.Invoke(this, EventArgs.Empty);
+    public void NotifyVisualsChanged()
+    {
+        // カードを動かせば囲みも追従する。所属は変えず、境界だけを計算し直す。
+        RefreshBlockBounds();
+        VisualsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     public void RefreshAll()
     {
         foreach (var node in Nodes)
         {
             node.RefreshDerived();
+        }
+
+        foreach (var block in Blocks)
+        {
+            block.RefreshBrushes();
         }
 
         RefreshTags();

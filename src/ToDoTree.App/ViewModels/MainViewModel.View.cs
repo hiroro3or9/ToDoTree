@@ -140,6 +140,9 @@ public sealed partial class MainViewModel
             }
         }
 
+        // 囲みは「いま見えている所属ノード」から作るので、可視を決めたあとに計算し直す。
+        RefreshBlockBounds();
+
         OnPropertyChanged(nameof(IsFocusMode));
         OnPropertyChanged(nameof(FocusLabel));
         OnPropertyChanged(nameof(HiddenSummary));

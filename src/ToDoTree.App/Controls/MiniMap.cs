@@ -14,9 +14,11 @@ public sealed class MiniMap : FrameworkElement
     private int _paletteGeneration = -1;
     private Brush _surface = Brushes.Transparent;
     private Pen _viewportPen = null!;
+    private Pen _blockPen = null!;
     private Brush _viewportFill = Brushes.Transparent;
 
     private IReadOnlyList<NodeViewModel> _nodes = [];
+    private IReadOnlyList<BlockViewModel> _blocks = [];
     private Rect _viewport;
     private Rect _bounds = new(0, 0, 1, 1);
     private double _scale = 1;
@@ -24,9 +26,10 @@ public sealed class MiniMap : FrameworkElement
     /// <summary>地図の上でクリックされた場所（キャンバス上の座標）。</summary>
     public event EventHandler<Point>? Navigate;
 
-    public void Update(IReadOnlyList<NodeViewModel> nodes, Rect viewport)
+    public void Update(IReadOnlyList<NodeViewModel> nodes, IReadOnlyList<BlockViewModel> blocks, Rect viewport)
     {
         _nodes = nodes;
+        _blocks = blocks;
         _viewport = viewport;
         InvalidateVisual();
     }
@@ -52,6 +55,13 @@ public sealed class MiniMap : FrameworkElement
             (width - (Padding * 2)) / Math.Max(1, _bounds.Width),
             (height - (Padding * 2)) / Math.Max(1, _bounds.Height));
 
+        // 囲みは外周だけを控えめに。地図の上で独自の操作は増やさない。
+        foreach (var block in _blocks)
+        {
+            var area = ToMap(new Rect(block.X, block.Y, block.Width, block.Height));
+            drawingContext.DrawRoundedRectangle(null, _blockPen, area, 2, 2);
+        }
+
         foreach (var node in _nodes)
         {
             var rect = ToMap(new Rect(node.X, node.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight));
@@ -70,7 +80,7 @@ public sealed class MiniMap : FrameworkElement
     /// <summary>テーマが変わっていたら色を作り直す。</summary>
     private void EnsurePalette()
     {
-        if (_paletteGeneration == ThemeManager.Generation && _viewportPen is not null)
+        if (_paletteGeneration == ThemeManager.Generation && _viewportPen is not null && _blockPen is not null)
         {
             return;
         }
@@ -82,6 +92,10 @@ public sealed class MiniMap : FrameworkElement
         var pen = new Pen(ThemeManager.BrushOf("MiniMap.Viewport.Stroke"), 1.4);
         pen.Freeze();
         _viewportPen = pen;
+
+        var blockPen = new Pen(ThemeManager.BrushOf("MiniMap.Block.Stroke"), 1);
+        blockPen.Freeze();
+        _blockPen = blockPen;
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -114,6 +128,12 @@ public sealed class MiniMap : FrameworkElement
         var maxY = _nodes.Max(n => n.Y) + NodeViewModel.CardHeight;
 
         var bounds = new Rect(minX, minY, Math.Max(1, maxX - minX), Math.Max(1, maxY - minY));
+
+        // 囲みは見出しのぶんカードより上へ出る。切れないよう地図の範囲にも含める。
+        foreach (var block in _blocks)
+        {
+            bounds.Union(new Rect(block.X, block.Y, block.Width, block.Height));
+        }
 
         if (_viewport.Width > 0 && _viewport.Height > 0)
         {

@@ -97,10 +97,25 @@
     <SolidColorBrush x:Key="Marquee.Fill"   Color="#2E7C93FF" po:Freeze="True" />
     <SolidColorBrush x:Key="Marquee.Stroke" Color="#FF7C93FF" po:Freeze="True" />
 
+    <!-- ==== ブロック（囲み） ==== -->
+    <!-- カードや線より奥に敷くので、どれも薄い。状態色の主役をカードから奪わない。 -->
+    <SolidColorBrush x:Key="Block.Fill"                 Color="#14A3B4C9" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Selected.Fill"        Color="#2298ECD8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke"               Color="#FF3A4454" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Selected.Stroke"      Color="#FF98ECD8" po:Freeze="True" />
+    <!-- 見出しは線と重なっても読めるよう、透けない下地を敷く。 -->
+    <SolidColorBrush x:Key="Block.Header.Fill"          Color="#FF232A36" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Selected.Fill" Color="#FF1E3B3A" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Text"          Color="#FFDCE3EE" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Count"         Color="#FF95A5B8" po:Freeze="True" />
+    <!-- ブロック選択中に、どのカードが中にいるかを示す控えめな輪郭。 -->
+    <SolidColorBrush x:Key="Block.Member.Stroke"        Color="#8098ECD8" po:Freeze="True" />
+
     <!-- ==== ミニマップ ==== -->
     <SolidColorBrush x:Key="MiniMap.Surface"         Color="#FF14181F" po:Freeze="True" />
     <SolidColorBrush x:Key="MiniMap.Viewport.Fill"   Color="#1F7C93FF" po:Freeze="True" />
     <SolidColorBrush x:Key="MiniMap.Viewport.Stroke" Color="#FF7C93FF" po:Freeze="True" />
+    <SolidColorBrush x:Key="MiniMap.Block.Stroke"     Color="#FF48546A" po:Freeze="True" />
 
     <!-- ==== 影 ==== -->
     <DropShadowEffect x:Key="Effect.Card"   Color="#FF000000" Opacity="0.55" BlurRadius="16" ShadowDepth="4"

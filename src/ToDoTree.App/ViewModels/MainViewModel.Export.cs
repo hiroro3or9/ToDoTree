@@ -74,9 +74,10 @@ public sealed partial class MainViewModel
 
     private void Export()
     {
+        // 初版の書き出しはステップと繋がりだけ。囲みが落ちることを、開く画面の見出しで伝える。
         var dialog = new SaveFileDialog
         {
-            Title = "書き出す",
+            Title = HasBlocks ? "書き出す（ブロックの囲みは含まれません）" : "書き出す",
             Filter = "Markdown (*.md)|*.md|Mermaid (*.mmd)|*.mmd",
             FileName = SanitizeFileName(_project.Name) + ".md",
         };
@@ -94,7 +95,9 @@ public sealed partial class MainViewModel
                 : GraphExporter.ToMarkdown(_project);
 
             File.WriteAllText(dialog.FileName, text);
-            StatusMessage = $"{Path.GetFileName(dialog.FileName)} に書き出しました。";
+            StatusMessage = HasBlocks
+                ? $"{Path.GetFileName(dialog.FileName)} に書き出しました（ブロックの囲みは含まれません）。"
+                : $"{Path.GetFileName(dialog.FileName)} に書き出しました。";
         }
         catch (Exception ex)
         {
@@ -107,7 +110,9 @@ public sealed partial class MainViewModel
         try
         {
             Clipboard.SetText(GraphExporter.ToMermaid(_project, Direction == LayoutDirection.LeftToRight));
-            StatusMessage = "Mermaid をコピーしました。GitHub や Notion にそのまま貼れます。";
+            StatusMessage = HasBlocks
+                ? "Mermaid をコピーしました（ブロックの囲みは含まれません）。"
+                : "Mermaid をコピーしました。GitHub や Notion にそのまま貼れます。";
         }
         catch
         {
@@ -150,7 +155,9 @@ public sealed partial class MainViewModel
 
         PushUndo();
         var created = StepSplitter.Split(_graph, node.Id, items);
-        AbsorbCreated(created, selectFirst: false);
+
+        // 分割で生まれたステップは、割られた元のステップの所属を引き継ぐ。
+        AbsorbCreated(created, selectFirst: false, node.Id);
         SelectedNode = node;
         StatusMessage = $"{created.Count} 個のステップに割りました。Ctrl+Z で元に戻せます。";
     }

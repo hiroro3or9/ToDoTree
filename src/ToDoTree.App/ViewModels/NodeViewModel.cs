@@ -25,6 +25,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
     private ScheduleInfo? _schedule;
     private bool _isRelated;
     private bool _isDimmed;
+    private bool _isInSelectedBlock;
 
     public TodoNode Model { get; } = model;
 
@@ -404,6 +405,13 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
                 OnPropertyChanged(nameof(ZIndex));
             }
         }
+    }
+
+    /// <summary>選択中のブロックに入っている（どれが所属かを控えめに示す）。</summary>
+    public bool IsInSelectedBlock
+    {
+        get => _isInSelectedBlock;
+        set => SetProperty(ref _isInSelectedBlock, value);
     }
 
     /// <summary>検索でヒットしなかったので目立たせない。</summary>

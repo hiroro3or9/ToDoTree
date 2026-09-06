@@ -34,6 +34,16 @@
             <MenuItem Header="通過点をすべて解除" Command="{Binding ClearWaypointsCommand}" />
         </ContextMenu>
 
+        <!-- ブロックの見出しを右クリックしたとき。囲みの解除は、ここか Ctrl+Shift+G だけ。 -->
+        <ContextMenu x:Key="BlockMenu">
+            <MenuItem Header="{Binding BlockMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
+            <Separator />
+            <MenuItem Header="名前を変更" InputGestureText="F2" Command="{Binding RenameBlockCommand}" />
+            <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
+            <Separator />
+            <MenuItem Header="ブロックを解除" InputGestureText="Ctrl+Shift+G" Command="{Binding UngroupBlockCommand}" />
+        </ContextMenu>
+
         <ContextMenu x:Key="NodeMenu">
             <MenuItem Header="続きを追加" InputGestureText="Enter" Command="{Binding AddChildCommand}" />
             <MenuItem Header="並行して追加" InputGestureText="Shift+Enter" Command="{Binding AddSiblingCommand}" />
@@ -43,6 +53,25 @@
             <MenuItem Header="この先を畳む / 開く" Command="{Binding CollapseSelectedCommand}" />
             <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
+            <Separator />
+            <MenuItem Header="ブロックにまとめる" InputGestureText="Ctrl+G" Command="{Binding GroupSelectionCommand}"
+                      ToolTip="{Binding GroupHint}" ToolTipService.ShowOnDisabled="True" />
+            <!--
+                既存のブロックへ入れる。行ごとの DataContext が BlockViewModel なので、
+                親をたどらずにそのままコマンドへ繋げられる（サブメニューは別のポップアップに載るため）。
+            -->
+            <MenuItem Header="ブロックに追加" ItemsSource="{Binding Blocks}"
+                      IsEnabled="{Binding CanAddSelectionToBlock}"
+                      ToolTip="{Binding AddToBlockHint}" ToolTipService.ShowOnDisabled="True">
+                <MenuItem.ItemContainerStyle>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Title}" />
+                        <Setter Property="InputGestureText" Value="{Binding CountText}" />
+                        <Setter Property="Command" Value="{Binding AddSelectionCommand}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
+            <MenuItem Header="ブロックから外す" Command="{Binding RemoveFromBlockCommand}" />
             <Separator />
             <MenuItem Header="削除" InputGestureText="Delete" Command="{Binding DeleteCommand}" />
         </ContextMenu>
@@ -68,6 +97,11 @@
                         CornerRadius="17" BorderThickness="2" BorderBrush="{DynamicResource Brush.Accent}"
                         Opacity="0.45" IsHitTestVisible="False"
                         Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
+                <!-- ブロックを選んでいるあいだ、その中のカードだけに出る控えめな破線 -->
+                <Rectangle Width="232" Height="96" Margin="-4,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                           RadiusX="17" RadiusY="17" StrokeThickness="1.6" StrokeDashArray="3 3"
+                           Stroke="{DynamicResource Block.Member.Stroke}" IsHitTestVisible="False"
+                           Visibility="{Binding IsInSelectedBlock, Converter={StaticResource BoolToVisibility}}" />
                 <!-- 影だけを受け持つ板。文字がぼやけないよう、中身とは分けてある。 -->
                 <Border x:Name="Shadow" Width="224" Height="88" HorizontalAlignment="Left"
                         CornerRadius="13" Background="{Binding Fill}"
@@ -255,6 +289,11 @@
                          Stroke="{DynamicResource Node.Selected.Stroke}"
                          Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
 
+                <!-- ブロックを選んでいるあいだ、その中の丸だけに出る控えめな破線 -->
+                <Ellipse Width="28" Height="28" StrokeThickness="1.6" StrokeDashArray="2 2"
+                         Stroke="{DynamicResource Block.Member.Stroke}" IsHitTestVisible="False"
+                         Visibility="{Binding IsInSelectedBlock, Converter={StaticResource BoolToVisibility}}" />
+
                 <!-- 期限超過・要着手の印。文字は出さず、肩に点を置くだけ。 -->
                 <Ellipse Width="6" Height="6" Margin="0,-1,-1,0"
                          HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -386,6 +425,69 @@
                        Fill="{DynamicResource Brush.CanvasGrid}" IsHitTestVisible="False"
                        Visibility="{Binding IsMinimalView, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
 
+            <!--
+                ステップをまとめた囲み。線やカードより奥に敷き、状態色の主役をカードに残す。
+                本体は当たり判定を持たないので、囲みの中の空白でも背景ドラッグでキャンバスを動かせる。
+                掴めるのは見出しだけ。
+            -->
+            <ItemsControl x:Name="BlockHost" ItemsSource="{Binding Blocks}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Canvas.Left" Value="{Binding X}" />
+                        <Setter Property="Canvas.Top" Value="{Binding Y}" />
+                        <Setter Property="Panel.ZIndex" Value="{Binding ZIndex}" />
+                        <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVisibility}}" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Width="{Binding Width}" Height="{Binding Height}">
+                            <Border CornerRadius="14"
+                                    Background="{Binding BodyFill}"
+                                    BorderBrush="{Binding BorderBrush}"
+                                    BorderThickness="{Binding BorderThickness}"
+                                    IsHitTestVisible="False" />
+
+                            <!-- 見出し。線と重なっても読めるよう、透けない下地を敷く。 -->
+                            <Border Tag="block-header"
+                                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                                    Height="{Binding HeaderHeight}" MaxWidth="{Binding Width}"
+                                    Margin="10,0,0,0" Padding="10,0" CornerRadius="9"
+                                    Background="{Binding HeaderFill}"
+                                    BorderBrush="{Binding BorderBrush}" BorderThickness="1"
+                                    Cursor="{Binding HeaderCursor}"
+                                    ToolTip="{Binding Tooltip}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
+                                               MaxWidth="220" VerticalAlignment="Center"
+                                               Foreground="{Binding HeaderText}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
+
+                                    <!-- 見出しの上でそのまま名前を書き換える -->
+                                    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="12" FontWeight="SemiBold" Width="190" Padding="4,1"
+                                             VerticalAlignment="Center" AcceptsReturn="False"
+                                             behaviors:FocusBehavior.FocusWhenVisible="True"
+                                             KeyDown="OnBlockEditorKeyDown"
+                                             LostKeyboardFocus="OnBlockEditorLostFocus"
+                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
+
+                                    <TextBlock Text="{Binding CountText}" FontSize="10.5" Margin="9,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding CountBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
             <!-- ステップ同士を結ぶ線 -->
             <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" Nodes="{Binding Nodes}" />
 
@@ -438,7 +540,7 @@
                 BorderThickness="1" CornerRadius="10" Padding="11,7" IsHitTestVisible="False"
                 MaxWidth="420">
             <TextBlock FontSize="10.5" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextFaint}"
-                       Text="ホイールで拡大縮小 ・ 背景をドラッグで移動 ・ Alt+ドラッグで矩形選択 ・ Ctrl+クリックで複数選択 ・ 右の丸から線を引いて接続 ・ 線をクリックして Delete で外す" />
+                       Text="ホイールで拡大縮小 ・ 背景をドラッグで移動 ・ Alt+ドラッグで矩形選択 ・ Ctrl+クリックで複数選択 ・ 右の丸から線を引いて接続 ・ 線をクリックして Delete で外す ・ Ctrl+G でブロックにまとめる" />
         </Border>
     </Grid>
 </UserControl>
