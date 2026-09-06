@@ -62,6 +62,17 @@ public partial class GraphView : UserControl
     private Point _blockPressScreen;
     private Point _blockPressWorld;
     private bool _blockDragActive;
+    private BlockBounds _snapStart;
+    private SnapTarget[] _snapTargets = [];
+    private SnapState _snapState = new();
+    private Point _snapPointer;
+    private Window? _ownerWindow;
+    private (double Width, double Height) _snapNodeSize;
+    private Guid[] _snapMembers = [];
+    private (int Nodes, int Edges, int Blocks) _snapCounts;
+    private LayoutDirection _snapDirection;
+    private const string SnapHint = "Altで吸着を解除";
+    private string _beforeSnapStatus = string.Empty;
 
     /// <summary>右クリックでメニューを用意した直後だけ true。キーボードからの要求と区別する。</summary>
     private bool _menuRequested;
@@ -72,6 +83,14 @@ public partial class GraphView : UserControl
         DataContextChanged += OnDataContextChanged;
         MiniMapView.Navigate += OnMiniMapNavigate;
         Loaded += OnLoaded;
+        Unloaded += (_, _) =>
+        {
+            EndInteraction();
+            if (_ownerWindow is not null) _ownerWindow.Deactivated -= OnWindowDeactivated;
+            _ownerWindow = null;
+        };
+        PreviewKeyDown += OnSnapModifierKey;
+        PreviewKeyUp += OnSnapModifierKey;
         Viewport.LostMouseCapture += (_, _) =>
         {
             _draggingWaypoint = false;
@@ -84,6 +103,9 @@ public partial class GraphView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (_ownerWindow is not null) _ownerWindow.Deactivated -= OnWindowDeactivated;
+        _ownerWindow = Window.GetWindow(this);
+        if (_ownerWindow is not null) _ownerWindow.Deactivated += OnWindowDeactivated;
         Viewport.Focus();
         Dispatcher.BeginInvoke(
             new Action(() =>
@@ -157,6 +179,17 @@ public partial class GraphView : UserControl
 
     private void OnVisualsChanged(object? sender, EventArgs e)
     {
+        if (_blockDragActive && _viewModel?.IsBlockDragging != true)
+        {
+            _blockDragActive = false;
+            _blockPress = null;
+            ClearSnap();
+            if (Viewport.IsMouseCaptured) Viewport.ReleaseMouseCapture();
+        }
+        else if (_blockDragActive && !SnapSessionIsValid())
+        {
+            EndInteraction();
+        }
         UpdateKeyboardConnectPreview();
         EdgeRenderer.Redraw();
         SyncMiniMap();
@@ -205,6 +238,7 @@ public partial class GraphView : UserControl
 
     private void OnMiniMapNavigate(object? sender, Point world)
     {
+        if (_blockPress is not null) return;
         var scale = ZoomTransform.ScaleX;
         PanTransform.X = (Viewport.ActualWidth / 2) - (world.X * scale);
         PanTransform.Y = (Viewport.ActualHeight / 2) - (world.Y * scale);
@@ -234,6 +268,7 @@ public partial class GraphView : UserControl
     /// </summary>
     private void OnViewportPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_blockPress is not null) { e.Handled = true; return; }
         Viewport.ContextMenu = null;
 
         if (_viewModel is null)
@@ -400,6 +435,28 @@ public partial class GraphView : UserControl
 
         Viewport.Focus();
 
+        // ブロックの見出し。囲みの本体は当たり判定を持たないので、ここへ来るのは見出しだけ。
+        if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
+        {
+            _viewModel.SelectBlock(block);
+
+            if (e.ClickCount >= 2)
+            {
+                _viewModel.BeginBlockRename(block);
+                e.Handled = true;
+                return;
+            }
+
+            // 押した瞬間の座標を控える。差分はここから毎回計算し、足し込まない。
+            _blockPress = block;
+            _blockPressScreen = _pressScreen;
+            _blockPressWorld = world;
+            _blockDragActive = false;
+            Viewport.CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         // Alt+ドラッグは矩形選択。
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt))
         {
@@ -430,28 +487,6 @@ public partial class GraphView : UserControl
             return;
         }
 
-        // ブロックの見出し。囲みの本体は当たり判定を持たないので、ここへ来るのは見出しだけ。
-        if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
-        {
-            _viewModel.SelectBlock(block);
-
-            if (e.ClickCount >= 2)
-            {
-                _viewModel.BeginBlockRename(block);
-                e.Handled = true;
-                return;
-            }
-
-            // 押した瞬間の座標を控える。差分はここから毎回計算し、足し込まない。
-            _blockPress = block;
-            _blockPressScreen = _pressScreen;
-            _blockPressWorld = world;
-            _blockDragActive = false;
-            Viewport.CaptureMouse();
-            e.Handled = true;
-            return;
-        }
-
         _panning = true;
         _panStartScreen = _pressScreen;
         _panStartX = PanTransform.X;
@@ -472,6 +507,88 @@ public partial class GraphView : UserControl
         foreach (var target in targets)
         {
             _dragGroup.Add((target, new Vector(target.X - world.X, target.Y - world.Y)));
+        }
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e) => EndInteraction();
+
+    private void ClearSnap()
+    {
+        if (_viewModel?.StatusMessage == SnapHint) _viewModel.StatusMessage = _beforeSnapStatus;
+        _snapTargets = [];
+        _snapMembers = [];
+        _snapState = new();
+        AlignmentGuides.Update([], 1, 0, 0);
+    }
+
+    private void BeginSnap(BlockViewModel block)
+    {
+        _snapStart = block.Bounds;
+        _snapNodeSize = (NodeViewModel.CardWidth, NodeViewModel.CardHeight);
+        _snapMembers = block.Model.NodeIds.ToArray();
+        _snapCounts = (_viewModel!.Nodes.Count, _viewModel.Edges.Count, _viewModel.Blocks.Count);
+        _snapDirection = _viewModel.Direction;
+        _snapState = new();
+        var zoom = ZoomTransform.ScaleX;
+        var viewport = new BlockBounds(-PanTransform.X / zoom, -PanTransform.Y / zoom,
+            Viewport.ActualWidth / zoom, Viewport.ActualHeight / zoom);
+        _snapTargets = _viewModel!.Blocks
+            .Where(b => b.Id != block.Id && b.IsVisible && b.VisibleCount == b.TotalCount
+                && b.Bounds.IntersectsWith(viewport))
+            .Select(b => new SnapTarget(b.Id, b.Bounds)).ToArray();
+        _beforeSnapStatus = _viewModel.StatusMessage;
+        _viewModel.StatusMessage = SnapHint;
+    }
+
+    private bool SnapSessionIsValid() => _blockPress is { } source && _viewModel is not null
+        && source.CanMove && source.IsVisible && _viewModel.Blocks.Contains(source)
+        && _snapNodeSize == (NodeViewModel.CardWidth, NodeViewModel.CardHeight)
+        && _snapDirection == _viewModel.Direction
+        && _snapCounts == (_viewModel.Nodes.Count, _viewModel.Edges.Count, _viewModel.Blocks.Count)
+        && _snapMembers.SequenceEqual(source.Model.NodeIds)
+        && _snapTargets.All(t => _viewModel.Blocks.Any(b => b.Id == t.Id && b.IsVisible
+            && b.VisibleCount == b.TotalCount && b.Bounds == t.Bounds));
+
+    private void UpdateSnap(Point pointer)
+    {
+        if (!_blockDragActive || _viewModel is null) return;
+        if (!SnapSessionIsValid())
+        {
+            EndInteraction();
+            return;
+        }
+        _snapPointer = pointer;
+        try
+        {
+            var result = BlockSnapService.Compute(_snapStart,
+                new(pointer.X - _blockPressWorld.X, pointer.Y - _blockPressWorld.Y),
+                _snapTargets, _snapState, ZoomTransform.ScaleX,
+                Keyboard.Modifiers.HasFlag(ModifierKeys.Alt));
+            _snapState = result.State;
+            _viewModel.UpdateBlockDrag(result.Delta.X, result.Delta.Y);
+            if (_blockDragActive)
+                AlignmentGuides.Update(result.Guides, ZoomTransform.ScaleX, PanTransform.X, PanTransform.Y);
+        }
+        catch (ArgumentException)
+        {
+            EndInteraction();
+        }
+    }
+
+    private void OnSnapModifierKey(object sender, KeyEventArgs e)
+    {
+        if (_blockPress is null) return;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key is Key.LeftAlt or Key.RightAlt)
+        {
+            if (_blockDragActive) UpdateSnap(_snapPointer);
+            e.Handled = true;
+        }
+        else if (e.RoutedEvent == Keyboard.PreviewKeyDownEvent)
+        {
+            if (key == Key.Escape) EndInteraction();
+            // 保存は既存の確定経路へ渡す。他の編集・表示操作はドラッグを終えてから。
+            if (!(key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))) e.Handled = true;
         }
     }
 
@@ -502,10 +619,10 @@ public partial class GraphView : UserControl
                 }
 
                 _blockDragActive = true;
+                BeginSnap(pending);
             }
 
-            var here = e.GetPosition(Surface);
-            _viewModel?.UpdateBlockDrag(here.X - _blockPressWorld.X, here.Y - _blockPressWorld.Y);
+            UpdateSnap(e.GetPosition(Surface));
             e.Handled = true;
             return;
         }
@@ -573,6 +690,7 @@ public partial class GraphView : UserControl
 
         if (_blockPress is not null)
         {
+            if (_blockDragActive) UpdateSnap(e.GetPosition(Surface));
             var wasDragging = _blockDragActive;
 
             // 先に印を落としてから確定する。キャプチャの解放で「取り消し」に化けないように。
@@ -636,6 +754,7 @@ public partial class GraphView : UserControl
 
     private void OnViewportMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_blockPress is not null) { e.Handled = true; return; }
         if (e.ChangedButton != MouseButton.Middle)
         {
             return;
@@ -651,6 +770,7 @@ public partial class GraphView : UserControl
 
     private void OnViewportMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_blockPress is not null && e.ChangedButton == MouseButton.Middle) { e.Handled = true; return; }
         if (e.ChangedButton == MouseButton.Middle)
         {
             EndInteraction();
@@ -677,6 +797,7 @@ public partial class GraphView : UserControl
     private void CancelBlockDragIfActive()
     {
         _blockPress = null;
+        ClearSnap();
 
         if (!_blockDragActive)
         {
@@ -985,6 +1106,7 @@ public partial class GraphView : UserControl
 
     private void ZoomAt(Point screen, double factor)
     {
+        if (_blockPress is not null) return;
         var current = ZoomTransform.ScaleX;
         var next = Math.Clamp(current * factor, MinZoom, MaxZoom);
         if (Math.Abs(next - current) < 0.0001)
@@ -1004,6 +1126,7 @@ public partial class GraphView : UserControl
 
     public void ZoomToFit()
     {
+        if (_blockPress is not null) return;
         if (_viewModel is null || _viewModel.Nodes.Count == 0)
         {
             return;
@@ -1061,6 +1184,7 @@ public partial class GraphView : UserControl
 
     private void CenterOn(NodeViewModel node)
     {
+        if (_blockPress is not null) return;
         var scale = ZoomTransform.ScaleX;
         PanTransform.X = (Viewport.ActualWidth / 2) - (node.Center.X * scale);
         PanTransform.Y = (Viewport.ActualHeight / 2) - (node.Center.Y * scale);
@@ -1069,6 +1193,7 @@ public partial class GraphView : UserControl
 
     private void EnsureVisible(NodeViewModel node)
     {
+        if (_blockPress is not null) return;
         var scale = ZoomTransform.ScaleX;
         var left = (node.X * scale) + PanTransform.X;
         var top = (node.Y * scale) + PanTransform.Y;
