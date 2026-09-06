@@ -130,10 +130,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SelectionCount));
         OnPropertyChanged(nameof(HasMultipleSelected));
         OnPropertyChanged(nameof(SelectionSummary));
-        OnPropertyChanged(nameof(CanGroupSelection));
-        OnPropertyChanged(nameof(CanAddSelectionToBlock));
-        OnPropertyChanged(nameof(CanRemoveSelectionFromBlock));
-        OnPropertyChanged(nameof(GroupHint), nameof(AddToBlockHint));
+        NotifyBlockCommandStates();
 
         UpdateHighlights();
         NotifyVisualsChanged();
@@ -153,6 +150,7 @@ public sealed partial class MainViewModel
 
         UpdateBlockHighlights();
         OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
+        NotifyBlockCommandStates();
     }
 
     // ---- 線の選択 ----

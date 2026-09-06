@@ -114,6 +114,7 @@ public partial class GraphView : UserControl
             _viewModel.ZoomStepRequested -= OnZoomStepRequested;
             _viewModel.CenterOnRequested -= OnCenterOnRequested;
             _viewModel.EnsureVisibleRequested -= OnEnsureVisibleRequested;
+            _viewModel.FocusCanvasRequested -= OnFocusCanvasRequested;
         }
 
         EndInteraction();
@@ -126,6 +127,7 @@ public partial class GraphView : UserControl
             _viewModel.ZoomStepRequested += OnZoomStepRequested;
             _viewModel.CenterOnRequested += OnCenterOnRequested;
             _viewModel.EnsureVisibleRequested += OnEnsureVisibleRequested;
+            _viewModel.FocusCanvasRequested += OnFocusCanvasRequested;
 
             if (IsLoaded)
             {
@@ -217,6 +219,8 @@ public partial class GraphView : UserControl
     private void OnCenterOnRequested(object? sender, NodeViewModel node) => CenterOn(node);
 
     private void OnEnsureVisibleRequested(object? sender, NodeViewModel node) => EnsureVisible(node);
+
+    private void OnFocusCanvasRequested(object? sender, EventArgs e) => FocusCanvas();
 
     /// <summary>キャンバスにフォーカスを戻す（キーボード操作を効かせるため）。</summary>
     public void FocusCanvas() => Viewport.Focus();
@@ -840,6 +844,21 @@ public partial class GraphView : UserControl
         if (control && shift && e.Key == Key.Down)
         {
             _viewModel.SelectBranch();
+            e.Handled = true;
+            return;
+        }
+
+        if (control && e.Key == Key.L)
+        {
+            // ドラッグや接続の途中に整列させない。手を離してからやり直してもらう。
+            if (_dragGroup.Count > 0 || _draggingWaypoint || _blockDragActive
+                || _blockPress is not null || _connectSource is not null)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _viewModel.Align();
             e.Handled = true;
             return;
         }

@@ -47,6 +47,144 @@ public sealed partial class MainViewModel
     private List<(NodeViewModel Node, double X, double Y)> _dragOrigins = [];
     private List<(TodoEdge Edge, JunctionPoint[] Points)> _dragWaypoints = [];
 
+    // ---- 中の整列 ----
+
+    /// <summary>
+    /// 整列の入口。ブロックを選んでいるときは中だけ、それ以外は従来どおり全体を並べる。
+    /// ボタンの文言と Ctrl+L の行き先を 1 か所にまとめ、押す前に何が起きるか分かるようにしている。
+    /// </summary>
+    public void Align()
+    {
+        if (IsNaming)
+        {
+            StatusMessage = "名前の入力を終えてから整列できます。";
+            return;
+        }
+
+        if (HasSelectedBlock)
+        {
+            LayoutSelectedBlock();
+            return;
+        }
+
+        AutoLayout();
+    }
+
+    /// <summary>「中を整列」が使えない理由。使えるなら null。</summary>
+    private string? BlockLayoutBlockedReason(BlockViewModel? block)
+    {
+        if (block is null)
+        {
+            return "整列したいブロックの見出しをクリックしてください。";
+        }
+
+        if (IsNaming || IsConnecting)
+        {
+            return "編集を終えてから整列できます。";
+        }
+
+        if (block.TotalCount < BlockService.MinimumSize)
+        {
+            return $"{BlockService.MinimumSize} 件以上のステップが必要です。";
+        }
+
+        // 隠れているカードを黙って動かすと、開いたときに「知らないうちに動いた」ことになる。
+        if (block.VisibleCount != block.TotalCount)
+        {
+            return "すべてのステップを表示すると整列できます。";
+        }
+
+        // 固定を一時的に外して並べると、手で留めた意図を壊す。初版は断る側に倒す。
+        // ここはメニューの可否として何度も評価されるので、確保も列挙も最小限にする。
+        foreach (var id in block.Model.NodeIds)
+        {
+            if (_byId.TryGetValue(id, out var node) && node.Model.IsPinned)
+            {
+                return "中のステップの位置固定を解除すると整列できます。";
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 選んでいるブロックの中だけを、依存関係に沿って並べ直す。
+    ///
+    /// 見出しの位置・外のカード・選択・拡大率と画面位置はどれも動かさない。
+    /// 「散らかったから直す」だけの操作なので、直したあとにそのまま編集を続けられることを優先する。
+    /// </summary>
+    public void LayoutSelectedBlock()
+    {
+        if (_selectedBlock is not { } block)
+        {
+            StatusMessage = "整列したいブロックの見出しをクリックしてください。";
+            return;
+        }
+
+        // メニューを開いてから状況が変わっていることがあるので、実行時にもう一度見る。
+        if (BlockLayoutBlockedReason(block) is { } reason)
+        {
+            StatusMessage = reason;
+            return;
+        }
+
+        var result = BlockLayoutService.Compute(_project, block.Id, NodeMetrics.LayoutFor(Direction));
+
+        if (!result.IsReady)
+        {
+            // 失敗と無変化では、履歴・Redo・未保存の印・選択のどれも変えない。
+            StatusMessage = MessageFor(result.Status, block);
+            return;
+        }
+
+        BeginTransaction();
+
+        try
+        {
+            foreach (var (id, position) in result.Positions)
+            {
+                if (_byId.TryGetValue(id, out var node))
+                {
+                    node.Model.X = position.X;
+                    node.Model.Y = position.Y;
+                    node.NotifyPositionChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            RollbackTransaction();
+            StatusMessage = $"整列できませんでした（{ex.Message}）。";
+            return;
+        }
+
+        // 動いたカードは、繋がっていない線にとっても障害物が動いたことになる。
+        foreach (var edge in Edges)
+        {
+            edge.InvalidateRoute();
+        }
+
+        var changed = CommitTransaction();
+        NotifyVisualsChanged();
+
+        // 全体表示は出さない。拡大率と見ている場所はそのままにして、続けて編集できるようにする。
+        FocusCanvasRequested?.Invoke(this, EventArgs.Empty);
+
+        StatusMessage = changed
+            ? $"「{block.Title}」の中を整列しました。手動の通過点は保持しています。"
+            : $"「{block.Title}」の中はすでに整列されています。";
+    }
+
+    private static string MessageFor(BlockLayoutStatus status, BlockViewModel block) => status switch
+    {
+        BlockLayoutStatus.Unchanged => $"「{block.Title}」の中はすでに整列されています。",
+        BlockLayoutStatus.TooFewNodes => $"{BlockService.MinimumSize} 件以上のステップが必要です。",
+        BlockLayoutStatus.ContainsPinnedNodes => "中のステップの位置固定を解除すると整列できます。",
+        BlockLayoutStatus.OverlapsOutside =>
+            "周囲と重なるため整列できません。ブロックを広い場所へ移動してください。",
+        _ => "ブロックの情報を確認してください。整列できませんでした。",
+    };
+
     // ---- 名前の直接編集 ----
     private BlockViewModel? _renamingBlock;
     private string _renameOriginal = string.Empty;
@@ -64,6 +202,12 @@ public sealed partial class MainViewModel
     public ICommand SelectBlockNodesCommand { get; private set; } = null!;
 
     public ICommand RemoveFromBlockCommand { get; private set; } = null!;
+
+    /// <summary>選んでいるブロックの中だけを並べ直す。</summary>
+    public ICommand LayoutBlockCommand { get; private set; } = null!;
+
+    /// <summary>整列の入口。ブロックを選んでいるときは中だけ、それ以外は全体。</summary>
+    public ICommand AlignCommand { get; private set; } = null!;
 
     /// <summary>キャンバス上の囲み。</summary>
     public ObservableCollection<BlockViewModel> Blocks { get; } = [];
@@ -110,6 +254,23 @@ public sealed partial class MainViewModel
             ? "すでにブロックに入っているステップが含まれています。所属を外してからまとめてください。"
             : $"選んだ {_selection.Count} 件を 1 つの囲みにまとめます。";
 
+    /// <summary>カードの上か見出しの上で、いま文字を打っている（日本語変換中を含む）。</summary>
+    public bool IsNaming => IsBlockEditing || SelectedNode is { IsEditing: true };
+
+    /// <summary>選んでいるブロックの中を整列できる。</summary>
+    public bool CanLayoutSelectedBlock => BlockLayoutBlockedReason(_selectedBlock) is null;
+
+    /// <summary>「中を整列」の説明。使えないときは、その理由をそのまま出す。</summary>
+    public string BlockLayoutHint =>
+        BlockLayoutBlockedReason(_selectedBlock) ?? "中のステップを、依存関係に沿って並べ直します。";
+
+    /// <summary>整列ボタンと Ctrl+L が、いま何を対象にするか。</summary>
+    public string AlignLabel => HasSelectedBlock ? "中を整列" : "自動整列";
+
+    public string AlignTooltip => _selectedBlock is { } block
+        ? $"「{block.Title}」の中だけを並べ直す (Ctrl+L)"
+        : "きれいに並べ直す (Ctrl+L)";
+
     /// <summary>「ブロックに追加」の説明。</summary>
     public string AddToBlockHint => Blocks.Count == 0
         ? "まだブロックがありません。Ctrl+G で作れます。"
@@ -128,6 +289,8 @@ public sealed partial class MainViewModel
         SelectBlockNodesCommand = new RelayCommand(SelectNodesOfBlock, () => HasSelectedBlock);
         RemoveFromBlockCommand = new RelayCommand(
             RemoveSelectionFromBlock, () => CanRemoveSelectionFromBlock);
+        LayoutBlockCommand = new RelayCommand(LayoutSelectedBlock, () => CanLayoutSelectedBlock);
+        AlignCommand = new RelayCommand(Align, () => !HasSelectedBlock || CanLayoutSelectedBlock);
     }
 
     // ---- 索引と再構築 ----
@@ -175,11 +338,20 @@ public sealed partial class MainViewModel
 
         OnPropertyChanged(nameof(HasBlocks));
         OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
-        OnPropertyChanged(nameof(CanGroupSelection));
-        OnPropertyChanged(nameof(CanAddSelectionToBlock));
-        OnPropertyChanged(nameof(CanRemoveSelectionFromBlock));
-        OnPropertyChanged(nameof(GroupHint), nameof(AddToBlockHint));
+        NotifyBlockCommandStates();
     }
+
+    /// <summary>ブロック関係のメニューの可否と説明を、まとめて出し直す。</summary>
+    internal void NotifyBlockCommandStates() => OnPropertyChanged(
+        nameof(CanGroupSelection),
+        nameof(CanAddSelectionToBlock),
+        nameof(CanRemoveSelectionFromBlock),
+        nameof(GroupHint),
+        nameof(AddToBlockHint),
+        nameof(CanLayoutSelectedBlock),
+        nameof(BlockLayoutHint),
+        nameof(AlignLabel),
+        nameof(AlignTooltip));
 
     /// <summary>
     /// 囲みの境界と件数を計算し直す。
@@ -317,6 +489,7 @@ public sealed partial class MainViewModel
 
         UpdateBlockHighlights();
         OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
+        NotifyBlockCommandStates();
         NotifyVisualsChanged();
     }
 
@@ -333,6 +506,21 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>その ID たちに対応する、画面に載っているカード。</summary>
+    private List<NodeViewModel> NodesOf(IEnumerable<Guid> ids)
+    {
+        var list = new List<NodeViewModel>();
+        foreach (var id in ids)
+        {
+            if (_byId.TryGetValue(id, out var node))
+            {
+                list.Add(node);
+            }
+        }
+
+        return list;
+    }
+
     /// <summary>右クリックの「中のステップを選択」。ここで初めてノードの複数選択に変わる。</summary>
     public void SelectNodesOfBlock()
     {
@@ -341,12 +529,7 @@ public sealed partial class MainViewModel
             return;
         }
 
-        var targets = block.Model.NodeIds
-            .Select(id => _byId.TryGetValue(id, out var vm) ? vm : null)
-            .Where(vm => vm is not null)
-            .Select(vm => vm!)
-            .ToList();
-
+        var targets = NodesOf(block.Model.NodeIds);
         if (targets.Count == 0)
         {
             return;
@@ -420,13 +603,7 @@ public sealed partial class MainViewModel
         RebuildBlocks();
 
         // 解除した直後は、そのまま動かし続けられるよう中のステップを選び直す。
-        var members = memberIds
-            .Select(id => _byId.TryGetValue(id, out var vm) ? vm : null)
-            .Where(vm => vm is not null)
-            .Select(vm => vm!)
-            .ToList();
-
-        SelectNodes(members);
+        SelectNodes(NodesOf(memberIds));
         CommitTransaction();
         RefreshAll();
 

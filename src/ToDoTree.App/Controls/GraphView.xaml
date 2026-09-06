@@ -38,6 +38,8 @@
         <ContextMenu x:Key="BlockMenu">
             <MenuItem Header="{Binding BlockMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
             <Separator />
+            <MenuItem Header="中を整列" InputGestureText="Ctrl+L" Command="{Binding LayoutBlockCommand}"
+                      ToolTip="{Binding BlockLayoutHint}" ToolTipService.ShowOnDisabled="True" />
             <MenuItem Header="名前を変更" InputGestureText="F2" Command="{Binding RenameBlockCommand}" />
             <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
             <Separator />
@@ -80,7 +82,8 @@
             <MenuItem Header="ここにステップを追加" Command="{Binding AddNodeHereCommand}" />
             <MenuItem Header="まとめて入力" InputGestureText="Ctrl+I" Command="{Binding ImportOutlineCommand}" />
             <Separator />
-            <MenuItem Header="自動整列" InputGestureText="Ctrl+L" Command="{Binding AutoLayoutCommand}" />
+            <MenuItem Header="全体を整列" InputGestureText="Ctrl+L" Command="{Binding AutoLayoutCommand}"
+                      ToolTip="ブロックの中は動かさず、未所属のステップを並べ直します" />
             <MenuItem Header="全体表示" InputGestureText="Ctrl+0" Command="{Binding ZoomFitCommand}" />
             <MenuItem Header="全部開く" Command="{Binding ExpandAllCommand}" />
         </ContextMenu>
