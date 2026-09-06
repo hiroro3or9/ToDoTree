@@ -48,5 +48,7 @@ public static class NodeStyleMetrics
         Direction = direction,
         LayerSpacing = LayerSpacingOf(style, direction),
         NodeSpacing = NodeSpacingOf(style, direction),
+        NodeWidth = WidthOf(style),
+        NodeHeight = HeightOf(style),
     };
 }

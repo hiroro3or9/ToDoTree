@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
 
 namespace ToDoTree.Core.Storage;
@@ -43,8 +44,27 @@ public sealed class JsonProjectStore : IProjectStore
                 $"このファイルは新しい形式です (schemaVersion={project.SchemaVersion})。アプリを更新してください。");
         }
 
-        project.Nodes ??= [];
-        project.Edges ??= [];
+        // 旧形式（ブロックが無い版）は、メモリ上で空のブロック一覧として扱う。
+        // 次の保存で新しい形式として書き出され、そこから先は古い版に上書きされなくなる。
+        if (project.SchemaVersion < TodoProject.CurrentSchemaVersion)
+        {
+            if (project.Blocks.Count > 0)
+            {
+                throw new InvalidDataException(
+                    $"schemaVersion={project.SchemaVersion} のファイルにブロックが入っています。読み込みを中止しました。");
+            }
+
+            project.SchemaVersion = TodoProject.CurrentSchemaVersion;
+            return project;
+        }
+
+        // 新しい形式は、壊れた所属情報を黙って捨てずに読み込みごと止める。
+        // 途中まで読めた状態で保存してしまうと、元ファイルのブロックが失われるため。
+        if (BlockService.Validate(project) is { } reason)
+        {
+            throw new InvalidDataException($"ブロックの情報が壊れています。{reason}");
+        }
+
         return project;
     }
 

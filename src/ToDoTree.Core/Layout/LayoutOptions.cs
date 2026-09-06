@@ -28,4 +28,20 @@ public sealed class LayoutOptions
 
     /// <summary>交差を減らすためのスイープ回数。</summary>
     public int CrossingSweeps { get; set; } = 8;
+
+    /// <summary>箱の大きさ。囲みを避けるときの当たり判定に使う。</summary>
+    public double NodeWidth { get; set; } = 224;
+
+    public double NodeHeight { get; set; } = 88;
+
+    /// <summary>
+    /// この整列では動かさないノード。ブロック所属ノードを一時的に固定するために使う。
+    /// モデルの <c>IsPinned</c> は書き換えない（ユーザーが手で留めた印と混ざらないように）。
+    /// </summary>
+    public IReadOnlySet<Guid> FixedIds { get; set; } = new HashSet<Guid>();
+
+    /// <summary>置かないでほしい領域。囲みの占有領域を渡す。</summary>
+    public IReadOnlyList<BlockBounds> Obstacles { get; set; } = [];
+
+    public bool IsFixed(Guid id) => FixedIds.Contains(id);
 }
