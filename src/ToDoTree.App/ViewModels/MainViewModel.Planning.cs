@@ -123,16 +123,21 @@ public sealed partial class MainViewModel
             return;
         }
 
+        var anchorId = SelectedNode?.Id;
+
         PushUndo();
 
-        var created = OutlineImporter.Import(_graph, items, SelectedNode?.Id);
-        AbsorbCreated(created, selectFirst: true);
+        var created = OutlineImporter.Import(_graph, items, anchorId);
+        AbsorbCreated(created, selectFirst: true, anchorId);
         ZoomToFitRequested?.Invoke(this, EventArgs.Empty);
         StatusMessage = $"{created.Count} 個のステップを取り込みました。Ctrl+Z で元に戻せます。";
     }
 
-    /// <summary>まとめて作られたステップを画面に取り込み、並べ直す。</summary>
-    internal void AbsorbCreated(IReadOnlyList<TodoNode> created, bool selectFirst)
+    /// <summary>
+    /// まとめて作られたステップを画面に取り込み、並べ直す。
+    /// <paramref name="anchorId"/> がブロックの中にあるときは、作られたステップもその所属を引き継ぐ。
+    /// </summary>
+    internal void AbsorbCreated(IReadOnlyList<TodoNode> created, bool selectFirst, Guid? anchorId = null)
     {
         foreach (var model in created)
         {
@@ -141,13 +146,18 @@ public sealed partial class MainViewModel
             _byId[model.Id] = vm;
         }
 
-        LayeredLayoutEngine.Apply(_graph, NodeMetrics.LayoutFor(Direction));
+        // これから中に入るステップを、その囲みの外へ弾かないようにする。
+        // 所属を先に付けてしまうと今度は固定対象になって並ばないので、整列 → 所属の順にする。
+        var adopting = anchorId is { } anchor ? BlockOf(anchor)?.Id : null;
+        LayeredLayoutEngine.Apply(_graph, BuildLayoutOptions(adopting));
+
         foreach (var node in Nodes)
         {
             node.NotifyPositionChanged();
         }
 
         RebuildEdges();
+        InheritBlock(anchorId, created.Select(n => n.Id));
 
         if (selectFirst && created.Count > 0 && _byId.TryGetValue(created[0].Id, out var first))
         {
@@ -208,7 +218,8 @@ public sealed partial class MainViewModel
     /// <summary>ワークスペースの共通タイマーから呼び出される。</summary>
     public void AutoSave()
     {
-        if (!IsDirty)
+        // 見出しのドラッグや命名の途中では書き出さない（確定前の座標や名前を残さない）。
+        if (IsBlockEditing || !IsDirty)
         {
             return;
         }

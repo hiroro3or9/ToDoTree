@@ -60,6 +60,8 @@
         <KeyBinding Modifiers="Ctrl" Key="I" Command="{Binding ActiveDocument.ImportOutlineCommand}" />
         <KeyBinding Modifiers="Ctrl+Shift" Key="E" Command="{Binding ActiveDocument.ExportCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding ActiveDocument.StartConnectCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="G" Command="{Binding ActiveDocument.GroupSelectionCommand}" />
+        <KeyBinding Modifiers="Ctrl+Shift" Key="G" Command="{Binding ActiveDocument.UngroupBlockCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="D0" Command="{Binding ActiveDocument.ZoomFitCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="OemPlus" Command="{Binding ActiveDocument.ZoomInCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="OemMinus" Command="{Binding ActiveDocument.ZoomOutCommand}" />
@@ -292,6 +294,10 @@
                                 <Separator />
                                 <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" InputGestureText="Ctrl+E" />
                                 <MenuItem Header="分割" Command="{Binding SplitCommand}" />
+                                <Separator />
+                                <MenuItem Header="ブロックにまとめる" Command="{Binding GroupSelectionCommand}" InputGestureText="Ctrl+G" />
+                                <MenuItem Header="ブロックから外す" Command="{Binding RemoveFromBlockCommand}" />
+                                <MenuItem Header="ブロックを解除" Command="{Binding UngroupBlockCommand}" InputGestureText="Ctrl+Shift+G" />
                                 <Separator />
                                 <MenuItem Header="削除" Command="{Binding DeleteCommand}" InputGestureText="Delete" />
                             </ContextMenu>

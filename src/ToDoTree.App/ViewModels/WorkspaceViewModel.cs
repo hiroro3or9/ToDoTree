@@ -287,6 +287,12 @@ public sealed class WorkspaceViewModel : ObservableObject
     /// <summary>アプリを閉じる前に、すべてのタブの未保存状態を確認する。</summary>
     public bool ConfirmCloseAll()
     {
+        // 見出しのドラッグや命名の途中で閉じると、確定前の状態のまま消えてしまう。先に確定させる。
+        foreach (var document in Documents)
+        {
+            document.CommitPendingBlockEdit();
+        }
+
         var discardedUnsaved = new HashSet<Guid>();
 
         foreach (var document in Documents.Where(document => document.IsDirty))

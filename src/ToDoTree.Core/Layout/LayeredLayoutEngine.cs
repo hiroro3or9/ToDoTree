@@ -139,32 +139,101 @@ public static class LayeredLayoutEngine
     {
         var tallest = columns.Count == 0 ? 0 : columns.Max(c => c.Count);
         var span = Math.Max(0, tallest - 1) * options.NodeSpacing;
+        var horizontal = options.Direction == LayoutDirection.LeftToRight;
+
+        // 流れる向きの箱の長さと、それに直交する向きの箱の長さ。
+        var flowSize = horizontal ? options.NodeWidth : options.NodeHeight;
+        var crossSize = horizontal ? options.NodeHeight : options.NodeWidth;
 
         for (var layer = 0; layer < columns.Count; layer++)
         {
             var column = columns[layer];
             var offset = (span - Math.Max(0, column.Count - 1) * options.NodeSpacing) / 2d;
+            var flow = (horizontal ? options.OriginX : options.OriginY) + layer * options.LayerSpacing;
+
+            // 囲みを避けて後ろへずれたぶんを、次のステップにも持ち越す（同じ場所に積み上がらないように）。
+            var cursor = double.MinValue;
 
             for (var i = 0; i < column.Count; i++)
             {
                 var node = column[i];
-                if (options.RespectPinned && node.IsPinned)
+                var slot = (horizontal ? options.OriginY : options.OriginX) + offset + i * options.NodeSpacing;
+
+                if ((options.RespectPinned && node.IsPinned) || options.IsFixed(node.Id))
+                {
+                    // 動かさないノードでも枠は空けておく（元の並びの見え方を保つ）。
+                    cursor = Math.Max(cursor, slot + options.NodeSpacing);
+                    continue;
+                }
+
+                var cross = Avoid(Math.Max(slot, cursor), flow, flowSize, crossSize, options, horizontal);
+                cursor = cross + options.NodeSpacing;
+
+                if (horizontal)
+                {
+                    node.X = flow;
+                    node.Y = cross;
+                }
+                else
+                {
+                    node.X = cross;
+                    node.Y = flow;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 囲みの占有領域に重なっていたら、直交する向きに押し出す。
+    /// 押し出した先がまた別の囲みに重なることがあるので、動かなくなるまで繰り返す。
+    /// </summary>
+    private static double Avoid(
+        double cross,
+        double flow,
+        double flowSize,
+        double crossSize,
+        LayoutOptions options,
+        bool horizontal)
+    {
+        if (options.Obstacles.Count == 0)
+        {
+            return cross;
+        }
+
+        var gap = Math.Max(16, options.NodeSpacing - crossSize);
+
+        for (var guard = 0; guard < 64; guard++)
+        {
+            var moved = false;
+
+            foreach (var area in options.Obstacles)
+            {
+                var areaFlowStart = horizontal ? area.X : area.Y;
+                var areaFlowEnd = horizontal ? area.Right : area.Bottom;
+                var areaCrossStart = horizontal ? area.Y : area.X;
+                var areaCrossEnd = horizontal ? area.Bottom : area.Right;
+
+                if (flow + flowSize <= areaFlowStart || flow >= areaFlowEnd)
                 {
                     continue;
                 }
 
-                if (options.Direction == LayoutDirection.LeftToRight)
+                if (cross + crossSize <= areaCrossStart || cross >= areaCrossEnd)
                 {
-                    node.X = options.OriginX + layer * options.LayerSpacing;
-                    node.Y = options.OriginY + offset + i * options.NodeSpacing;
+                    continue;
                 }
-                else
-                {
-                    node.X = options.OriginX + offset + i * options.NodeSpacing;
-                    node.Y = options.OriginY + layer * options.LayerSpacing;
-                }
+
+                cross = areaCrossEnd + gap;
+                moved = true;
+            }
+
+            if (!moved)
+            {
+                break;
             }
         }
+
+        return cross;
     }
 
     private static double Cross(TodoNode node, LayoutOptions options) =>

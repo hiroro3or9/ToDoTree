@@ -109,6 +109,10 @@ public sealed partial class MainViewModel
     {
         ClearEdgeSelection();
 
+        // ノード選択とブロック選択は排他にする。
+        // 同時に選ばれていると Delete や Enter の行き先が読めなくなる。
+        ClearBlockSelection();
+
         foreach (var node in Nodes)
         {
             node.IsSelected = _selection.Contains(node.Id);
@@ -126,9 +130,29 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SelectionCount));
         OnPropertyChanged(nameof(HasMultipleSelected));
         OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(CanGroupSelection));
+        OnPropertyChanged(nameof(CanAddSelectionToBlock));
+        OnPropertyChanged(nameof(CanRemoveSelectionFromBlock));
+        OnPropertyChanged(nameof(GroupHint), nameof(AddToBlockHint));
 
         UpdateHighlights();
         NotifyVisualsChanged();
+    }
+
+    /// <summary>ブロックの選択を落とす。命名の途中なら、そこで確定する。</summary>
+    private void ClearBlockSelection()
+    {
+        if (_selectedBlock is null)
+        {
+            return;
+        }
+
+        EndBlockRename(commit: true);
+        _selectedBlock.IsSelected = false;
+        _selectedBlock = null;
+
+        UpdateBlockHighlights();
+        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
     }
 
     // ---- 線の選択 ----
@@ -142,6 +166,7 @@ public sealed partial class MainViewModel
             edge.IsSelected = true;
             SelectedEdge = edge;
 
+            ClearBlockSelection();
             _selection.Clear();
             foreach (var node in Nodes)
             {

@@ -18,8 +18,8 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly IProjectStore _store;
     private readonly AppSettings _settings;
     private readonly string _recoveryDirectory;
-    private readonly List<TodoProject> _undo = [];
-    private readonly List<TodoProject> _redo = [];
+    private readonly List<HistoryEntry> _undo = [];
+    private readonly List<HistoryEntry> _redo = [];
     private readonly Dictionary<Guid, NodeViewModel> _byId = [];
 
     private TodoProject _project;
@@ -83,6 +83,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeSelection();
         InitializeView();
         InitializePlanning();
+        InitializeBlocks();
         LoadProject(project, filePath);
         IsDirty = isDirty;
     }
@@ -297,7 +298,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ---- 読み込み・保存 ----
 
-    private void LoadProject(TodoProject project, string? path, Guid? selectId = null)
+    private void LoadProject(TodoProject project, string? path, SelectionState? selection = null)
     {
         ClearEdgeSelection();
         _project = project;
@@ -319,12 +320,17 @@ public sealed partial class MainViewModel : ObservableObject
         _connectSourceId = null;
         _selectedNode = null;
 
-        if (selectId is { } id && _byId.TryGetValue(id, out var restore))
+        // 先に選択を空にしてから作り直す（前のプロジェクトの囲みを掴んだままにしない）。
+        _selectedBlock = null;
+        RebuildBlocks();
+
+        if (selection is { } state)
         {
-            _selection.Add(restore.Id);
-            _selectedNode = restore;
-            restore.IsSelected = true;
+            RestoreSelection(state);
         }
+
+        // 選び直したあとに、どのカードが囲みの中かを付け直す。
+        UpdateBlockHighlights();
 
         OnPropertyChanged(nameof(IsConnecting));
         OnPropertyChanged(nameof(SelectionCount));
@@ -333,14 +339,47 @@ public sealed partial class MainViewModel : ObservableObject
 
         OnPropertyChanged(nameof(SelectedNode));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
         OnPropertyChanged(nameof(ProjectName));
         OnPropertyChanged(nameof(ProjectId), nameof(FilePath), nameof(FilePathDisplay), nameof(TabTitle));
         IsDirty = false;
         RefreshAll();
     }
 
+    /// <summary>履歴から戻したときに、そのとき選んでいたものを選び直す。</summary>
+    private void RestoreSelection(SelectionState state)
+    {
+        if (state.IsBlock)
+        {
+            foreach (var id in state.Ids)
+            {
+                if (_blockById.TryGetValue(id, out var block))
+                {
+                    _selectedBlock = block;
+                    block.IsSelected = true;
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        foreach (var id in state.Ids)
+        {
+            if (_byId.TryGetValue(id, out var node))
+            {
+                _selection.Add(id);
+                node.IsSelected = true;
+                _selectedNode ??= node;
+            }
+        }
+    }
+
     public bool Save()
     {
+        // 見出しのドラッグや命名の途中で保存すると、確定前の座標が書き出されてしまう。
+        CommitPendingBlockEdit();
+
         if (string.IsNullOrEmpty(_filePath))
         {
             return SaveAs();
@@ -351,6 +390,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool SaveAs()
     {
+        CommitPendingBlockEdit();
+
         var dialog = new SaveFileDialog
         {
             Filter = _store.FileFilter,
@@ -396,6 +437,8 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>閉じる前に保存を確認する。閉じてよければ true。</summary>
     public bool ConfirmDiscard()
     {
+        CommitPendingBlockEdit();
+
         if (!IsDirty)
         {
             return true;
