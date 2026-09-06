@@ -14,7 +14,7 @@ namespace ToDoTree.App.Controls;
 /// 形の計算は <see cref="CurveGeometry"/>（Core 側・テスト済み）と共有している。
 /// ペンはテーマから作り、配色か表示モードが変わったら作り直す。
 /// </summary>
-public sealed class EdgeLayer : FrameworkElement
+public sealed partial class EdgeLayer : FrameworkElement
 {
     public static readonly DependencyProperty EdgesProperty = DependencyProperty.Register(
         nameof(Edges),
@@ -62,6 +62,7 @@ public sealed class EdgeLayer : FrameworkElement
     public EdgeLayer()
     {
         IsHitTestVisible = false;
+        Unloaded += (_, _) => ClearCompletionEffects();
     }
 
     public IEnumerable? Edges
@@ -122,6 +123,8 @@ public sealed class EdgeLayer : FrameworkElement
                 }
             }
         }
+
+        DrawCompletionEffects(drawingContext);
 
         if (_previewFrom is { } previewFrom && _previewTo is { } previewTo)
         {

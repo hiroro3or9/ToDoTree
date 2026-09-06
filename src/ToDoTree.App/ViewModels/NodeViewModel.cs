@@ -79,11 +79,13 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
             }
 
             owner.PushUndo();
+            var impact = CompletionImpact.Calculate(owner.Graph, [Id]);
             Model.Status = value;
             Model.CompletedAt = value == NodeStatus.Done ? DateTimeOffset.Now : null;
             Touch();
             OnPropertyChanged();
             owner.RefreshAll();
+            if (value == NodeStatus.Done) owner.PlayCompletion(impact);
             owner.AnnounceUnlocked(this);
         }
     }

@@ -1,5 +1,9 @@
 # ToDoTree 設計メモ
 
+更新日: 2026-09-06
+
+対象: 現在の構成と責務。操作は[README](../README.md)、保存仕様は[保存と復旧](STORAGE.md)を参照。
+
 ## 1. コンセプト
 
 ゴールに至るまでの「たくさんの細かいステップ」を、**分岐と合流のあるグラフ（DAG）** として
@@ -9,13 +13,15 @@
 - マインドマップのように、思いついた順にどんどん枝を生やせる
 - 「いま着手できるタスク」がひと目でわかる
 
+開発の最優先事項は操作感。入力・接続・移動・編集と、その取り消しを自然につなぐ。
+
 ### 設計上の決めごと
 
 | 項目 | 決定 |
 |---|---|
 | 構造 | DAG（1ノードが複数の親を持てる／循環は禁止） |
 | 描画 | WPF Canvas に自前描画（ズーム・パン・ドラッグ） |
-| 保存 | `IProjectStore` で抽象化し、既定は JSON ファイル（後で SQLite に差し替え可能） |
+| 保存 | `IProjectStore`を通じたJSONファイル保存。自動保存・復旧・設定はAppが管理 |
 | 複数プロジェクト | 1 ファイル = 1 タブ。プロジェクト間の依存関係は持たせず、文書状態を独立させる |
 | 依存 | 実行時の外部 NuGet 依存ゼロ（テストのみ TUnit） |
 | テスト | TUnit（Microsoft.Testing.Platform）。`dotnet test` / 直接実行のどちらでも走る |
@@ -26,7 +32,8 @@
 ```
 TodoProject
  ├ Nodes : TodoNode[]      … ステップ
- └ Edges : TodoEdge[]      … 依存関係（From を終えると To に進める）
+ ├ Edges : TodoEdge[]      … 依存関係（From を終えると To に進める）
+ └ Blocks : TodoBlock[]    … 名前付きの囲みと所属ノードID
 ```
 
 ### TodoNode
@@ -38,6 +45,7 @@ TodoProject
 | `Kind` | `Start` / `Step` / `Milestone` / `Goal` |
 | `Status` | `NotStarted` / `InProgress` / `Done` / `Cancelled` |
 | `Due` | 期限（任意） |
+| `CompletedAt` / `CreatedAt` / `UpdatedAt` | 完了・作成・更新日時 |
 | `EstimateMinutes` | 見積もり（任意、クリティカルパス計算に使用） |
 | `Tags` | タグ |
 | `X` / `Y` / `IsPinned` | 座標。`IsPinned` が true の間は自動レイアウトで動かさない |
@@ -53,6 +61,15 @@ TodoProject
 ### TodoEdge
 
 `From → To` の有向辺。`Label`（任意）。自己ループ・重複辺・循環は追加時に拒否する。
+`FromSide`／`ToSide`で接続辺を指定し、`Waypoints`に通過点の座標・順序・滑らかさを持つ。
+
+### TodoBlock
+
+`Id`・`Title`・`NodeIds`を持つ。1ノードにつき最大1ブロック。
+依存関係やタスク状態には関与せず、境界は所属ノードの表示矩形から求める。
+作成には2件以上必要で、所属変更後に1件になっても維持し、0件になれば除去する。
+
+プロジェクトの形式バージョンは2。互換性とJSONの詳細は[保存と復旧](STORAGE.md)を参照。
 
 ## 3. Core の機能
 
@@ -70,6 +87,12 @@ TodoProject
   3. 座標を割り当てる（左→右 / 上→下 を切り替え可能）
   - `IsPinned` のノードは動かさない
 - **JsonProjectStore** … `System.Text.Json`。一時ファイルに書いてから置換する原子的保存＋ `.bak`
+- **BlockService / BlockGeometry** … 所属操作・検証、囲みの境界、内部通過点の移動対象
+- **BlockLayoutService** … 一時グラフで内部整列の候補を計算し、外部との衝突を検証
+- **BlockSnapService** … 未補正の移動量から端・中心への吸着を計算。保持と解除を別の距離で判定
+- **EdgeRouting** … カードを避ける線の経路と通過点の扱い
+- **NextActionPlanner / ScheduleAnalysis / ForecastService** … 次の行動、期限からの逆算、完了予測
+- **VisibilityService / GraphExporter** … 可視ノード集合、Markdown／Mermaidの生成
 
 ## 4. 画面構成
 
@@ -106,6 +129,9 @@ WorkspaceViewModel
 セッション復元、全タブの自動保存を担当する。保存、Undo、検索、選択、ズーム位置はタブ間で共有しない。
 同じ絶対パスのファイルは二重に開かず、既存タブを選択する。
 
+タブ間で状態が独立していることと、再起動後に復元されることは別。
+Undo/Redo、検索、選択はメモリ上の文書状態。セッション復元の対象はパス・タブ順・選択中タブ・画面位置。
+
 未保存プロジェクトは `%APPDATA%\ToDoTree\autosave\<DocumentId>.todotree.json` に分けて退避する。
 `settings.json` にはタブ順、ファイルパス、選択中のタブ、キャンバス表示状態を保存する。
 プロジェクト本体の JSON 形式には、タブ固有の状態を混ぜない。
@@ -124,7 +150,9 @@ WorkspaceViewModel
 | ズーム | ホイール（カーソル位置基準） |
 | パン | 中ボタンドラッグ / 背景ドラッグ |
 | 全体表示 | `Ctrl+0` |
-| 自動整列 | `Ctrl+L` |
+| 自動整列 | `Ctrl+L`。ブロック選択時は中だけ、未選択時は全体の未所属ノードを整列 |
+| ブロック化／解除 | `Ctrl+G`／`Ctrl+Shift+G` |
+| ブロックの位置合わせ | 見出しドラッグ。Altで吸着解除 |
 | 元に戻す/やり直し | `Ctrl+Z` / `Ctrl+Y` |
 | 保存 | `Ctrl+S` |
 
@@ -165,8 +193,20 @@ WorkspaceViewModel
 
 ## 7. 今後の拡張余地
 
-- SQLite ストアへの差し替え（`IProjectStore` 実装を足すだけ）
-- プロジェクト横断検索 / 2 画面での並列表示
-- プロジェクト間リンク（依存関係とは分離して扱う）
-- サブグラフのグループ化と再利用
-- 見積もりからのガントチャート出力
+現在の実装済み一覧と候補は[ロードマップ](ROADMAP.md)に集約する。
+
+## 8. ブロックの移動と履歴
+
+ブロックの命名・移動は、開始時のスナップショットを保持し、変更が確定した時点で履歴へ追加する。
+取り消しや無変更の場合はRedoを破棄しない。履歴には選択種別とID集合も持たせる。
+
+見出しドラッグでは全所属ノードと内部線の通過点に同じ移動量を適用する。
+吸着計算と状態管理は、モデルへ適用する差分の補正として行う。
+`AlignmentGuideLayer`はビューポート上にガイドを描き、保存データや当たり判定には参加しない。
+
+ブロック内整列は全体整列と別の操作。外側のカード、見出しの始点、手動通過点を保持する。
+固定・非表示ノードを含む場合や、整列結果が外側と重なる場合は実行しない。
+
+詳細: [ブロック](BLOCKS_DESIGN.md) / [内部整列](BLOCK_LAYOUT_DESIGN.md) / [吸着](BLOCK_SNAP_DESIGN.md)
+
+[文書一覧](README.md) / [開発・検証ガイド](DEVELOPMENT.md)
