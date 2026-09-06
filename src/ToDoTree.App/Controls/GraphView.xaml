@@ -42,6 +42,7 @@
                       ToolTip="{Binding BlockLayoutHint}" ToolTipService.ShowOnDisabled="True" />
             <MenuItem Header="名前を変更" InputGestureText="F2" Command="{Binding RenameBlockCommand}" />
             <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
+            <MenuItem Header="部品として保存…" Command="{Binding SaveTemplateCommand}" />
             <Separator />
             <MenuItem Header="ブロックを解除" InputGestureText="Ctrl+Shift+G" Command="{Binding UngroupBlockCommand}" />
         </ContextMenu>
@@ -55,6 +56,8 @@
             <MenuItem Header="この先を畳む / 開く" Command="{Binding CollapseSelectedCommand}" />
             <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
+            <MenuItem Header="この枝を選択" Command="{Binding SelectBranchCommand}" />
+            <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
             <Separator />
             <MenuItem Header="ブロックにまとめる" InputGestureText="Ctrl+G" Command="{Binding GroupSelectionCommand}"
                       ToolTip="{Binding GroupHint}" ToolTipService.ShowOnDisabled="True" />
@@ -80,6 +83,7 @@
 
         <ContextMenu x:Key="CanvasMenu">
             <MenuItem Header="ここにステップを追加" Command="{Binding AddNodeHereCommand}" />
+            <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
             <MenuItem Header="まとめて入力" InputGestureText="Ctrl+I" Command="{Binding ImportOutlineCommand}" />
             <Separator />
             <MenuItem Header="全体を整列" InputGestureText="Ctrl+L" Command="{Binding AutoLayoutCommand}"
@@ -532,6 +536,14 @@
                                       GuideBrush="{DynamicResource AlignmentGuideBrush}" />
 
         <!-- 全体のどこを見ているか -->
+        <Border x:Name="CompletionHint" Visibility="Collapsed" IsHitTestVisible="False"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14" Padding="12,8"
+                Background="{DynamicResource Brush.Overlay}" BorderBrush="{DynamicResource Brush.Accent}"
+                BorderThickness="1" CornerRadius="10" MaxWidth="420">
+            <TextBlock x:Name="CompletionHintText" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource Brush.Text}" />
+        </Border>
+
         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="14"
                 Background="{DynamicResource Brush.Overlay}"
                 BorderBrush="{DynamicResource Brush.OverlayBorder}"

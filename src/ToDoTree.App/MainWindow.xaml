@@ -13,7 +13,7 @@
         TextOptions.TextRenderingMode="ClearType"
         UseLayoutRounding="True"
         FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
-        FontSize="12.5">
+        FontSize="12.5" PreviewKeyDown="OnWindowPreviewKeyDown">
 
     <Window.DataContext>
         <vm:WorkspaceViewModel />
@@ -133,9 +133,26 @@
                                 <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
                                       Width="10" Height="10" StrokeThickness="1.9" />
                             </Button>
-                            <TextBox Style="{StaticResource BareTextBox}" FontSize="12"
-                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="タイトル・メモ・タグから探す" />
+                            <Grid>
+                                <TextBox x:Name="SearchBox" Style="{StaticResource BareTextBox}" FontSize="12"
+                                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         PreviewKeyDown="OnSearchKeyDown"
+                                         AutomationProperties.Name="ステップを検索"
+                                         ToolTip="タイトル・メモ・タグから探す (Ctrl+F)&#10;↓: 一覧へ / Enter: 選択した結果へ / Esc: 検索を解除" />
+                                <TextBlock Text="検索 (Ctrl+F)" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextFaint}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
                         </DockPanel>
                     </Border>
 
@@ -291,6 +308,8 @@
                                 <MenuItem Header="続きを追加" Command="{Binding AddChildCommand}" InputGestureText="Enter" />
                                 <MenuItem Header="並行して追加" Command="{Binding AddSiblingCommand}" InputGestureText="Shift+Enter" />
                                 <MenuItem Header="まとめて入力" Command="{Binding ImportOutlineCommand}" InputGestureText="Ctrl+I" />
+                                <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
+                                <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
                                 <Separator />
                                 <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" InputGestureText="Ctrl+E" />
                                 <MenuItem Header="分割" Command="{Binding SplitCommand}" />
@@ -424,11 +443,28 @@
                                       ToolTip="済んだステップをキャンバスと一覧から外す" />
                         </Grid>
 
+                        <TextBlock DockPanel.Dock="Top" Margin="4,0,4,8"
+                                   Text="{Binding SidebarNodes.Count, StringFormat='表示 {0} 件'}"
+                                   Foreground="{DynamicResource Brush.TextSubtle}" FontSize="11" />
+                        <TextBlock DockPanel.Dock="Top" Margin="4,8,4,12" TextWrapping="Wrap"
+                                   Text="表示できるステップがありません。検索語・タグ・「完了を隠す」を確認してください。"
+                                   Foreground="{DynamicResource Brush.TextSubtle}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SidebarNodes.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <ListBox x:Name="SidebarList" ItemsSource="{Binding SidebarNodes}"
                                  SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
-                                 MouseDoubleClick="OnSidebarDoubleClick"
+                                 MouseDoubleClick="OnSidebarDoubleClick" PreviewKeyDown="OnSidebarKeyDown"
                                  Padding="0,0,4,0"
-                                 ToolTip="ダブルクリックでその位置へ移動します">
+                                 ToolTip="Enter またはダブルクリックでその位置へ移動します">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>

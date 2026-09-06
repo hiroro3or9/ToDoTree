@@ -1,0 +1,79 @@
+using ToDoTree.Core.Models;
+
+namespace ToDoTree.Core.Graph;
+
+/// <summary>選択範囲を再利用できる独立したグラフへ変換する。元データは変更しない。</summary>
+public static class BranchTemplate
+{
+    public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name)
+    {
+        var ids = selection.ToHashSet();
+        var fragment = new TodoProject
+        {
+            Name = name.Trim(),
+            Nodes = source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone()).ToList(),
+            Edges = source.Edges.Where(e => ids.Contains(e.FromId) && ids.Contains(e.ToId)).Select(e => e.Clone()).ToList(),
+            Blocks = source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => new TodoBlock
+            {
+                Title = b.Title, NodeIds = b.NodeIds.Where(ids.Contains).ToList(),
+            }).ToList(),
+        };
+        Validate(fragment);
+        return Instantiate(fragment, 0, 0);
+    }
+
+    public static TodoProject Instantiate(TodoProject template, double x, double y)
+    {
+        Validate(template);
+        if (!double.IsFinite(x) || !double.IsFinite(y)) throw new ArgumentException("配置位置が不正です。");
+        var copy = template.DeepClone();
+        copy.Id = Guid.NewGuid();
+        var map = copy.Nodes.ToDictionary(n => n.Id, _ => Guid.NewGuid());
+        var dx = x - copy.Nodes.Min(n => n.X);
+        var dy = y - copy.Nodes.Min(n => n.Y);
+        var now = DateTimeOffset.Now;
+        foreach (var node in copy.Nodes)
+        {
+            node.Id = map[node.Id];
+            node.X += dx; node.Y += dy;
+            node.Status = NodeStatus.NotStarted;
+            node.Due = null; node.CompletedAt = null;
+            node.IsPinned = false;
+            node.CreatedAt = node.UpdatedAt = now;
+        }
+        foreach (var edge in copy.Edges)
+        {
+            edge.Id = Guid.NewGuid();
+            edge.FromId = map[edge.FromId]; edge.ToId = map[edge.ToId];
+            edge.Waypoints = edge.Waypoints.Select(p => new JunctionPoint(p.X + dx, p.Y + dy, p.IsSmooth)).ToList();
+        }
+        foreach (var block in copy.Blocks)
+        {
+            block.Id = Guid.NewGuid();
+            block.NodeIds = block.NodeIds.Select(id => map[id]).ToList();
+        }
+        Validate(copy);
+        return copy;
+    }
+
+    public static void Validate(TodoProject template)
+    {
+        if (template.Nodes.Any(n => n is null || n.Tags is null)
+            || template.Edges.Any(e => e is null) || template.Blocks.Any(b => b is null))
+            throw new InvalidDataException("部品の中に空の要素があります。");
+        if (template.SchemaVersion != TodoProject.CurrentSchemaVersion)
+            throw new InvalidDataException("未対応の部品形式です。");
+        if (string.IsNullOrWhiteSpace(template.Name) || template.Nodes.Count == 0)
+            throw new InvalidDataException("部品には名前と1件以上のステップが必要です。");
+        var ids = template.Nodes.Select(n => n.Id).ToHashSet();
+        if (ids.Count != template.Nodes.Count || template.Nodes.Any(n => !double.IsFinite(n.X) || !double.IsFinite(n.Y)))
+            throw new InvalidDataException("ステップのIDまたは座標が不正です。");
+        if (template.Edges.Any(e => !ids.Contains(e.FromId) || !ids.Contains(e.ToId)
+            || e.Waypoints.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y)))
+            || template.Edges.Select(e => e.Id).Distinct().Count() != template.Edges.Count
+            || template.Edges.Select(e => (e.FromId, e.ToId)).Distinct().Count() != template.Edges.Count)
+            throw new InvalidDataException("部品の接続情報が不正です。");
+        if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);
+        if (new TodoGraph(template.DeepClone()).HasCycle()) throw new InvalidDataException("部品の接続が循環しています。");
+    }
+}

@@ -324,6 +324,7 @@ public sealed partial class MainViewModel
     public void SetStatusOfSelection(NodeStatus status)
     {
         var targets = SelectedNodes;
+        var impact = CompletionImpact.Calculate(_graph, targets.Select(n => n.Id));
         if (targets.Count == 0)
         {
             return;
@@ -340,6 +341,8 @@ public sealed partial class MainViewModel
 
         MarkDirty();
         RefreshAll();
+
+        if (status == NodeStatus.Done) PlayCompletion(impact);
 
         if (status == NodeStatus.Done && targets.Count == 1)
         {

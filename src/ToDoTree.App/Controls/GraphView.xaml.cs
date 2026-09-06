@@ -80,11 +80,19 @@ public partial class GraphView : UserControl
     public GraphView()
     {
         InitializeComponent();
+        Viewport.AllowDrop = true;
+        Viewport.PreviewDragOver += OnTemplateDragOver;
+        Viewport.PreviewDrop += OnTemplateDrop;
+        Viewport.MouseLeave += (_, _) => SetCompletionHover(null);
+        PreviewMouseDown += (_, _) => SetCompletionHover(null);
         DataContextChanged += OnDataContextChanged;
         MiniMapView.Navigate += OnMiniMapNavigate;
         Loaded += OnLoaded;
         Unloaded += (_, _) =>
         {
+            _templateLibrary?.Close();
+            SetCompletionHover(null);
+            EdgeRenderer.ClearCompletionEffects();
             EndInteraction();
             if (_ownerWindow is not null) _ownerWindow.Deactivated -= OnWindowDeactivated;
             _ownerWindow = null;
@@ -124,6 +132,9 @@ public partial class GraphView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        _templateLibrary?.Close();
+        SetCompletionHover(null);
+        EdgeRenderer.ClearCompletionEffects();
         if (_viewModel is not null)
         {
             // 移動は取り消し、名前の書き換えは確定してからタブを離れる。
@@ -132,6 +143,8 @@ public partial class GraphView : UserControl
 
             CaptureViewport(_viewModel);
             _viewModel.VisualsChanged -= OnVisualsChanged;
+            _viewModel.TemplateLibraryRequested -= OpenTemplateLibrary;
+            _viewModel.CompletionRequested -= OnCompletionRequested;
             _viewModel.ZoomToFitRequested -= OnZoomToFitRequested;
             _viewModel.ZoomStepRequested -= OnZoomStepRequested;
             _viewModel.CenterOnRequested -= OnCenterOnRequested;
@@ -145,6 +158,8 @@ public partial class GraphView : UserControl
         if (_viewModel is not null)
         {
             _viewModel.VisualsChanged += OnVisualsChanged;
+            _viewModel.TemplateLibraryRequested += OpenTemplateLibrary;
+            _viewModel.CompletionRequested += OnCompletionRequested;
             _viewModel.ZoomToFitRequested += OnZoomToFitRequested;
             _viewModel.ZoomStepRequested += OnZoomStepRequested;
             _viewModel.CenterOnRequested += OnCenterOnRequested;
@@ -179,6 +194,8 @@ public partial class GraphView : UserControl
 
     private void OnVisualsChanged(object? sender, EventArgs e)
     {
+        EdgeRenderer.ClearCompletionEffects();
+        SetCompletionHover(_completionHover);
         if (_blockDragActive && _viewModel?.IsBlockDragging != true)
         {
             _blockDragActive = false;
@@ -510,7 +527,12 @@ public partial class GraphView : UserControl
         }
     }
 
-    private void OnWindowDeactivated(object? sender, EventArgs e) => EndInteraction();
+    private void OnWindowDeactivated(object? sender, EventArgs e)
+    {
+        SetCompletionHover(null);
+        EdgeRenderer.ClearCompletionEffects();
+        EndInteraction();
+    }
 
     private void ClearSnap()
     {
@@ -594,6 +616,10 @@ public partial class GraphView : UserControl
 
     private void OnViewportMouseMove(object sender, MouseEventArgs e)
     {
+        var hovered = e.LeftButton == MouseButtonState.Released && e.RightButton == MouseButtonState.Released
+            && e.MiddleButton == MouseButtonState.Released && _viewModel?.IsConnecting != true
+            ? FindNodeElement(e.OriginalSource as DependencyObject)?.DataContext as NodeViewModel : null;
+        if (!ReferenceEquals(hovered, _completionHover)) SetCompletionHover(hovered);
         var screen = e.GetPosition(Viewport);
         if (!_movedSincePress && (screen - _pressScreen).Length > 3)
         {
