@@ -21,7 +21,7 @@ public static class StepSplitter
         }
 
         // 元の後続をいったん外しておく。
-        var successors = graph.OutgoingOf(nodeId).Select(e => (e.ToId, e.Label)).ToList();
+        var successors = graph.Project.Edges.Where(e => e.FromId == nodeId).Select(e => (e.ToId, e.Label)).ToList();
         foreach (var (toId, _) in successors)
         {
             graph.Disconnect(nodeId, toId);

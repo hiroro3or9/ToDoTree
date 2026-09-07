@@ -36,6 +36,9 @@
 
         <!-- ブロックの見出しを右クリックしたとき。囲みの解除は、ここか Ctrl+Shift+G だけ。 -->
         <ContextMenu x:Key="BlockMenu">
+            <MenuItem Header="ブロックを畳む / 開く" Command="{Binding CollapseBlockCommand}" />
+            <MenuItem Header="このブロックに集中 / 解除" Command="{Binding FocusBlockCommand}" />
+            <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" />
             <MenuItem Header="{Binding BlockMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
             <Separator />
             <MenuItem Header="中を整列" InputGestureText="Ctrl+L" Command="{Binding LayoutBlockCommand}"
@@ -478,6 +481,8 @@
                                     Cursor="{Binding HeaderCursor}"
                                     ToolTip="{Binding Tooltip}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Tag="block-collapse" Content="{Binding CollapseGlyph}" Width="22" Height="24" Padding="0" Margin="0,0,5,0"
+                                            ToolTip="ブロックを畳む / 開く" />
                                     <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
                                                MaxWidth="220" VerticalAlignment="Center"
                                                Foreground="{Binding HeaderText}"
@@ -498,6 +503,14 @@
                                                Foreground="{Binding CountBrush}" />
                                 </StackPanel>
                             </Border>
+                            <Ellipse Tag="connector-left" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Margin="-6,0,0,0" Fill="{Binding HeaderFill}" Stroke="{Binding BorderBrush}" StrokeThickness="2" Cursor="Cross" ToolTip="ブロック全体へ接続" />
+                            <Ellipse Tag="connector" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                     Margin="0,0,-6,0" Fill="{Binding HeaderFill}" Stroke="{Binding BorderBrush}" StrokeThickness="2" Cursor="Cross" ToolTip="ブロック全体から接続" />
+                            <Ellipse Tag="connector-top" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Top"
+                                     Margin="0,-6,0,0" Fill="{Binding HeaderFill}" Stroke="{Binding BorderBrush}" StrokeThickness="2" Cursor="Cross" ToolTip="ブロック全体へ接続" />
+                            <Ellipse Tag="connector-bottom" Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                     Margin="0,0,0,-6" Fill="{Binding HeaderFill}" Stroke="{Binding BorderBrush}" StrokeThickness="2" Cursor="Cross" ToolTip="ブロック全体から接続" />
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

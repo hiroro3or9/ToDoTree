@@ -14,7 +14,7 @@ public sealed partial class MainViewModel
 
     /// <summary>選んでいる線の途中に、新しいステップを挟む。</summary>
     public ICommand InsertOnEdgeCommand => _insertOnEdgeCommand ??=
-        new RelayCommand(() => InsertOnEdge(SelectedEdge), () => HasSelectedEdge);
+        new RelayCommand(() => InsertOnEdge(SelectedEdge), () => SelectedEdge is { IsBlockConnection: false, IsAggregated: false });
 
     /// <summary>選んでいる線を外す。</summary>
     public ICommand DeleteEdgeCommand => _deleteEdgeCommand ??=
@@ -39,7 +39,7 @@ public sealed partial class MainViewModel
     /// どれを掴んだのかを名前で確かめられるようにしておく。
     /// </summary>
     public string EdgeMenuHeader => SelectedEdge is { } edge
-        ? $"{Shorten(edge.From.Title)}  →  {Shorten(edge.To.Title)}"
+        ? $"{Shorten(edge.From.Title)}  →  {Shorten(edge.To.Title)} ・ {edge.ConnectionDescription}"
         : string.Empty;
 
     private static string Shorten(string text) =>

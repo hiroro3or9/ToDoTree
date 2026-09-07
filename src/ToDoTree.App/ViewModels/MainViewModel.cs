@@ -318,8 +318,6 @@ public sealed partial class MainViewModel : ObservableObject
             _byId[model.Id] = vm;
         }
 
-        RebuildEdges();
-
         _selection.Clear();
         _connectSourceId = null;
         _selectedNode = null;
@@ -327,6 +325,7 @@ public sealed partial class MainViewModel : ObservableObject
         // 先に選択を空にしてから作り直す（前のプロジェクトの囲みを掴んだままにしない）。
         _selectedBlock = null;
         RebuildBlocks();
+        RebuildEdges();
 
         if (selection is { } state)
         {

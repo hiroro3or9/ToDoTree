@@ -40,7 +40,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    public bool IsFocusMode => _focusId is not null;
+    public bool IsFocusMode => _focusId is not null || _focusedBlockId is not null;
 
     public string FocusLabel => IsFocusMode ? "絞り込み解除" : "この筋だけ";
 
@@ -53,7 +53,7 @@ public sealed partial class MainViewModel
     {
         ClearTagCommand = new RelayCommand(() => SelectedTag = null, () => !string.IsNullOrEmpty(SelectedTag));
         ToggleFocusCommand = new RelayCommand(ToggleFocus, () => IsFocusMode || SelectedNode is not null);
-        ExpandAllCommand = new RelayCommand(ExpandAll, () => _collapsed.Count > 0 || IsFocusMode);
+        ExpandAllCommand = new RelayCommand(ExpandAll, () => _collapsed.Count > 0 || IsFocusMode || Blocks.Any(b => b.Model.IsCollapsed));
         CollapseSelectedCommand = new RelayCommand(
             () =>
             {
@@ -84,6 +84,14 @@ public sealed partial class MainViewModel
     /// <summary>選択中のステップに関係する筋だけを残す / 解除する。</summary>
     public void ToggleFocus()
     {
+        if (_focusedBlockId is not null)
+        {
+            _focusedBlockId = null;
+            RefreshAll();
+            BlockFocusChanged?.Invoke(this, false);
+            StatusMessage = "集中表示を解除し、元の表示へ戻しました。";
+            return;
+        }
         if (IsFocusMode)
         {
             _focusId = null;
@@ -104,6 +112,15 @@ public sealed partial class MainViewModel
     {
         _collapsed.Clear();
         _focusId = null;
+        var wasFocused = _focusedBlockId is not null;
+        _focusedBlockId = null;
+        if (Blocks.Any(b => b.Model.IsCollapsed))
+        {
+            PushUndo();
+            foreach (var block in Blocks) block.Model.IsCollapsed = false;
+            MarkDirty();
+        }
+        if (wasFocused) BlockFocusChanged?.Invoke(this, false);
         RefreshVisibility();
         NotifyVisualsChanged();
         ZoomToFitRequested?.Invoke(this, EventArgs.Empty);
@@ -127,10 +144,17 @@ public sealed partial class MainViewModel
             HideCompleted = HideCompleted,
         });
 
+        if (_focusedBlockId is { } missing && !_blockById.ContainsKey(missing))
+        {
+            _focusedBlockId = null;
+            BlockFocusChanged?.Invoke(this, false);
+        }
+        _baseVisible = _focusedBlockId is { } focused
+            ? BlockConnections.FocusNodes(_graph, focused) : result.Visible;
         _hiddenCount = 0;
         foreach (var node in Nodes)
         {
-            node.IsVisible = result.IsVisible(node.Id);
+            node.IsVisible = _baseVisible.Contains(node.Id) && BlockOf(node.Id) is not { IsCollapsed: true };
             node.IsCollapsed = _collapsed.Contains(node.Id);
             node.HiddenCount = result.HiddenBehind(node.Id);
 
@@ -139,6 +163,11 @@ public sealed partial class MainViewModel
                 _hiddenCount++;
             }
         }
+
+        if (SelectedEdge is { IsVisible: false }) ClearEdgeSelection();
+
+        var visibleSelection = SelectedNodes.Where(n => n.IsVisible).ToList();
+        if (visibleSelection.Count != SelectionCount) SelectNodes(visibleSelection);
 
         // 囲みは「いま見えている所属ノード」から作るので、可視を決めたあとに計算し直す。
         RefreshBlockBounds();

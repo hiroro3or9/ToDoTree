@@ -103,7 +103,7 @@ public partial class TemplateLibraryWindow : Window
         public string Summary => $"{Project.Nodes.Count} ステップ ・ {Project.Edges.Count} 接続";
         public string Details => string.Join("\n", Project.Nodes.Select(n => $"• {n.Title}"))
             + "\n\nつながり\n" + (Project.Edges.Count == 0 ? "なし" : string.Join("\n", Project.Edges.Select(e =>
-                $"{Project.Nodes.First(n => n.Id == e.FromId).Title} → {Project.Nodes.First(n => n.Id == e.ToId).Title}")));
+                $"{(Project.Nodes.FirstOrDefault(n => n.Id == e.FromId)?.Title ?? Project.Blocks.First(b => b.Id == e.FromId).Title)} → {(Project.Nodes.FirstOrDefault(n => n.Id == e.ToId)?.Title ?? Project.Blocks.First(b => b.Id == e.ToId).Title)}")));
     }
 }
 

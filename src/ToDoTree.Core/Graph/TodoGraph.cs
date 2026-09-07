@@ -22,7 +22,9 @@ public sealed class TodoGraph
 
     public IReadOnlyList<TodoNode> Nodes => Project.Nodes;
 
-    public IReadOnlyList<TodoEdge> Edges => Project.Edges;
+    private readonly List<TodoEdge> _effectiveEdges = [];
+
+    public IReadOnlyList<TodoEdge> Edges => _effectiveEdges;
 
     public int NodeCount => Project.Nodes.Count;
 
@@ -41,9 +43,12 @@ public sealed class TodoGraph
         }
 
         // 壊れた辺（存在しないノードを指す辺）はここで落とす。
-        Project.Edges.RemoveAll(e => !_nodes.ContainsKey(e.FromId) || !_nodes.ContainsKey(e.ToId));
+        var endpoints = _nodes.Keys.Concat(Project.Blocks.Select(b => b.Id)).ToHashSet();
+        Project.Edges.RemoveAll(e => !endpoints.Contains(e.FromId) || !endpoints.Contains(e.ToId));
+        _effectiveEdges.Clear();
+        _effectiveEdges.AddRange(BlockConnections.Expand(Project));
 
-        foreach (var edge in Project.Edges)
+        foreach (var edge in _effectiveEdges)
         {
             _outgoing[edge.FromId].Add(edge);
             _incoming[edge.ToId].Add(edge);
@@ -62,11 +67,11 @@ public sealed class TodoGraph
 
     /// <summary>先行（このステップの前に終わっている必要があるもの）。</summary>
     public IEnumerable<TodoNode> ParentsOf(Guid id) =>
-        IncomingOf(id).Select(e => _nodes[e.FromId]);
+        IncomingOf(id).Select(e => _nodes[e.FromId]).DistinctBy(n => n.Id);
 
     /// <summary>後続（このステップが終わると進めるもの）。</summary>
     public IEnumerable<TodoNode> ChildrenOf(Guid id) =>
-        OutgoingOf(id).Select(e => _nodes[e.ToId]);
+        OutgoingOf(id).Select(e => _nodes[e.ToId]).DistinctBy(n => n.Id);
 
     /// <summary>先行を持たないノード（出発点）。</summary>
     public IEnumerable<TodoNode> Roots() => Project.Nodes.Where(n => IncomingOf(n.Id).Count == 0);
@@ -97,16 +102,11 @@ public sealed class TodoGraph
             return false;
         }
 
-        foreach (var edge in OutgoingOf(id).Concat(IncomingOf(id)).ToList())
-        {
-            RemoveEdgeCore(edge);
-        }
-
+        Project.Edges.RemoveAll(e => e.FromId == id || e.ToId == id);
         Project.Nodes.Remove(node);
         if (Project.Bookmark?.NodeId == id) Project.Bookmark = null;
-        _nodes.Remove(id);
-        _outgoing.Remove(id);
-        _incoming.Remove(id);
+        BlockService.Remove(Project, [id]);
+        Rebuild();
         return true;
     }
 
@@ -120,8 +120,8 @@ public sealed class TodoGraph
             return false;
         }
 
-        var parents = ParentsOf(id).Select(n => n.Id).ToList();
-        var children = ChildrenOf(id).Select(n => n.Id).ToList();
+        var parents = Project.Edges.Where(e => e.ToId == id).Select(e => e.FromId).ToList();
+        var children = Project.Edges.Where(e => e.FromId == id).Select(e => e.ToId).ToList();
 
         RemoveNode(id);
 
@@ -146,18 +146,19 @@ public sealed class TodoGraph
             return ConnectionCheck.SameNode;
         }
 
-        if (!_nodes.ContainsKey(fromId) || !_nodes.ContainsKey(toId))
+        if (BlockConnections.Members(Project, fromId).Count == 0 || BlockConnections.Members(Project, toId).Count == 0)
         {
             return ConnectionCheck.NodeNotFound;
         }
 
-        if (OutgoingOf(fromId).Any(e => e.ToId == toId))
+        if (Project.Edges.Any(e => e.FromId == fromId && e.ToId == toId))
         {
             return ConnectionCheck.Duplicate;
         }
 
         // to から辿って from に着くなら、繋いだ瞬間に循環する。
-        if (CanReach(toId, fromId))
+        if (BlockConnections.Members(Project, fromId).Any(from =>
+            BlockConnections.Members(Project, toId).Any(to => CanReach(to, from))))
         {
             return ConnectionCheck.WouldCreateCycle;
         }
@@ -174,8 +175,7 @@ public sealed class TodoGraph
 
         var edge = new TodoEdge { FromId = fromId, ToId = toId, Label = label };
         Project.Edges.Add(edge);
-        _outgoing[fromId].Add(edge);
-        _incoming[toId].Add(edge);
+        Rebuild();
         return edge;
     }
 
@@ -187,7 +187,7 @@ public sealed class TodoGraph
 
     public bool Disconnect(Guid fromId, Guid toId)
     {
-        var edge = OutgoingOf(fromId).FirstOrDefault(e => e.ToId == toId);
+        var edge = Project.Edges.FirstOrDefault(e => e.FromId == fromId && e.ToId == toId);
         return edge is not null && RemoveEdgeCore(edge);
     }
 
@@ -225,17 +225,8 @@ public sealed class TodoGraph
 
     private bool RemoveEdgeCore(TodoEdge edge)
     {
-        var removed = Project.Edges.Remove(edge);
-        if (_outgoing.TryGetValue(edge.FromId, out var outList))
-        {
-            outList.Remove(edge);
-        }
-
-        if (_incoming.TryGetValue(edge.ToId, out var inList))
-        {
-            inList.Remove(edge);
-        }
-
+        var removed = Project.Edges.RemoveAll(e => e.Id == edge.Id) > 0;
+        if (removed) Rebuild();
         return removed;
     }
 }

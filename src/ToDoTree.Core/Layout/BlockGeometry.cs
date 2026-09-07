@@ -88,6 +88,7 @@ public static class BlockGeometry
         ArgumentNullException.ThrowIfNull(movingNodeIds);
 
         return [.. project.Edges.Where(e =>
-            e.Waypoints.Count > 0 && movingNodeIds.Contains(e.FromId) && movingNodeIds.Contains(e.ToId))];
+            e.Waypoints.Count > 0 && ToDoTree.Core.Graph.BlockConnections.Members(project, e.FromId).All(movingNodeIds.Contains)
+            && ToDoTree.Core.Graph.BlockConnections.Members(project, e.ToId).All(movingNodeIds.Contains))];
     }
 }
