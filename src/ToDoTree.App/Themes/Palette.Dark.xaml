@@ -111,6 +111,67 @@
     <!-- ブロック選択中に、どのカードが中にいるかを示す控えめな輪郭。 -->
     <SolidColorBrush x:Key="Block.Member.Stroke"        Color="#8098ECD8" po:Freeze="True" />
 
+    <!-- ==== 個別色のプリセット ==== -->
+    <!--
+        ブロックと線に 1 つずつ付けられる色。キーは「既定のキー + . + id」で揃えてある。
+        参照側は色付きのキーを引き、無ければ既定のキーへ落ちる（Services/ColorPalette.cs）。
+        ライトとダークに同じ id を必ず両方そろえること。片側だけだと、そのテーマで既定色に戻る。
+        選択中の濃い背景と、先行が片付いた線の薄い色は、ここから不透明度で作るのでキーを持たない。
+    -->
+    <!-- 灰 -->
+    <SolidColorBrush x:Key="Block.Fill.slate"            Color="#1E94A3B8" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.slate"          Color="#FF64748B" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.slate"     Color="#FF2A3444" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.slate"           Color="#FF64748B" po:Freeze="True" />
+
+    <!-- 赤 -->
+    <SolidColorBrush x:Key="Block.Fill.red"              Color="#1EF87171" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.red"            Color="#FFF87171" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.red"       Color="#FF3A2028" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.red"             Color="#FFEF6B6B" po:Freeze="True" />
+
+    <!-- 橙 -->
+    <SolidColorBrush x:Key="Block.Fill.orange"           Color="#1EFB923C" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.orange"         Color="#FFFB923C" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.orange"    Color="#FF36261B" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.orange"          Color="#FFF59A4B" po:Freeze="True" />
+
+    <!-- 黄 -->
+    <SolidColorBrush x:Key="Block.Fill.amber"            Color="#1EFBBF24" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.amber"          Color="#FFFBBF24" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.amber"     Color="#FF332B18" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.amber"           Color="#FFEBB43C" po:Freeze="True" />
+
+    <!-- 緑 -->
+    <SolidColorBrush x:Key="Block.Fill.green"            Color="#1E4ADE80" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.green"          Color="#FF4ADE80" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.green"     Color="#FF1A3328" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.green"           Color="#FF4ADE80" po:Freeze="True" />
+
+    <!-- 青緑 -->
+    <SolidColorBrush x:Key="Block.Fill.teal"             Color="#1E2DD4BF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.teal"           Color="#FF2DD4BF" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.teal"      Color="#FF15332F" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.teal"            Color="#FF2DD4BF" po:Freeze="True" />
+
+    <!-- 青 -->
+    <SolidColorBrush x:Key="Block.Fill.blue"             Color="#1E60A5FA" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.blue"           Color="#FF60A5FA" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.blue"      Color="#FF1B2A45" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.blue"            Color="#FF6E9BF7" po:Freeze="True" />
+
+    <!-- 紫 -->
+    <SolidColorBrush x:Key="Block.Fill.violet"           Color="#1EA78BFA" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.violet"         Color="#FFA78BFA" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.violet"    Color="#FF272348" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.violet"          Color="#FF9B87F5" po:Freeze="True" />
+
+    <!-- 桃 -->
+    <SolidColorBrush x:Key="Block.Fill.pink"             Color="#1EF472B6" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Stroke.pink"           Color="#FFF472B6" po:Freeze="True" />
+    <SolidColorBrush x:Key="Block.Header.Fill.pink"      Color="#FF3A2036" po:Freeze="True" />
+    <SolidColorBrush x:Key="Edge.Normal.pink"            Color="#FFEE72B0" po:Freeze="True" />
+
     <!-- ==== ミニマップ ==== -->
     <SolidColorBrush x:Key="MiniMap.Surface"         Color="#FF14181F" po:Freeze="True" />
     <SolidColorBrush x:Key="MiniMap.Viewport.Fill"   Color="#1F7C93FF" po:Freeze="True" />

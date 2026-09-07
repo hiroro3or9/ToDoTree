@@ -12,6 +12,31 @@
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
         <!--
+            色見本の 1 行。ブロックの「色」と線の「色」で共通に使う。
+            このメニューの見た目には印を出す場所が無いので、選択中の色は行末のチェックで示す。
+        -->
+        <Style x:Key="ColorChoiceStyle" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+            <Setter Property="Header" Value="{Binding}" />
+            <Setter Property="Command" Value="{Binding ApplyCommand}" />
+            <Setter Property="HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="13" Height="13" CornerRadius="3" Margin="0,0,9,0"
+                                    VerticalAlignment="Center"
+                                    Background="{Binding Swatch}"
+                                    BorderBrush="{Binding SwatchStroke}" BorderThickness="1" />
+                            <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" />
+                            <TextBlock Text="✓" Margin="9,0,0,0" FontWeight="Bold" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Brush.Accent}"
+                                       Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
             右クリックのメニュー。押した場所（線・ステップ・背景）で
             GraphView.xaml.cs が出し分ける。DataContext は Viewport から受け継ぐ。
         -->
@@ -21,6 +46,10 @@
             <Separator />
             <MenuItem Header="ここに通過点を追加" Command="{Binding AddWaypointCommand}" />
             <MenuItem Header="通過点をすべて解除" Command="{Binding ClearWaypointsCommand}" />
+            <MenuItem Header="色" ItemsSource="{Binding EdgeColorChoices}"
+                      ItemContainerStyle="{StaticResource ColorChoiceStyle}"
+                      IsEnabled="{Binding CanColorSelectedEdge}"
+                      ToolTip="{Binding EdgeColorHint}" ToolTipService.ShowOnDisabled="True" />
             <Separator />
             <MenuItem Header="ここにステップを挟む" Command="{Binding InsertOnEdgeCommand}" />
             <MenuItem Header="この線を外す" InputGestureText="Delete" Command="{Binding DeleteEdgeCommand}" />
@@ -44,6 +73,8 @@
             <MenuItem Header="中を整列" InputGestureText="Ctrl+L" Command="{Binding LayoutBlockCommand}"
                       ToolTip="{Binding BlockLayoutHint}" ToolTipService.ShowOnDisabled="True" />
             <MenuItem Header="名前を変更" InputGestureText="F2" Command="{Binding RenameBlockCommand}" />
+            <MenuItem Header="色" ItemsSource="{Binding BlockColorChoices}"
+                      ItemContainerStyle="{StaticResource ColorChoiceStyle}" />
             <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
             <MenuItem Header="部品として保存…" Command="{Binding SaveTemplateCommand}" />
             <Separator />

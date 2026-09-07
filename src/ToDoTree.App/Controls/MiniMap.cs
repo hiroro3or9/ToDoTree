@@ -15,6 +15,9 @@ public sealed class MiniMap : FrameworkElement
     private Brush _surface = Brushes.Transparent;
     private Pen _viewportPen = null!;
     private Pen _blockPen = null!;
+
+    /// <summary>個別色を付けた囲みの外周。色ごとに 1 度だけ作る。</summary>
+    private readonly Dictionary<string, Pen> _coloredBlockPens = [];
     private Brush _viewportFill = Brushes.Transparent;
 
     private IReadOnlyList<NodeViewModel> _nodes = [];
@@ -59,7 +62,7 @@ public sealed class MiniMap : FrameworkElement
         foreach (var block in _blocks)
         {
             var area = ToMap(new Rect(block.X, block.Y, block.Width, block.Height));
-            drawingContext.DrawRoundedRectangle(null, _blockPen, area, 2, 2);
+            drawingContext.DrawRoundedRectangle(null, BlockPenOf(block.ColorId), area, 2, 2);
         }
 
         foreach (var node in _nodes)
@@ -96,6 +99,25 @@ public sealed class MiniMap : FrameworkElement
         var blockPen = new Pen(ThemeManager.BrushOf("MiniMap.Block.Stroke"), 1);
         blockPen.Freeze();
         _blockPen = blockPen;
+        _coloredBlockPens.Clear();
+    }
+
+    /// <summary>色を付けた囲みは、地図の上でも同じ色で見分けられるようにする。</summary>
+    private Pen BlockPenOf(string? colorId)
+    {
+        if (ColorPalette.Effective(colorId) is not { } id)
+        {
+            return _blockPen;
+        }
+
+        if (!_coloredBlockPens.TryGetValue(id, out var pen))
+        {
+            pen = new Pen(ColorPalette.BrushOf("Block.Stroke", id), 1);
+            pen.Freeze();
+            _coloredBlockPens[id] = pen;
+        }
+
+        return pen;
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)

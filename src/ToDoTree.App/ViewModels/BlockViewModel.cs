@@ -15,6 +15,9 @@ namespace ToDoTree.App.ViewModels;
 /// </summary>
 public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : ObservableObject
 {
+    /// <summary>選択中に背景を濃くする倍率。既定色の Block.Fill と Block.Selected.Fill の比に合わせてある。</summary>
+    private const double SelectedFillFactor = 1.75;
+
     private BlockBounds _bounds;
     private bool _isSelected;
     private bool _isEditing;
@@ -167,13 +170,33 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     /// <summary>選んでいる囲みだけ、ブロック層の中で手前に出す。</summary>
     public int ZIndex => IsEditing ? 30 : IsSelected ? 20 : 10;
 
-    public Brush BodyFill => ThemeManager.BrushOf((IsSelected || IsDropTarget) ? "Block.Selected.Fill" : "Block.Fill");
+    /// <summary>個別色。null は既定色。<see cref="MainViewModel.ApplyBlockColor"/> から書き換える。</summary>
+    public string? ColorId => Model.ColorId;
 
-    public Brush BorderBrush => ThemeManager.BrushOf((IsSelected || IsDropTarget) ? "Block.Selected.Stroke" : "Block.Stroke");
+    /// <summary>描くときに使う色。知らない色は既定色として扱う（モデルの値はそのまま残す）。</summary>
+    private string? PaintColorId => ColorPalette.Effective(Model.ColorId);
 
-    public Thickness BorderThickness => new((IsSelected || IsDropTarget) ? 2 : 1.2);
+    /// <summary>選んでいる、または移動の受け皿になっている。どちらも同じ強調にする。</summary>
+    private bool IsAccented => IsSelected || IsDropTarget;
 
-    public Brush HeaderFill => ThemeManager.BrushOf(IsSelected ? "Block.Header.Selected.Fill" : "Block.Header.Fill");
+    // 選択中は色を保ったまま背景だけ濃くする。既定色のときは、これまでどおり専用のキーを使う。
+    public Brush BodyFill => IsAccented
+        ? (PaintColorId is null
+            ? ThemeManager.BrushOf("Block.Selected.Fill")
+            : ColorPalette.Emphasize("Block.Fill", PaintColorId, SelectedFillFactor))
+        : ColorPalette.BrushOf("Block.Fill", PaintColorId);
+
+    // 枠は色に関わらずアクセント色へ変える。どの色のブロックでも「いま選んでいる」を同じ見え方にするため。
+    public Brush BorderBrush => IsAccented
+        ? ThemeManager.BrushOf("Block.Selected.Stroke")
+        : ColorPalette.BrushOf("Block.Stroke", PaintColorId);
+
+    public Thickness BorderThickness => new(IsAccented ? 2 : 1.2);
+
+    // 見出しの下地は選択中も色を保つ（選択は枠と背景で分かる）。
+    public Brush HeaderFill => IsSelected && PaintColorId is null
+        ? ThemeManager.BrushOf("Block.Header.Selected.Fill")
+        : ColorPalette.BrushOf("Block.Header.Fill", PaintColorId);
 
     public Brush HeaderText => ThemeManager.BrushOf("Block.Header.Text");
 
@@ -215,8 +238,9 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
         }
     }
 
-    /// <summary>配色が変わったあとに塗り直す。</summary>
+    /// <summary>配色や個別色が変わったあとに塗り直す。</summary>
     public void RefreshBrushes() => OnPropertyChanged(
+        nameof(ColorId),
         nameof(BodyFill),
         nameof(BorderBrush),
         nameof(BorderThickness),

@@ -37,6 +37,11 @@ public sealed partial class EdgeLayer : FrameworkElement
 
     private double _arrowSize = 9;
     private double _arrowHalf = 4.2;
+    private double _normalThickness = 1.8;
+    private double _settledThickness = 1.6;
+
+    /// <summary>個別色の線。色ごとに 1 度だけ作り、配色か表示モードが変わったら丸ごと捨てる。</summary>
+    private readonly Dictionary<string, (Pen Pen, Pen Settled, Brush Arrow, Brush SettledArrow)> _colored = [];
 
     private Pen _normalPen = null!;
     private Pen _settledPen = null!;
@@ -51,6 +56,9 @@ public sealed partial class EdgeLayer : FrameworkElement
     private Brush _highlightArrow = null!;
     private Brush _criticalArrow = null!;
     private Brush _selectedArrow = null!;
+
+    /// <summary>先行が片付いた線を薄くする割合。</summary>
+    private const double SettledOpacity = 0.45;
 
     private (Vec2 Control1, Vec2 Control2)? _previewControls;
     private IReadOnlyList<Vec2>? _previewRoute;
@@ -160,9 +168,12 @@ public sealed partial class EdgeLayer : FrameworkElement
         var minimal = NodeMetrics.IsMinimal;
         _arrowSize = minimal ? 6.5 : 9;
         _arrowHalf = minimal ? 3.2 : 4.2;
+        _normalThickness = minimal ? 1.2 : 1.8;
+        _settledThickness = minimal ? 1.1 : 1.6;
+        _colored.Clear();
 
-        _normalPen = CreatePen("Edge.Normal", minimal ? 1.2 : 1.8);
-        _settledPen = CreatePen("Edge.Settled", minimal ? 1.1 : 1.6);
+        _normalPen = CreatePen("Edge.Normal", _normalThickness);
+        _settledPen = CreatePen("Edge.Settled", _settledThickness);
         _highlightPen = CreatePen("Edge.Highlight", minimal ? 1.8 : 2.6);
         _criticalPen = CreatePen("Edge.Critical", minimal ? 2.2 : 3.2);
         _selectedPen = CreatePen("Edge.Selected", minimal ? 2.8 : 4);
@@ -181,15 +192,18 @@ public sealed partial class EdgeLayer : FrameworkElement
     {
         var route = edge.GetRoute(Nodes ?? []);
 
+        // 個別色は「普段の見え方」だけを変える。選択・最長経路・強調は状態色が勝つ。
+        var (basePen, baseArrow) = BaseOf(edge);
+
         var pen = edge.IsSelected ? _selectedPen
             : edge.IsOnCriticalPath ? _criticalPen
             : edge.IsHighlighted ? _highlightPen
-            : edge.IsSettled ? _settledPen : _normalPen;
+            : basePen;
 
         var arrow = edge.IsSelected ? _selectedArrow
             : edge.IsOnCriticalPath ? _criticalArrow
             : edge.IsHighlighted ? _highlightArrow
-            : edge.IsSettled ? _settledArrow : _normalArrow;
+            : baseArrow;
 
         if (edge.IsAggregated)
         {
@@ -204,9 +218,30 @@ public sealed partial class EdgeLayer : FrameworkElement
         {
             var selected = edge.IsSelected && edge.SelectedWaypointIndex == i;
             drawingContext.DrawEllipse(ThemeManager.BrushOf(selected ? "Brush.Accent" : "Brush.Surface"),
-                edge.IsSelected ? _selectedPen : _normalPen, ToPoint(edge.Model.Waypoints[i].ToVector()),
+                edge.IsSelected ? _selectedPen : basePen, ToPoint(edge.Model.Waypoints[i].ToVector()),
                 selected ? 6 : 5, selected ? 6 : 5);
         }
+    }
+
+    /// <summary>状態色が付いていないときの見え方。個別色があればそれを使う。</summary>
+    private (Pen Pen, Brush Arrow) BaseOf(EdgeViewModel edge)
+    {
+        if (ColorPalette.Effective(edge.Model.ColorId) is not { } id)
+        {
+            return edge.IsSettled ? (_settledPen, _settledArrow) : (_normalPen, _normalArrow);
+        }
+
+        if (!_colored.TryGetValue(id, out var set))
+        {
+            var arrow = ColorPalette.BrushOf("Edge.Normal", id);
+
+            // 先行が片付いた線は、色を保ったまま薄くする（既定色の Edge.Settled にあたる見え方）。
+            var settledArrow = ColorPalette.Fade("Edge.Normal", id, SettledOpacity);
+            set = (CreatePen(arrow, _normalThickness), CreatePen(settledArrow, _settledThickness), arrow, settledArrow);
+            _colored[id] = set;
+        }
+
+        return edge.IsSettled ? (set.Settled, set.SettledArrow) : (set.Pen, set.Arrow);
     }
 
     private static StreamGeometry BuildRoute(IReadOnlyList<Vec2> route)
@@ -271,9 +306,12 @@ public sealed partial class EdgeLayer : FrameworkElement
 
     private static Point ToPoint(Vec2 vector) => new(vector.X, vector.Y);
 
-    private static Pen CreatePen(string key, double thickness)
+    private static Pen CreatePen(string key, double thickness) =>
+        CreatePen(ThemeManager.BrushOf(key), thickness);
+
+    private static Pen CreatePen(Brush brush, double thickness)
     {
-        var pen = new Pen(ThemeManager.BrushOf(key), thickness)
+        var pen = new Pen(brush, thickness)
         {
             LineJoin = PenLineJoin.Round,
             StartLineCap = PenLineCap.Round,
