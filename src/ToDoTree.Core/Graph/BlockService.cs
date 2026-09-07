@@ -100,6 +100,10 @@ public static class BlockService
             return BlockResult.Fail("別のブロックに入っているステップが含まれています。先に所属を外してください。");
         }
 
+        var candidate = project.DeepClone();
+        Find(candidate, blockId)!.NodeIds.AddRange(distinct.Where(id => !block.NodeIds.Contains(id)));
+        if (BlockConnections.Validate(candidate) is { } error) return BlockResult.Fail(error);
+
         foreach (var id in distinct.Where(id => !block.NodeIds.Contains(id)))
         {
             block.NodeIds.Add(id);
@@ -129,7 +133,7 @@ public static class BlockService
             }
         }
 
-        project.Blocks.RemoveAll(b => b.NodeIds.Count == 0);
+        RemoveEmpty(project);
         return removed;
     }
 
@@ -137,7 +141,9 @@ public static class BlockService
     public static bool Dissolve(TodoProject project, Guid blockId)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return project.Blocks.RemoveAll(b => b.Id == blockId) > 0;
+        if (Find(project, blockId) is not { } block) return false;
+        BlockConnections.Dissolve(project, block);
+        return project.Blocks.Remove(block);
     }
 
     /// <summary>
@@ -183,7 +189,7 @@ public static class BlockService
             }
         }
 
-        changed |= project.Blocks.RemoveAll(b => b.NodeIds.Count == 0) > 0;
+        changed |= RemoveEmpty(project) > 0;
         return changed;
     }
 
@@ -205,7 +211,7 @@ public static class BlockService
                 return "中身のないブロックが含まれています。";
             }
 
-            if (!blockIds.Add(block.Id))
+            if (known.Contains(block.Id) || !blockIds.Add(block.Id))
             {
                 return $"ブロックの ID が重複しています（{block.Id}）。";
             }
@@ -235,6 +241,29 @@ public static class BlockService
             }
         }
 
+        return null;
+    }
+
+    private static int RemoveEmpty(TodoProject project)
+    {
+        var empty = project.Blocks.Where(b => b.NodeIds.Count == 0).Select(b => b.Id).ToHashSet();
+        project.Edges.RemoveAll(e => empty.Contains(e.FromId) || empty.Contains(e.ToId));
+        return project.Blocks.RemoveAll(b => empty.Contains(b.Id));
+    }
+
+    /// <summary>位置や状態を変えず所属を移す。検証に失敗したときは一切変更しない。</summary>
+    public static string? Transfer(TodoProject project, IReadOnlyList<Guid> nodeIds, Guid? targetId)
+    {
+        if (targetId is { } target && Find(project, target) is null) return "追加先のブロックがありません。";
+        if (nodeIds.Any(id => !project.Nodes.Any(n => n.Id == id))) return "ステップが見つかりません。";
+        var candidate = project.DeepClone();
+        foreach (var block in candidate.Blocks) block.NodeIds.RemoveAll(nodeIds.Contains);
+        if (targetId is { } destination) Find(candidate, destination)!.NodeIds.AddRange(nodeIds.Distinct());
+        RemoveEmpty(candidate);
+        if (BlockConnections.Validate(candidate) is { } error) return error;
+        foreach (var block in project.Blocks) block.NodeIds.RemoveAll(nodeIds.Contains);
+        if (targetId is { } dest) Find(project, dest)!.NodeIds.AddRange(nodeIds.Distinct());
+        RemoveEmpty(project);
         return null;
     }
 

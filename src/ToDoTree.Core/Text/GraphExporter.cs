@@ -38,7 +38,7 @@ public static class GraphExporter
             builder.Append("    ").Append(ids[node.Id]).Append(open).Append(Escape(node.Title)).AppendLine(close);
         }
 
-        foreach (var edge in project.Edges)
+        foreach (var edge in graph.Edges)
         {
             if (!ids.TryGetValue(edge.FromId, out var from) || !ids.TryGetValue(edge.ToId, out var to))
             {

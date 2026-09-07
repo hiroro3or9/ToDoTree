@@ -8,13 +8,15 @@ public static class BranchTemplate
     public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name)
     {
         var ids = selection.ToHashSet();
+        var endpoints = ids.Concat(source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => b.Id)).ToHashSet();
         var fragment = new TodoProject
         {
             Name = name.Trim(),
             Nodes = [.. source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone())],
-            Edges = [.. source.Edges.Where(e => ids.Contains(e.FromId) && ids.Contains(e.ToId)).Select(e => e.Clone())],
+            Edges = [.. source.Edges.Where(e => endpoints.Contains(e.FromId) && endpoints.Contains(e.ToId)).Select(e => e.Clone())],
             Blocks = [.. source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => new TodoBlock
             {
+                Id = b.Id,
                 Title = b.Title,
                 NodeIds = [.. b.NodeIds.Where(ids.Contains)],
             })],
@@ -29,7 +31,7 @@ public static class BranchTemplate
         if (!double.IsFinite(x) || !double.IsFinite(y)) throw new ArgumentException("配置位置が不正です。");
         var copy = template.DeepClone();
         copy.Id = Guid.NewGuid();
-        var map = copy.Nodes.ToDictionary(n => n.Id, _ => Guid.NewGuid());
+        var map = copy.Nodes.Select(n => n.Id).Concat(copy.Blocks.Select(b => b.Id)).ToDictionary(id => id, _ => Guid.NewGuid());
         var dx = x - copy.Nodes.Min(n => n.X);
         var dy = y - copy.Nodes.Min(n => n.Y);
         var now = DateTimeOffset.Now;
@@ -50,7 +52,8 @@ public static class BranchTemplate
         }
         foreach (var block in copy.Blocks)
         {
-            block.Id = Guid.NewGuid();
+            block.Id = map[block.Id];
+            block.IsCollapsed = false;
             block.NodeIds = [.. block.NodeIds.Select(id => map[id])];
         }
         Validate(copy);
@@ -69,6 +72,7 @@ public static class BranchTemplate
         var ids = template.Nodes.Select(n => n.Id).ToHashSet();
         if (ids.Count != template.Nodes.Count || template.Nodes.Any(n => !double.IsFinite(n.X) || !double.IsFinite(n.Y)))
             throw new InvalidDataException("ステップのIDまたは座標が不正です。");
+        ids.UnionWith(template.Blocks.Select(b => b.Id));
         if (template.Edges.Any(e => !ids.Contains(e.FromId) || !ids.Contains(e.ToId)
             || e.Waypoints.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y)))
             || template.Edges.Select(e => e.Id).Distinct().Count() != template.Edges.Count

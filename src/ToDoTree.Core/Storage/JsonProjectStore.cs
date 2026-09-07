@@ -59,7 +59,7 @@ public sealed class JsonProjectStore : IProjectStore
 
         // 新しい形式は、壊れた所属情報を黙って捨てずに読み込みごと止める。
         // 途中まで読めた状態で保存してしまうと、元ファイルのブロックが失われるため。
-        if (BlockService.Validate(project) is { } reason)
+        if (BlockConnections.Validate(project) is { } reason)
         {
             throw new InvalidDataException($"ブロックの情報が壊れています。{reason}");
         }
@@ -76,6 +76,8 @@ public sealed class JsonProjectStore : IProjectStore
     {
         ArgumentNullException.ThrowIfNull(project);
 
+        if (BlockConnections.Validate(project) is { } error) throw new InvalidDataException(error);
+        project.SchemaVersion = TodoProject.CurrentSchemaVersion;
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(directory))
         {

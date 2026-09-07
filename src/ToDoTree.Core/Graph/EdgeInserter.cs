@@ -27,7 +27,7 @@ public static class EdgeInserter
             return null;
         }
 
-        if (graph.OutgoingOf(fromId).FirstOrDefault(e => e.ToId == toId) is not { } edge)
+        if (graph.Project.Edges.FirstOrDefault(e => e.FromId == fromId && e.ToId == toId) is not { } edge)
         {
             return null;
         }

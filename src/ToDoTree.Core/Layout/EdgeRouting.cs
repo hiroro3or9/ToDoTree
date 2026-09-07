@@ -17,7 +17,46 @@ public static class EdgeRouting
         boxes.Add(new Box(from.X, from.Y, from.X + width, from.Y + height));
         boxes.Add(new Box(to.X, to.Y, to.X + width, to.Y + height));
 
+        return RouteAnchors(start, end, c1, c2, boxes, original, waypoints, smoothWaypoints);
+    }
 
+    /// <summary>大きさの異なるブロックとカードを同じ迂回処理で結ぶ。</summary>
+    public static IReadOnlyList<Vec2> RouteRects(BlockBounds from, BlockBounds to,
+        IReadOnlyList<BlockBounds> obstacles, ConnectionSide fromSide = ConnectionSide.Auto,
+        ConnectionSide toSide = ConnectionSide.Auto, IReadOnlyList<Vec2>? waypoints = null,
+        IReadOnlyList<bool>? smoothWaypoints = null)
+    {
+        var dx = (to.X + to.Width / 2) - (from.X + from.Width / 2);
+        var dy = (to.Y + to.Height / 2) - (from.Y + from.Height / 2);
+        var horizontal = Math.Abs(dx) >= Math.Abs(dy);
+        if (fromSide == ConnectionSide.Auto) fromSide = horizontal
+            ? (dx >= 0 ? ConnectionSide.Right : ConnectionSide.Left)
+            : (dy >= 0 ? ConnectionSide.Bottom : ConnectionSide.Top);
+        if (toSide == ConnectionSide.Auto) toSide = horizontal
+            ? (dx >= 0 ? ConnectionSide.Left : ConnectionSide.Right)
+            : (dy >= 0 ? ConnectionSide.Top : ConnectionSide.Bottom);
+        var start = Port(from, fromSide); var end = Port(to, toSide);
+        var (c1, c2) = CurveGeometry.ControlPoints(start, end);
+        c1 = CurveGeometry.SourceControlPoint(start, end, c1, fromSide);
+        c2 = CurveGeometry.SourceControlPoint(end, start, c2, toSide);
+        var original = Enumerable.Range(0, 65).Select(i => CurveGeometry.PointOnCurve(start, c1, c2, end, i / 64d)).ToArray();
+        var boxes = obstacles.Select(p => new Box(p.X - 12, p.Y - 12, p.Right + 12, p.Bottom + 12)).ToList();
+        boxes.Add(new Box(from.X, from.Y, from.Right, from.Bottom));
+        boxes.Add(new Box(to.X, to.Y, to.Right, to.Bottom));
+        return RouteAnchors(start, end, c1, c2, boxes, original, waypoints, smoothWaypoints);
+    }
+
+    public static Vec2 Port(BlockBounds box, ConnectionSide side) => side switch
+    {
+        ConnectionSide.Top => new(box.X + box.Width / 2, box.Y),
+        ConnectionSide.Bottom => new(box.X + box.Width / 2, box.Bottom),
+        ConnectionSide.Left => new(box.X, box.Y + box.Height / 2),
+        _ => new(box.Right, box.Y + box.Height / 2),
+    };
+
+    private static IReadOnlyList<Vec2> RouteAnchors(Vec2 start, Vec2 end, Vec2 c1, Vec2 c2,
+        List<Box> boxes, IReadOnlyList<Vec2> original, IReadOnlyList<Vec2>? waypoints, IReadOnlyList<bool>? smoothWaypoints)
+    {
         var a = start + (c1 - start) * (24 / (c1 - start).Length);
         var b = end + (c2 - end) * (24 / (c2 - end).Length);
         if (waypoints is not { Count: > 0 })

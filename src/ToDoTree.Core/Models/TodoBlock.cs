@@ -18,6 +18,8 @@ public sealed class TodoBlock
 
     public string Title { get; set; } = DefaultTitle;
 
+    public bool IsCollapsed { get; set; }
+
     /// <summary>所属するステップ。並び順は表示に使わない（境界は座標から計算する）。</summary>
     public List<Guid> NodeIds { get => _nodeIds; set => _nodeIds = value ?? []; }
 
