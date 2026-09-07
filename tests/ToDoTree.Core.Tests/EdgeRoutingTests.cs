@@ -11,34 +11,34 @@ public class EdgeRoutingTests
         var from = new Vec2(0, 0);
         var to = new Vec2(500, 100);
         var route = EdgeRouting.Route(from, to, 224, 88, []);
-        var curve = CurveGeometry.BetweenNodes(from, to, 224, 88);
+        var (Start, End, Control1, Control2) = CurveGeometry.BetweenNodes(from, to, 224, 88);
         await Assert.That(route[32]).IsEqualTo(CurveGeometry.PointOnCurve(
-            curve.Start, curve.Control1, curve.Control2, curve.End, 0.5));
+            Start, Control1, Control2, End, 0.5));
     }
 
     [Test]
     public async Task BlockingCard_IsAvoidedInAllDirections()
     {
         foreach (var size in new[] { new Vec2(224, 88), new Vec2(24, 24) })
-        foreach (var target in new[] { new Vec2(800, 0), new Vec2(-800, 0), new Vec2(0, 800), new Vec2(0, -800) })
-        {
-            var obstacle = target * 0.5;
-            var route = EdgeRouting.Route(new Vec2(0, 0), target, size.X, size.Y, [obstacle]);
-            await Assert.That(route.Count < 65).IsTrue();
-            var anchors = CurveGeometry.Anchors(new Vec2(0, 0), target, size.X, size.Y);
-            await Assert.That(route[0]).IsEqualTo(anchors.Start);
-            await Assert.That(route[^1]).IsEqualTo(anchors.End);
-            for (var i = 1; i < route.Count; i++)
-            for (var j = 0; j <= 100; j++)
+            foreach (var target in new[] { new Vec2(800, 0), new Vec2(-800, 0), new Vec2(0, 800), new Vec2(0, -800) })
             {
-                var p = route[i - 1] + (route[i] - route[i - 1]) * (j / 100d);
-                var inside = p.X > obstacle.X - 11 && p.X < obstacle.X + size.X + 11
-                    && p.Y > obstacle.Y - 11 && p.Y < obstacle.Y + size.Y + 11;
-                await Assert.That(inside).IsFalse();
+                var obstacle = target * 0.5;
+                var route = EdgeRouting.Route(new Vec2(0, 0), target, size.X, size.Y, [obstacle]);
+                await Assert.That(route.Count < 65).IsTrue();
+                var (Start, End) = CurveGeometry.Anchors(new Vec2(0, 0), target, size.X, size.Y);
+                await Assert.That(route[0]).IsEqualTo(Start);
+                await Assert.That(route[^1]).IsEqualTo(End);
+                for (var i = 1; i < route.Count; i++)
+                    for (var j = 0; j <= 100; j++)
+                    {
+                        var p = route[i - 1] + (route[i] - route[i - 1]) * (j / 100d);
+                        var inside = p.X > obstacle.X - 11 && p.X < obstacle.X + size.X + 11
+                            && p.Y > obstacle.Y - 11 && p.Y < obstacle.Y + size.Y + 11;
+                        await Assert.That(inside).IsFalse();
+                    }
+                var middle = (route[2] + route[3]) * 0.5;
+                await Assert.That(EdgeRouting.Distance(middle, route) < 0.001).IsTrue();
             }
-            var middle = (route[2] + route[3]) * 0.5;
-            await Assert.That(EdgeRouting.Distance(middle, route) < 0.001).IsTrue();
-        }
     }
 
     [Test]

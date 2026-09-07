@@ -209,7 +209,7 @@ public sealed partial class EdgeLayer : FrameworkElement
         using (var context = geometry.Open())
         {
             context.BeginFigure(ToPoint(route[0]), false, false);
-            context.PolyLineTo(route.Skip(1).Select(ToPoint).ToArray(), true, false);
+            context.PolyLineTo([.. route.Skip(1).Select(ToPoint)], true, false);
         }
         geometry.Freeze();
         return geometry;

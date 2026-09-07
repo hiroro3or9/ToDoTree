@@ -11,12 +11,13 @@ public static class BranchTemplate
         var fragment = new TodoProject
         {
             Name = name.Trim(),
-            Nodes = source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone()).ToList(),
-            Edges = source.Edges.Where(e => ids.Contains(e.FromId) && ids.Contains(e.ToId)).Select(e => e.Clone()).ToList(),
-            Blocks = source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => new TodoBlock
+            Nodes = [.. source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone())],
+            Edges = [.. source.Edges.Where(e => ids.Contains(e.FromId) && ids.Contains(e.ToId)).Select(e => e.Clone())],
+            Blocks = [.. source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => new TodoBlock
             {
-                Title = b.Title, NodeIds = b.NodeIds.Where(ids.Contains).ToList(),
-            }).ToList(),
+                Title = b.Title,
+                NodeIds = [.. b.NodeIds.Where(ids.Contains)],
+            })],
         };
         Validate(fragment);
         return Instantiate(fragment, 0, 0);
@@ -45,12 +46,12 @@ public static class BranchTemplate
         {
             edge.Id = Guid.NewGuid();
             edge.FromId = map[edge.FromId]; edge.ToId = map[edge.ToId];
-            edge.Waypoints = edge.Waypoints.Select(p => new JunctionPoint(p.X + dx, p.Y + dy, p.IsSmooth)).ToList();
+            edge.Waypoints = [.. edge.Waypoints.Select(p => new JunctionPoint(p.X + dx, p.Y + dy, p.IsSmooth))];
         }
         foreach (var block in copy.Blocks)
         {
             block.Id = Guid.NewGuid();
-            block.NodeIds = block.NodeIds.Select(id => map[id]).ToList();
+            block.NodeIds = [.. block.NodeIds.Select(id => map[id])];
         }
         Validate(copy);
         return copy;

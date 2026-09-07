@@ -48,14 +48,13 @@ public sealed class JsonProjectStore : IProjectStore
         // 次の保存で新しい形式として書き出され、そこから先は古い版に上書きされなくなる。
         if (project.SchemaVersion < TodoProject.CurrentSchemaVersion)
         {
-            if (project.Blocks.Count > 0)
+            if (project.SchemaVersion < 2 && project.Blocks.Count > 0)
             {
                 throw new InvalidDataException(
                     $"schemaVersion={project.SchemaVersion} のファイルにブロックが入っています。読み込みを中止しました。");
             }
 
             project.SchemaVersion = TodoProject.CurrentSchemaVersion;
-            return project;
         }
 
         // 新しい形式は、壊れた所属情報を黙って捨てずに読み込みごと止める。
@@ -63,6 +62,11 @@ public sealed class JsonProjectStore : IProjectStore
         if (BlockService.Validate(project) is { } reason)
         {
             throw new InvalidDataException($"ブロックの情報が壊れています。{reason}");
+        }
+
+        if (project.Bookmark is { } bookmark && !project.Nodes.Any(n => n.Id == bookmark.NodeId))
+        {
+            throw new InvalidDataException("作業のしおりが存在しないステップを指しています。");
         }
 
         return project;

@@ -715,6 +715,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <!-- 見出しにはステップの名前が入る。「_」を下線扱いされると消えてしまう。 -->
                             <ContentPresenter Grid.Column="0" ContentSource="Header"
@@ -722,9 +723,31 @@
                             <TextBlock Grid.Column="1" Text="{TemplateBinding InputGestureText}"
                                        Margin="20,0,0,0" VerticalAlignment="Center" FontSize="10.5"
                                        Foreground="{DynamicResource Brush.TextFaint}" />
+                            <Path x:Name="SubmenuArrow" Grid.Column="2" Visibility="Collapsed"
+                                  Data="M 0,0 L 4,4 L 0,8" Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="1.5" Margin="14,0,0,0" VerticalAlignment="Center" />
+                            <!-- 子項目は別のポップアップで表示し、標準のマウス・キー操作に追従する。 -->
+                            <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False"
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Right" PlacementTarget="{Binding ElementName=Bd}"
+                                   HorizontalOffset="-5" VerticalOffset="-5">
+                                <Border Background="{DynamicResource Brush.Surface}"
+                                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                        CornerRadius="11" Padding="5" MinWidth="204">
+                                    <ScrollViewer CanContentScroll="True"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                        KeyboardNavigation.TabNavigation="Cycle" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="HasItems" Value="True">
+                            <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" />
+                        </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                         </Trigger>

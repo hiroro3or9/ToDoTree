@@ -1,8 +1,8 @@
+using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using Microsoft.Win32;
 using ToDoTree.App.Services;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
@@ -84,6 +84,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeView();
         InitializePlanning();
         InitializeBlocks();
+        InitializeBookmark();
         LoadProject(project, filePath);
         IsDirty = isDirty;
     }

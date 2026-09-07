@@ -452,10 +452,7 @@ public sealed partial class MainViewModel
 
         EndBlockRename(commit: true);
 
-        if (_selectedBlock is not null)
-        {
-            _selectedBlock.IsSelected = false;
-        }
+        _selectedBlock?.IsSelected = false;
 
         _selectedBlock = block;
 
@@ -498,7 +495,7 @@ public sealed partial class MainViewModel
     {
         var members = _selectedBlock is { } selected
             ? selected.Model.NodeIds.ToHashSet()
-            : new HashSet<Guid>();
+            : [];
 
         foreach (var node in Nodes)
         {

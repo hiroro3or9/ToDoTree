@@ -80,9 +80,9 @@ public class BranchTemplateTests
             await Assert.That(loaded.All(t => t.Edges.Count == 2)).IsTrue();
             File.WriteAllText(Path.Combine(directory, "broken.template.json"), "{ broken");
             File.WriteAllText(Path.Combine(directory, "null.template.json"), "{\"name\":\"bad\",\"nodes\":[null]}");
-            var result = store.LoadAll();
-            await Assert.That(result.Templates.Count).IsEqualTo(2);
-            await Assert.That(result.Errors.Count).IsEqualTo(2);
+            var (Templates, Errors) = store.LoadAll();
+            await Assert.That(Templates.Count).IsEqualTo(2);
+            await Assert.That(Errors.Count).IsEqualTo(2);
         }
         finally
         {

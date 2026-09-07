@@ -22,8 +22,8 @@ public sealed class EdgeViewModel(TodoEdge model, NodeViewModel from, NodeViewMo
         var style = (NodeViewModel.CardWidth, NodeViewModel.CardHeight, Model.FromSide, Model.ToSide);
         if (_route is null || _routeInputs is null || !_routeInputs.SequenceEqual(inputs) || _routeStyle != style || _waypointInputs is null || !_waypointInputs.SequenceEqual(waypoints))
         {
-            _route = EdgeRouting.Route(from, to, style.Item1, style.Item2, obstacles, Model.FromSide, Model.ToSide,
-                waypoints.Select(p => p.ToVector()).ToArray(), waypoints.Select(p => p.IsSmooth).ToArray());
+            _route = EdgeRouting.Route(from, to, style.CardWidth, style.CardHeight, obstacles, Model.FromSide, Model.ToSide,
+                [.. waypoints.Select(p => p.ToVector())], [.. waypoints.Select(p => p.IsSmooth)]);
             _waypointInputs = waypoints;
             _routeInputs = inputs;
             _routeStyle = style;

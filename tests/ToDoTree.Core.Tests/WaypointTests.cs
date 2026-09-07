@@ -28,11 +28,11 @@ public class WaypointTests
         var route = EdgeRouting.Route(new(0, 0), new(1000, 0), 224, 88, [new(400, 0)], waypoints: [waypoint]);
         await Assert.That(route.Contains(waypoint)).IsTrue();
         for (var i = 1; i < route.Count; i++)
-        for (var j = 0; j <= 100; j++)
-        {
-            var p = route[i - 1] + (route[i] - route[i - 1]) * (j / 100d);
-            await Assert.That(p.X > 389 && p.X < 635 && p.Y > -11 && p.Y < 99).IsFalse();
-        }
+            for (var j = 0; j <= 100; j++)
+            {
+                var p = route[i - 1] + (route[i] - route[i - 1]) * (j / 100d);
+                await Assert.That(p.X > 389 && p.X < 635 && p.Y > -11 && p.Y < 99).IsFalse();
+            }
     }
 
     [Test]
