@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>保存単位。ノードと辺の入れ物。</summary>
 public sealed class TodoProject

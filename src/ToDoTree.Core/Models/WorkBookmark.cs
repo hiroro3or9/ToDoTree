@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>プロジェクトにつき1つの、作業を再開する場所。</summary>
 public sealed class WorkBookmark

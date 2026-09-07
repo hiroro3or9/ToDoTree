@@ -1,4 +1,4 @@
-namespace ToDoTree.App.ViewModels;
+﻿namespace ToDoTree.App.ViewModels;
 
 /// <summary>「次にやること」の 1 行。</summary>
 public sealed class NextActionViewModel(int rank, NodeViewModel node, string reason)

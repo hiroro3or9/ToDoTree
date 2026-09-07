@@ -1,4 +1,4 @@
-<!--
+﻿<!--
     標準コントロールの見た目をすべて作り直す。色は Palette.*.xaml のキーを DynamicResource で引く。
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

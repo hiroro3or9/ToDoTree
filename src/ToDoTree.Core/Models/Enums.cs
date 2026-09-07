@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>ノードの種別。</summary>
 public enum NodeKind

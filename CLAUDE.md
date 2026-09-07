@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 ToDoTree（C# / WPF の Todo 管理アプリ）で作業するときの約束ごと。
 

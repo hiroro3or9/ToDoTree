@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Layout;
+﻿namespace ToDoTree.Core.Layout;
 
 /// <summary>ステップを画面にどう出すか。</summary>
 public enum NodeStyle

@@ -1,4 +1,4 @@
-<!--
+﻿<!--
     日付選択（DatePicker とカレンダー）の見た目。
     CalendarDayButton / CalendarButton は状態をプロパティではなく VisualState で持つので、
     重ねた枠の Opacity を切り替えて表現している。

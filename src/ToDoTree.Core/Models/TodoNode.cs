@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>ゴールまでの 1 ステップ。</summary>
 public sealed class TodoNode

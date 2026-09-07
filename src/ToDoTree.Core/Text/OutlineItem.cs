@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Text;
+﻿namespace ToDoTree.Core.Text;
 
 /// <summary>貼り付けられたアウトラインの 1 行。</summary>
 public sealed record OutlineItem(

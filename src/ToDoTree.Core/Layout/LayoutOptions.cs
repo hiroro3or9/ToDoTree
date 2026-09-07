@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Layout;
+﻿namespace ToDoTree.Core.Layout;
 
 public enum LayoutDirection
 {

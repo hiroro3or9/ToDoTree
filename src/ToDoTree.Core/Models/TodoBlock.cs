@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>
 /// 複数のステップを名前付きの囲みとしてまとめたもの。整理と移動の単位であって、タスクではない。

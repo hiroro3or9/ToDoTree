@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Graph;
+﻿namespace ToDoTree.Core.Graph;
 
 /// <summary>状態を書き換えずに、単独／一括完了による新しい着手先を調べる。</summary>
 public sealed record CompletionImpact(IReadOnlySet<Guid> Sources, IReadOnlySet<Guid> Unlocked)

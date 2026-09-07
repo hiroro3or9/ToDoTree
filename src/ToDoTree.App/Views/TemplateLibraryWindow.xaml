@@ -1,4 +1,4 @@
-<Window x:Class="ToDoTree.App.Views.TemplateLibraryWindow"
+﻿<Window x:Class="ToDoTree.App.Views.TemplateLibraryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="部品ライブラリ" Width="740" Height="580" MinWidth="600" MinHeight="440"
