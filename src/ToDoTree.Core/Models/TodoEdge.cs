@@ -9,6 +9,12 @@ public sealed class TodoEdge
     public Guid FromId { get; set; }
     public Guid ToId { get; set; }
     public string? Label { get; set; }
+
+    /// <summary>
+    /// 線の色。null は既定色。<see cref="ColorPresets"/> の id を入れる。
+    /// 選択・最長経路・強調のときは状態色が優先されるので、普段の見え方だけを変える。
+    /// </summary>
+    public string? ColorId { get; set; }
     public ConnectionSide FromSide { get; set; }
     public ConnectionSide ToSide { get; set; }
 

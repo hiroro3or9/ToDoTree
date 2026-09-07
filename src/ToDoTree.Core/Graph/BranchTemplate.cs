@@ -18,6 +18,7 @@ public static class BranchTemplate
             {
                 Id = b.Id,
                 Title = b.Title,
+                ColorId = b.ColorId,
                 NodeIds = [.. b.NodeIds.Where(ids.Contains)],
             })],
         };

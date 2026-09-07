@@ -454,6 +454,8 @@ public sealed partial class MainViewModel
             block.RefreshBrushes();
         }
 
+        RefreshColorChoices();
+
         // 位置固定の切り替えなどでも「中を整列」の可否は変わる。
         NotifyBlockCommandStates();
 

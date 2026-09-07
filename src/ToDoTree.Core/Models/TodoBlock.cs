@@ -20,6 +20,13 @@ public sealed class TodoBlock
 
     public bool IsCollapsed { get; set; }
 
+    /// <summary>
+    /// 囲みの色。null は既定色。
+    /// 値は <see cref="ColorPresets"/> の id で、色そのものは App 側のパレットにある。
+    /// 見分けのための飾りであって、依存関係にも進捗にも関わらない。
+    /// </summary>
+    public string? ColorId { get; set; }
+
     /// <summary>所属するステップ。並び順は表示に使わない（境界は座標から計算する）。</summary>
     public List<Guid> NodeIds { get => _nodeIds; set => _nodeIds = value ?? []; }
 
