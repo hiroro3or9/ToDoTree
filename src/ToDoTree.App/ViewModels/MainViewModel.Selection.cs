@@ -34,11 +34,11 @@ public sealed partial class MainViewModel
     public bool IsConnecting => _connectSourceId is not null;
 
     public NodeViewModel? ConnectSource =>
-        _connectSourceId is { } id && _byId.TryGetValue(id, out var vm) ? vm : null;
+        _connectSourceId is { } id ? EndpointNode(id) : null;
 
     private void InitializeSelection()
     {
-        StartConnectCommand = new RelayCommand(StartKeyboardConnect, () => SelectedNode is not null);
+        StartConnectCommand = new RelayCommand(StartKeyboardConnect, () => SelectedNode is not null || HasSelectedBlock);
         SelectBranchCommand = new RelayCommand(SelectBranch, () => SelectedNode is not null);
     }
 
@@ -86,7 +86,7 @@ public sealed partial class MainViewModel
 
     public void SelectAllNodes()
     {
-        SelectNodes(Nodes, SelectedNode);
+        SelectNodes(Nodes.Where(n => n.IsVisible));
         StatusMessage = $"{_selection.Count} 件すべてを選びました。";
     }
 
@@ -216,7 +216,7 @@ public sealed partial class MainViewModel
 
         foreach (var edge in Edges)
         {
-            if (!edge.From.IsVisible || !edge.To.IsVisible) continue;
+            if (!edge.IsVisible) continue;
             var distance = EdgeRouting.Distance(point, edge.GetRoute(Nodes));
             if (distance <= bestDistance)
             {
@@ -248,10 +248,7 @@ public sealed partial class MainViewModel
 
     public void StartKeyboardConnect()
     {
-        if (SelectedNode is not { } node)
-        {
-            return;
-        }
+        if ((SelectedNode ?? SelectedBlock?.ConnectionNode) is not { } node) return;
 
         _connectSourceId = node.Id;
         OnPropertyChanged(nameof(IsConnecting));
@@ -269,7 +266,7 @@ public sealed partial class MainViewModel
         _connectSourceId = null;
         OnPropertyChanged(nameof(IsConnecting));
 
-        if (SelectedNode is { } target)
+        if ((SelectedNode ?? SelectedBlock?.ConnectionNode) is { } target)
         {
             TryConnect(from, target.Id);
         }

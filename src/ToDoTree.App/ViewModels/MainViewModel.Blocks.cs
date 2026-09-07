@@ -83,6 +83,8 @@ public sealed partial class MainViewModel
             return "編集を終えてから整列できます。";
         }
 
+        if (block.IsCollapsed) return "ブロックを開くと中を整列できます。";
+
         if (block.TotalCount < BlockService.MinimumSize)
         {
             return $"{BlockService.MinimumSize} 件以上のステップが必要です。";
@@ -228,7 +230,7 @@ public sealed partial class MainViewModel
     /// 確定前のブロック操作が動いている（移動中・命名中）。
     /// このあいだは自動保存を見送る。中途半端な座標や名前をファイルに残さないため。
     /// </summary>
-    public bool IsBlockEditing => _draggingBlock is not null || _renamingBlock is not null;
+    public bool IsBlockEditing => _draggingBlock is not null || _renamingBlock is not null || _nodeDragActive;
 
     public bool HasBlocks => Blocks.Count > 0;
 
@@ -304,6 +306,7 @@ public sealed partial class MainViewModel
         // 消えたステップを指したままの所属や、0 件になった囲みをここで落としておく。
         // 画面に出す前に必ず通るので、壊れた所属が表示や保存へ抜けていかない。
         BlockService.Prune(_project);
+        _graph.Rebuild();
 
         var keepSelected = _selectedBlock?.Id;
 
@@ -335,6 +338,7 @@ public sealed partial class MainViewModel
 
         UpdateBlockHighlights();
         RefreshBlockBounds();
+        RebuildEdges();
 
         OnPropertyChanged(nameof(HasBlocks));
         OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
@@ -394,13 +398,16 @@ public sealed partial class MainViewModel
                 }
 
                 total++;
-                if (node.IsVisible)
+                if (node.IsVisible || (block.IsCollapsed && _baseVisible.Contains(node.Id)))
                 {
                     rects.Add(new NodeRect(node.Id, node.X, node.Y, width, height));
                 }
             }
 
-            block.Update(BlockGeometry.Compute(rects), rects.Count, total);
+            var bounds = BlockGeometry.Compute(rects);
+            if (block.IsCollapsed && bounds is { } expanded)
+                bounds = new BlockBounds(expanded.X, expanded.Y, 340, 48);
+            block.Update(bounds, rects.Count, total);
         }
 
         // 全部隠れた囲みを選んだままにはしない。
@@ -463,7 +470,7 @@ public sealed partial class MainViewModel
             // ノード・線の選択は落とす（同時に選ばれていると Delete の行き先が曖昧になる）。
             ClearEdgeSelection();
             _selection.Clear();
-            _connectSourceId = null;
+
 
             foreach (var node in Nodes)
             {
@@ -526,7 +533,8 @@ public sealed partial class MainViewModel
             return;
         }
 
-        var targets = NodesOf(block.Model.NodeIds);
+        if (block.IsCollapsed) ToggleBlockCollapse(block);
+        var targets = NodesOf(block.Model.NodeIds).Where(n => n.IsVisible).ToList();
         if (targets.Count == 0)
         {
             return;
@@ -596,6 +604,8 @@ public sealed partial class MainViewModel
 
         BeginTransaction();
         BlockService.Dissolve(_project, block.Id);
+        _graph.Rebuild();
+        RebuildEdges();
         _selectedBlock = null;
         RebuildBlocks();
 
@@ -907,6 +917,7 @@ public sealed partial class MainViewModel
         }
 
         EndBlockRename(commit: true);
+        if (_nodeDragActive) FinishNodeDrag([], false, null);
     }
 
     // ---- 操作のトランザクション ----
@@ -1004,7 +1015,8 @@ public sealed partial class MainViewModel
             var before = snapshot.Blocks[i];
             var after = _project.Blocks[i];
 
-            if (before.Id != after.Id
+            if (before.IsCollapsed != after.IsCollapsed
+                || before.Id != after.Id
                 || !string.Equals(before.Title, after.Title, StringComparison.Ordinal)
                 || before.NodeIds.Count != after.NodeIds.Count
                 || !before.NodeIds.SequenceEqual(after.NodeIds))

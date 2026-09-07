@@ -117,7 +117,7 @@ public sealed partial class EdgeLayer : FrameworkElement
         {
             foreach (var item in Edges)
             {
-                if (item is EdgeViewModel edge && edge.From.IsVisible && edge.To.IsVisible)
+                if (item is EdgeViewModel edge && edge.IsVisible)
                 {
                     DrawEdge(drawingContext, edge);
                 }
@@ -191,10 +191,16 @@ public sealed partial class EdgeLayer : FrameworkElement
             : edge.IsHighlighted ? _highlightArrow
             : edge.IsSettled ? _settledArrow : _normalArrow;
 
+        if (edge.IsAggregated)
+        {
+            pen = pen.Clone();
+            pen.DashStyle = DashStyles.Dash;
+            pen.Freeze();
+        }
         var tip = ToPoint(route[^1]);
         drawingContext.DrawGeometry(null, pen, BuildRoute(route));
         DrawArrowHead(drawingContext, ToPoint(route[^2]), tip, arrow, _arrowSize, _arrowHalf);
-        for (var i = 0; i < edge.Model.Waypoints.Count; i++)
+        for (var i = 0; !edge.IsAggregated && i < edge.Model.Waypoints.Count; i++)
         {
             var selected = edge.IsSelected && edge.SelectedWaypointIndex == i;
             drawingContext.DrawEllipse(ThemeManager.BrushOf(selected ? "Brush.Accent" : "Brush.Surface"),

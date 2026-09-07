@@ -26,6 +26,29 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     public TodoBlock Model { get; } = model;
 
     public Guid Id => Model.Id;
+    private NodeViewModel? _connectionNode;
+    public NodeViewModel ConnectionNode
+    {
+        get
+        {
+            _connectionNode ??= new NodeViewModel(new ToDoTree.Core.Models.TodoNode { Id = Id }, owner);
+            _connectionNode.Model.Title = Title;
+            _connectionNode.Model.X = X; _connectionNode.Model.Y = Y;
+            _connectionNode.Model.Status = Model.NodeIds.All(id => owner.Graph.Find(id)?.IsSettled == true)
+                ? ToDoTree.Core.Models.NodeStatus.Done : ToDoTree.Core.Models.NodeStatus.NotStarted;
+            return _connectionNode;
+        }
+    }
+    public bool IsCollapsed => Model.IsCollapsed && owner.FocusedBlockId != Id;
+    public string CollapseGlyph => IsCollapsed ? "▶" : "▼";
+    public string ProgressText => $"完了 {Model.NodeIds.Count(id => owner.Graph.Find(id)?.IsSettled == true)}/{Model.NodeIds.Count}";
+    private bool _isDropTarget;
+    public bool IsDropTarget
+    {
+        get => _isDropTarget;
+        set { if (SetProperty(ref _isDropTarget, value)) RefreshBrushes(); }
+    }
+    public void RefreshSummary() => OnPropertyChanged(nameof(IsCollapsed), nameof(CollapseGlyph), nameof(ProgressText), nameof(CountText));
 
     /// <summary>見出しの名前。書き換えは <see cref="MainViewModel"/> の操作単位に乗せる。</summary>
     public string Title
@@ -92,7 +115,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     }
 
     /// <summary>見出しに添える件数。隠れているものがあるときは、その旨も出す。</summary>
-    public string CountText => VisibleCount == TotalCount
+    public string CountText => IsCollapsed ? ProgressText : VisibleCount == TotalCount
         ? $"{TotalCount} 件"
         : $"表示 {VisibleCount} / 全 {TotalCount} 件";
 
@@ -144,11 +167,11 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     /// <summary>選んでいる囲みだけ、ブロック層の中で手前に出す。</summary>
     public int ZIndex => IsEditing ? 30 : IsSelected ? 20 : 10;
 
-    public Brush BodyFill => ThemeManager.BrushOf(IsSelected ? "Block.Selected.Fill" : "Block.Fill");
+    public Brush BodyFill => ThemeManager.BrushOf((IsSelected || IsDropTarget) ? "Block.Selected.Fill" : "Block.Fill");
 
-    public Brush BorderBrush => ThemeManager.BrushOf(IsSelected ? "Block.Selected.Stroke" : "Block.Stroke");
+    public Brush BorderBrush => ThemeManager.BrushOf((IsSelected || IsDropTarget) ? "Block.Selected.Stroke" : "Block.Stroke");
 
-    public Thickness BorderThickness => new(IsSelected ? 2 : 1.2);
+    public Thickness BorderThickness => new((IsSelected || IsDropTarget) ? 2 : 1.2);
 
     public Brush HeaderFill => ThemeManager.BrushOf(IsSelected ? "Block.Header.Selected.Fill" : "Block.Header.Fill");
 
@@ -169,6 +192,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     /// <summary>境界と件数を計算し直す。ドラッグ中もここだけを更新する。</summary>
     public void Update(BlockBounds? bounds, int visibleCount, int totalCount)
     {
+        RefreshSummary();
         TotalCount = totalCount;
         VisibleCount = visibleCount;
         CanMove = visibleCount == totalCount && totalCount > 0;

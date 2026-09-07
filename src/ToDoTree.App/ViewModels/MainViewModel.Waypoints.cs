@@ -26,7 +26,7 @@ public sealed partial class MainViewModel
     public int SelectedWaypointIndex { get; private set; } = -1;
     private ICommand? _addWaypointCommand, _removeWaypointCommand, _clearWaypointsCommand;
     public ICommand AddWaypointCommand => _addWaypointCommand ??= new RelayCommand(
-        () => AddWaypoint(new Vec2(_menuX, _menuY)), () => HasSelectedEdge);
+        () => AddWaypoint(new Vec2(_menuX, _menuY)), () => SelectedEdge is { IsAggregated: false });
     public ICommand RemoveWaypointCommand => _removeWaypointCommand ??= new RelayCommand(
         RemoveWaypoint, () => SelectedEdge is { } edge && SelectedWaypointIndex >= 0 && SelectedWaypointIndex < edge.Model.Waypoints.Count);
     public ICommand ClearWaypointsCommand => _clearWaypointsCommand ??= new RelayCommand(() =>
@@ -44,7 +44,7 @@ public sealed partial class MainViewModel
     {
         foreach (var edge in Edges.OrderByDescending(e => e.IsSelected))
         {
-            if (!edge.From.IsVisible || !edge.To.IsVisible) continue;
+            if (!edge.IsVisible || edge.IsAggregated) continue;
             for (var i = 0; i < edge.Model.Waypoints.Count; i++)
                 if ((edge.Model.Waypoints[i].ToVector() - point).Length <= tolerance) return (edge, i);
         }
@@ -63,7 +63,7 @@ public sealed partial class MainViewModel
 
     public void AddWaypoint(Vec2 point)
     {
-        if (SelectedEdge is not { } edge) return;
+        if (SelectedEdge is not { IsAggregated: false } edge) return;
         if (edge.Model.Waypoints.Any(p => (p.ToVector() - point).Length < 1)) return;
         var route = edge.GetRoute(Nodes);
         // クリックに最も近い線分を探し、既存通過点の順序を保って挿入する。

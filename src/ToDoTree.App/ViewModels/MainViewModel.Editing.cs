@@ -350,7 +350,7 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>ドラッグ開始時に 1 回だけ履歴を取る。</summary>
-    public void BeginNodeDrag() => PushUndo();
+
 
     public void RequestRenameFocus() => BeginEdit(SelectedNode);
 
@@ -442,6 +442,7 @@ public sealed partial class MainViewModel
 
     public void RefreshAll()
     {
+        _graph.Rebuild();
         RefreshBookmark();
         foreach (var node in Nodes)
         {
@@ -468,11 +469,11 @@ public sealed partial class MainViewModel
     private void RebuildEdges()
     {
         Edges.Clear();
-        foreach (var edge in _graph.Edges)
+        foreach (var edge in _project.Edges)
         {
-            if (_byId.TryGetValue(edge.FromId, out var from) && _byId.TryGetValue(edge.ToId, out var to))
+            if (EndpointNode(edge.FromId) is { } from && EndpointNode(edge.ToId) is { } to)
             {
-                Edges.Add(new EdgeViewModel(edge, from, to));
+                Edges.Add(new EdgeViewModel(edge, from, to, this));
             }
         }
 

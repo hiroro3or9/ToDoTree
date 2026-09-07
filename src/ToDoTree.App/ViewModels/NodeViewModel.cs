@@ -230,7 +230,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     public Readiness Readiness => owner.Graph.ReadinessOf(Model);
 
-    public string StatusLabel => Labels.Of(Readiness);
+    public string StatusLabel => Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
 
     public string KindLabel => Labels.Of(Kind);
 

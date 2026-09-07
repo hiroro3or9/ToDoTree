@@ -41,8 +41,9 @@ public sealed partial class MainViewModel
             var node = new NodeViewModel(model, this);
             Nodes.Add(node); _byId.Add(node.Id, node);
         }
-        RebuildEdges(); RebuildBlocks();
+        RebuildBlocks(); RebuildEdges();
         // 独立した部品が既存のフォーカス範囲外に隠れないようにする。
+        if (_focusedBlockId is not null) ToggleFocus();
         _focusId = null;
         SelectNodes(instance.Nodes.Select(n => _byId[n.Id]));
         MarkDirty(); RefreshAll();

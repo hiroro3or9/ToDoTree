@@ -106,6 +106,9 @@ public partial class GraphView : UserControl
             // 予期しないキャプチャ喪失は「移動をやめた」扱いにする。
             // 確定に伴う通常の解放では、この時点ですでに印を落としてある。
             CancelBlockDragIfActive();
+            _viewModel?.CancelNodeDrag();
+            ClearMembershipPreview();
+            _dragGroup.Clear();
         };
     }
 
@@ -148,6 +151,7 @@ public partial class GraphView : UserControl
             _viewModel.EndBlockRename(commit: true);
 
             CaptureViewport(_viewModel);
+            _viewModel.BlockFocusChanged -= OnBlockFocusChanged;
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.TemplateLibraryRequested -= OpenTemplateLibrary;
             _viewModel.CompletionRequested -= OnCompletionRequested;
@@ -163,6 +167,7 @@ public partial class GraphView : UserControl
 
         if (_viewModel is not null)
         {
+            _viewModel.BlockFocusChanged += OnBlockFocusChanged;
             _viewModel.VisualsChanged += OnVisualsChanged;
             _viewModel.TemplateLibraryRequested += OpenTemplateLibrary;
             _viewModel.CompletionRequested += OnCompletionRequested;
@@ -462,6 +467,15 @@ public partial class GraphView : UserControl
         if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
         {
             _viewModel.SelectBlock(block);
+            if (FindAncestor<System.Windows.Controls.Button>(e.OriginalSource as DependencyObject) is { Tag: "block-collapse" })
+            {
+                _viewModel.ToggleBlockCollapse(block); e.Handled = true; return;
+            }
+            if (e.OriginalSource is FrameworkElement { Tag: string port } && port.StartsWith("connector", StringComparison.Ordinal))
+            {
+                StartBlockConnection(block, SideOf(e.OriginalSource as DependencyObject), world);
+                e.Handled = true; return;
+            }
 
             if (e.ClickCount >= 2)
             {
@@ -521,13 +535,15 @@ public partial class GraphView : UserControl
     {
         IsConnectionDragging = false;
         _dragGroup.Clear();
+        _nodeDragOrigin = world;
+        _membershipTargets = [.. _viewModel!.Blocks.Where(b => b.IsVisible).Select(b => (b.Id, b.Bounds))];
         _dragUndoPushed = false;
 
         var targets = _viewModel is { } vm && vm.SelectionCount > 1 && vm.IsSelected(node)
             ? vm.SelectedNodes
             : [node];
 
-        foreach (var target in targets)
+        foreach (var target in targets.Where(n => n.IsVisible))
         {
             _dragGroup.Add((target, new Vector(target.X - world.X, target.Y - world.Y)));
         }
@@ -605,6 +621,7 @@ public partial class GraphView : UserControl
 
     private void OnSnapModifierKey(object sender, KeyEventArgs e)
     {
+        if (_dragGroup.Count > 0 && _dragUndoPushed) UpdateMembershipPreview(Mouse.GetPosition(Surface));
         if (_blockPress is null) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         if (key is Key.LeftAlt or Key.RightAlt)
@@ -675,10 +692,10 @@ public partial class GraphView : UserControl
 
         if (_dragGroup.Count > 0 && e.LeftButton == MouseButtonState.Pressed)
         {
+            if (!_movedSincePress) return;
             if (!_dragUndoPushed && _movedSincePress)
             {
                 _viewModel?.BeginNodeDrag();
-                _viewModel?.MarkDirty();
                 _dragUndoPushed = true;
             }
 
@@ -688,7 +705,8 @@ public partial class GraphView : UserControl
                 node.X = world.X + offset.X;
                 node.Y = world.Y + offset.Y;
             }
-
+            _viewModel?.UpdateNodeDragWaypoints(_dragGroup.Select(t => t.Node.Id).ToHashSet(), world.X - _nodeDragOrigin.X, world.Y - _nodeDragOrigin.Y);
+            UpdateMembershipPreview(world);
             return;
         }
 
@@ -741,7 +759,7 @@ public partial class GraphView : UserControl
         if (_connectSource is not null)
         {
             var hit = HitTestAt(e.GetPosition(Viewport));
-            var target = FindNodeElement(hit)?.DataContext as NodeViewModel;
+            var target = ConnectionTarget(hit, e.GetPosition(Surface));
 
             if (target is not null && target.Id != _connectSource.Id)
             {
@@ -749,7 +767,7 @@ public partial class GraphView : UserControl
             }
             else if (target is null)
             {
-                _viewModel.StatusMessage = "繋ぎたいステップの上で離してください。";
+                _viewModel.StatusMessage = "繋ぎたいステップまたはブロックの上で離してください。";
             }
 
             _connectSource = null;
@@ -763,7 +781,7 @@ public partial class GraphView : UserControl
             _marqueeStart = null;
 
             var caught = _viewModel.Nodes
-                .Where(n => rect.IntersectsWith(new Rect(n.X, n.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight)))
+                .Where(n => n.IsVisible && rect.IntersectsWith(new Rect(n.X, n.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight)))
                 .ToList();
 
             if (caught.Count > 0)
@@ -781,6 +799,11 @@ public partial class GraphView : UserControl
             _viewModel.SelectOnly(null);
         }
 
+        if (_dragGroup.Count > 0 && _dragUndoPushed)
+        {
+            _viewModel.FinishNodeDrag([.. _dragGroup.Select(t => t.Node.Id)],
+                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift), MembershipTarget(e.GetPosition(Surface)));
+        }
         EndInteraction();
     }
 
@@ -811,6 +834,10 @@ public partial class GraphView : UserControl
 
     private void EndInteraction()
     {
+        _viewModel?.CancelNodeDrag();
+        ClearMembershipPreview();
+        _connectSource = null;
+        EdgeRenderer.SetPreview(null, null);
         CancelBlockDragIfActive();
         _draggingWaypoint = false;
         IsConnectionDragging = false;
@@ -847,23 +874,17 @@ public partial class GraphView : UserControl
             return;
         }
 
-        var from = new Point(
-            _connectSource.X + (_connectSide switch { ConnectionSide.Left => 0, ConnectionSide.Right => NodeViewModel.CardWidth, _ => NodeViewModel.CardWidth / 2 }),
-            _connectSource.Y + (_connectSide switch { ConnectionSide.Top => 0, ConnectionSide.Bottom => NodeViewModel.CardHeight, _ => NodeViewModel.CardHeight / 2 }));
-
+        var source = _viewModel!.DisplayEndpoint(_connectSource.Id);
+        var port = EdgeRouting.Port(source.Bounds, _connectSide);
         var hit = HitTestAt(Surface.TranslatePoint(world, Viewport));
-        var target = FindNodeElement(hit)?.DataContext as NodeViewModel;
+        var target = ConnectionTarget(hit, world);
         if (target is not null && target.Id != _connectSource.Id)
         {
-            EdgeRenderer.SetPreviewRoute(EdgeRouting.Route(
-                new Vec2(_connectSource.X, _connectSource.Y), new Vec2(target.X, target.Y),
-                NodeViewModel.CardWidth, NodeViewModel.CardHeight,
-                [.. _viewModel!.Nodes.Where(n => n.IsVisible && n.Id != _connectSource.Id && n.Id != target.Id).Select(n => new Vec2(n.X, n.Y))], _connectSide, SideOf(hit)));
+            var preview = new EdgeViewModel(new TodoEdge { FromId = _connectSource.Id, ToId = target.Id,
+                FromSide = _connectSide, ToSide = SideOf(hit) }, _connectSource, target, _viewModel);
+            EdgeRenderer.SetPreviewRoute(preview.GetRoute(_viewModel.Nodes));
         }
-        else
-        {
-            EdgeRenderer.SetPreview(from, world, _connectSide);
-        }
+        else EdgeRenderer.SetPreview(new Point(port.X, port.Y), world, _connectSide);
     }
 
     /// <summary>キーボードで接続中は、相手までのガイド線を出す。</summary>
@@ -875,7 +896,7 @@ public partial class GraphView : UserControl
         }
 
         if (_viewModel is { IsConnecting: true, ConnectSource: { } source } &&
-            _viewModel.SelectedNode is { } target &&
+            (_viewModel.SelectedNode ?? _viewModel.SelectedBlock?.ConnectionNode) is { } target &&
             !ReferenceEquals(source, target))
         {
             EdgeRenderer.SetPreview(
@@ -1031,7 +1052,7 @@ public partial class GraphView : UserControl
 
         // ブロックを選んでいるあいだは、ステップの追加・完了・削除を割り当てない。
         // 囲みの解除は Ctrl+Shift+G か右クリックのメニューだけで行う。
-        if (_viewModel.HasSelectedBlock && e.Key is Key.Enter or Key.Space or Key.Delete)
+        if (_viewModel.HasSelectedBlock && !_viewModel.IsConnecting && e.Key is Key.Enter or Key.Space or Key.Delete)
         {
             _viewModel.StatusMessage = e.Key switch
             {
@@ -1102,7 +1123,11 @@ public partial class GraphView : UserControl
                 break;
 
             case Key.Escape:
-                if (_blockDragActive)
+                if (_dragGroup.Count > 0)
+                {
+                    EndInteraction();
+                }
+                else if (_blockDragActive)
                 {
                     CancelBlockDragIfActive();
                 }
@@ -1182,7 +1207,7 @@ public partial class GraphView : UserControl
         var maxX = shown.Max(n => n.X) + NodeViewModel.CardWidth;
         var maxY = shown.Max(n => n.Y) + NodeViewModel.CardHeight;
 
-        foreach (var point in _viewModel.Edges.Where(e => e.From.IsVisible && e.To.IsVisible).SelectMany(e => e.Model.Waypoints))
+        foreach (var point in _viewModel.Edges.Where(e => e.IsVisible).SelectMany(e => e.Model.Waypoints))
         {
             minX = Math.Min(minX, point.X - 8);
             minY = Math.Min(minY, point.Y - 8);
