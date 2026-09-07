@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Graph;
+﻿namespace ToDoTree.Core.Graph;
 
 public sealed class VisibilityOptions
 {

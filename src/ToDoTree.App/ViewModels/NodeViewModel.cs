@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using ToDoTree.App.Services;
 using ToDoTree.Core.Graph;
@@ -31,6 +31,8 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     public Guid Id => Model.Id;
 
+    public bool HasBookmark => owner.Graph.Project.Bookmark?.NodeId == Id;
+
     // ---- ユーザーが編集する値 ----
 
     public string Title
@@ -48,6 +50,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
             Touch();
             OnPropertyChanged();
             owner.RefreshSidebar();
+            owner.RefreshBookmark();
         }
     }
 
@@ -494,6 +497,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     /// <summary>状態やグラフが変わったあと、表示用の値をまとめて更新する。</summary>
     public void RefreshDerived() => OnPropertyChanged(
+        nameof(HasBookmark),
         nameof(Readiness),
         nameof(StatusLabel),
         nameof(KindLabel),

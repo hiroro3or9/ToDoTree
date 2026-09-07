@@ -1,4 +1,4 @@
-using ToDoTree.Core.Models;
+﻿using ToDoTree.Core.Models;
 
 namespace ToDoTree.Core.Graph;
 
@@ -103,6 +103,7 @@ public sealed class TodoGraph
         }
 
         Project.Nodes.Remove(node);
+        if (Project.Bookmark?.NodeId == id) Project.Bookmark = null;
         _nodes.Remove(id);
         _outgoing.Remove(id);
         _incoming.Remove(id);

@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Layout;
+﻿namespace ToDoTree.Core.Layout;
 
 public enum SnapAnchor { Start, Center, End }
 public sealed record SnapTarget(Guid Id, BlockBounds Bounds);

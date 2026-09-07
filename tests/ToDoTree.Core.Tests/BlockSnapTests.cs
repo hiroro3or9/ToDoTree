@@ -1,4 +1,4 @@
-using ToDoTree.Core.Layout;
+﻿using ToDoTree.Core.Layout;
 
 namespace ToDoTree.Core.Tests;
 
@@ -75,7 +75,7 @@ public class BlockSnapTests
     {
         SnapTarget[] targets = [new(Second, new(5, 150, 100, 100)), new(First, new(-5, 150, 100, 100))];
         var a = BlockSnapService.Compute(Start, new(0, 0), targets, new(), 1);
-        var b = BlockSnapService.Compute(Start, new(0, 0), targets.Reverse().ToArray(), new(), 1);
+        var b = BlockSnapService.Compute(Start, new(0, 0), [.. targets.Reverse()], new(), 1);
         await Assert.That(a.State).IsEqualTo(b.State);
         await Assert.That(a.State.X!.TargetId).IsEqualTo(First);
     }

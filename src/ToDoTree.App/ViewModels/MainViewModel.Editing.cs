@@ -1,5 +1,4 @@
-using ToDoTree.App.Services;
-using ToDoTree.Core.Graph;
+﻿using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
 using ToDoTree.Core.Models;
 
@@ -443,6 +442,7 @@ public sealed partial class MainViewModel
 
     public void RefreshAll()
     {
+        RefreshBookmark();
         foreach (var node in Nodes)
         {
             node.RefreshDerived();

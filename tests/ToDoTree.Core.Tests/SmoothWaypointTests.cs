@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using ToDoTree.Core.Layout;
 using ToDoTree.Core.Models;
 using ToDoTree.Core.Storage;
@@ -47,7 +47,7 @@ public class SmoothWaypointTests
         await Assert.That(EdgeRouting.Distance(points[0], smooth)).IsEqualTo(0d);
     }
 
-[Test]
+    [Test]
     public async Task MixedModes_OnlySmoothSelectedPoint()
     {
         Vec2[] points = [new(400, -160), new(650, -80)];
@@ -61,7 +61,7 @@ public class SmoothWaypointTests
         await Assert.That(disabled.SequenceEqual(sharp)).IsTrue();
     }
 
-[Test]
+    [Test]
     public async Task SmoothSetting_RoundTrips_AndDefaultsToSharp()
     {
         var edge = new TodoEdge { Waypoints = [new(450, -160, true), new(700, 44)] };
@@ -75,16 +75,16 @@ public class SmoothWaypointTests
         await Assert.That(snapshot.Waypoints[0].IsSmooth).IsTrue();
     }
 
-[Test]
+    [Test]
     public async Task Smoothing_PreservesObstacleClearance()
     {
         var route = EdgeRouting.Route(new(0, 0), new(1000, 0), 224, 88, [new(400, 0)],
             waypoints: [new(650, -20)], smoothWaypoints: [true]);
         for (var i = 1; i < route.Count; i++)
-        for (var step = 0; step <= 50; step++)
-        {
-            var p = route[i - 1] + (route[i] - route[i - 1]) * (step / 50d);
-            await Assert.That(p.X > 389 && p.X < 635 && p.Y > -11 && p.Y < 99).IsFalse();
-        }
+            for (var step = 0; step <= 50; step++)
+            {
+                var p = route[i - 1] + (route[i] - route[i - 1]) * (step / 50d);
+                await Assert.That(p.X > 389 && p.X < 635 && p.Y > -11 && p.Y < 99).IsFalse();
+            }
     }
 }

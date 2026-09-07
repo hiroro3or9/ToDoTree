@@ -1,4 +1,4 @@
-using ToDoTree.Core.Graph;
+﻿using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;
 using ToDoTree.Core.Models;
 using ToDoTree.Core.Storage;
@@ -296,7 +296,7 @@ public class BlockTests
                 .IsEqualTo(TodoProject.CurrentSchemaVersion).Because("読み込み時に版を上げる");
 
             store.Save(path, loaded);
-            await Assert.That(File.ReadAllText(path).Contains("\"schemaVersion\": 2")).IsTrue().Because("新形式で書き出す");
+            await Assert.That(File.ReadAllText(path).Contains($"\"schemaVersion\": {TodoProject.CurrentSchemaVersion}")).IsTrue().Because("新形式で書き出す");
         }
         finally
         {

@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -94,7 +94,7 @@ public partial class GraphView : UserControl
             SetCompletionHover(null);
             EdgeRenderer.ClearCompletionEffects();
             EndInteraction();
-            if (_ownerWindow is not null) _ownerWindow.Deactivated -= OnWindowDeactivated;
+            _ownerWindow?.Deactivated -= OnWindowDeactivated;
             _ownerWindow = null;
         };
         PreviewKeyDown += OnSnapModifierKey;
@@ -111,9 +111,9 @@ public partial class GraphView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_ownerWindow is not null) _ownerWindow.Deactivated -= OnWindowDeactivated;
+        _ownerWindow?.Deactivated -= OnWindowDeactivated;
         _ownerWindow = Window.GetWindow(this);
-        if (_ownerWindow is not null) _ownerWindow.Deactivated += OnWindowDeactivated;
+        _ownerWindow?.Deactivated += OnWindowDeactivated;
         Viewport.Focus();
         Dispatcher.BeginInvoke(
             new Action(() =>
@@ -124,10 +124,16 @@ public partial class GraphView : UserControl
                 }
                 else
                 {
-                    ZoomToFit();
+                    ShowInitialViewport();
                 }
             }),
             System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void ShowInitialViewport()
+    {
+        ZoomTransform.ScaleX = ZoomTransform.ScaleY = 1;
+        if (_viewModel?.ResumeBookmark() != true) ZoomToFit();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -182,7 +188,7 @@ public partial class GraphView : UserControl
                         }
                         else
                         {
-                            ZoomToFit();
+                            ShowInitialViewport();
                         }
                     }),
                     System.Windows.Threading.DispatcherPriority.Loaded);
@@ -420,7 +426,7 @@ public partial class GraphView : UserControl
                 return;
             }
 
-            if ((e.OriginalSource as FrameworkElement)?.Tag is string connectorTag && connectorTag is "connector" or "connector-top" or "connector-bottom" or "connector-left")
+            if (e.OriginalSource is FrameworkElement { Tag: string connectorTag } && connectorTag is "connector" or "connector-top" or "connector-bottom" or "connector-left")
             {
                 _viewModel.SelectOnly(node);
                 _connectSource = node;
@@ -547,17 +553,17 @@ public partial class GraphView : UserControl
     {
         _snapStart = block.Bounds;
         _snapNodeSize = (NodeViewModel.CardWidth, NodeViewModel.CardHeight);
-        _snapMembers = block.Model.NodeIds.ToArray();
+        _snapMembers = [.. block.Model.NodeIds];
         _snapCounts = (_viewModel!.Nodes.Count, _viewModel.Edges.Count, _viewModel.Blocks.Count);
         _snapDirection = _viewModel.Direction;
         _snapState = new();
         var zoom = ZoomTransform.ScaleX;
         var viewport = new BlockBounds(-PanTransform.X / zoom, -PanTransform.Y / zoom,
             Viewport.ActualWidth / zoom, Viewport.ActualHeight / zoom);
-        _snapTargets = _viewModel!.Blocks
+        _snapTargets = [.. _viewModel!.Blocks
             .Where(b => b.Id != block.Id && b.IsVisible && b.VisibleCount == b.TotalCount
                 && b.Bounds.IntersectsWith(viewport))
-            .Select(b => new SnapTarget(b.Id, b.Bounds)).ToArray();
+            .Select(b => new SnapTarget(b.Id, b.Bounds))];
         _beforeSnapStatus = _viewModel.StatusMessage;
         _viewModel.StatusMessage = SnapHint;
     }
@@ -852,8 +858,7 @@ public partial class GraphView : UserControl
             EdgeRenderer.SetPreviewRoute(EdgeRouting.Route(
                 new Vec2(_connectSource.X, _connectSource.Y), new Vec2(target.X, target.Y),
                 NodeViewModel.CardWidth, NodeViewModel.CardHeight,
-                _viewModel!.Nodes.Where(n => n.IsVisible && n.Id != _connectSource.Id && n.Id != target.Id)
-                    .Select(n => new Vec2(n.X, n.Y)).ToArray(), _connectSide, SideOf(hit)));
+                [.. _viewModel!.Nodes.Where(n => n.IsVisible && n.Id != _connectSource.Id && n.Id != target.Id).Select(n => new Vec2(n.X, n.Y))], _connectSide, SideOf(hit)));
         }
         else
         {

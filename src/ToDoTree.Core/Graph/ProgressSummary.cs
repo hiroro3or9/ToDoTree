@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Graph;
+﻿namespace ToDoTree.Core.Graph;
 
 /// <summary>プロジェクト全体の進み具合。</summary>
 public sealed record ProgressSummary(

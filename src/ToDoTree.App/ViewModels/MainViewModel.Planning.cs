@@ -1,8 +1,7 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
-using ToDoTree.App.Services;
 using ToDoTree.App.Views;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Layout;

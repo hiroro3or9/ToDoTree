@@ -1,13 +1,14 @@
-namespace ToDoTree.Core.Models;
+﻿namespace ToDoTree.Core.Models;
 
 /// <summary>保存単位。ノードと辺の入れ物。</summary>
 public sealed class TodoProject
 {
     /// <summary>
     /// 2 でブロック（<see cref="Blocks"/>）が加わった。
+    /// 3 で作業のしおり（<see cref="Bookmark"/>）が加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     private List<TodoNode> _nodes = [];
     private List<TodoEdge> _edges = [];
@@ -18,6 +19,9 @@ public sealed class TodoProject
     public string Name { get; set; } = "新しいプロジェクト";
 
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>次に再開するステップと、その時点のメモ。形式3で追加。</summary>
+    public WorkBookmark? Bookmark { get; set; }
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -36,6 +40,7 @@ public sealed class TodoProject
         Id = Id,
         Name = Name,
         Description = Description,
+        Bookmark = Bookmark?.Clone(),
         SchemaVersion = SchemaVersion,
         Nodes = [.. Nodes.Select(n => n.Clone())],
         Edges = [.. Edges.Select(e => e.Clone())],

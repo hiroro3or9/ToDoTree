@@ -1,4 +1,4 @@
-namespace ToDoTree.Core.Graph;
+﻿namespace ToDoTree.Core.Graph;
 
 /// <summary>辺を張れるかどうかの判定結果。</summary>
 public enum ConnectionCheck
