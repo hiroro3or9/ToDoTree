@@ -6,9 +6,11 @@ public sealed class TodoProject
     /// <summary>
     /// 2 でブロック（<see cref="Blocks"/>）が加わった。
     /// 3 で作業のしおり（<see cref="Bookmark"/>）が加わった。
+    /// 4 でブロックの折りたたみと、ブロックを端点にした接続が加わった。
+    /// 5 でブロックと線の個別色（ColorId）が加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     private List<TodoNode> _nodes = [];
     private List<TodoEdge> _edges = [];
