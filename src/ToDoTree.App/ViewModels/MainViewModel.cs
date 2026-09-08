@@ -239,6 +239,11 @@ public sealed partial class MainViewModel : ObservableObject
                 return;
             }
 
+            if (value is { IsVisible: false } hidden)
+            {
+                if (_focusedBlockId is not null) ToggleFocus();
+                if (BlockOf(hidden.Id) is { IsCollapsed: true } block) ToggleBlockCollapse(block);
+            }
             SelectOnly(value);
         }
     }

@@ -462,16 +462,18 @@ public partial class GraphView : UserControl
             return;
         }
 
+        // ボタンは通常の Click に任せる。ドラッグ開始と競合させず、押してから外へ逃がせる。
+        if (FindAncestor<Button>(e.OriginalSource as DependencyObject) is { Tag: "block-collapse" })
+        {
+            return;
+        }
+
         Viewport.Focus();
 
-        // ブロックの見出し。囲みの本体は当たり判定を持たないので、ここへ来るのは見出しだけ。
+        // ブロックの見出しと接続点。展開中の囲み本体は当たり判定を持たない。
         if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
         {
             _viewModel.SelectBlock(block);
-            if (FindAncestor<System.Windows.Controls.Button>(e.OriginalSource as DependencyObject) is { Tag: "block-collapse" })
-            {
-                _viewModel.ToggleBlockCollapse(block); e.Handled = true; return;
-            }
             if (e.OriginalSource is FrameworkElement { Tag: string port } && port.StartsWith("connector", StringComparison.Ordinal))
             {
                 StartBlockConnection(block, SideOf(e.OriginalSource as DependencyObject), world);
@@ -879,6 +881,16 @@ public partial class GraphView : UserControl
     }
 
     // ---- ブロックの見出しの入力欄 ----
+
+    private void OnBlockCollapseClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is Button { DataContext: BlockViewModel block })
+        {
+            _viewModel.SelectBlock(block);
+            _viewModel.ToggleBlockCollapse(block);
+            e.Handled = true;
+        }
+    }
 
     private void OnBlockEditorKeyDown(object sender, KeyEventArgs e)
     {

@@ -1,0 +1,235 @@
+using System.Collections;
+using System.IO;
+using System.Reflection;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using ToDoTree.App.Controls;
+using ToDoTree.App.Services;
+using ToDoTree.App.ViewModels;
+using ToDoTree.Core.Graph;
+using ToDoTree.Core.Models;
+using ToDoTree.Core.Storage;
+
+internal static class Program
+{
+    private static int _checks;
+    [STAThread]
+    private static int Main()
+    {
+        try
+        {
+            var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            foreach (var resource in new[] { "Palette.Light", "Controls", "Calendar", "Styles" })
+                app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                { Source = new Uri($"/{typeof(GraphView).Assembly.GetName().Name};component/Themes/{resource}.xaml", UriKind.Relative) });
+            Verify();
+            Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+    }
+
+    private static void Check(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+        _checks++;
+    }
+
+    private static int History(MainViewModel vm, string field) =>
+        ((ICollection)typeof(MainViewModel).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!).Count;
+    private static string State(MainViewModel vm) => JsonSerializer.Serialize(vm.Graph.Project);
+
+    private static void Verify()
+    {
+        TodoNode[] nodes = [
+            new() { Title = "要件の承認", X = 35, Y = 195 },
+            new() { Title = "画面設計", X = 360, Y = 150 },
+            new() { Title = "設計レビュー", X = 360, Y = 320 },
+            new() { Title = "画面の実装", X = 820, Y = 150 },
+            new() { Title = "動作確認", X = 820, Y = 320 },
+            new() { Title = "次回の改善案", X = 35, Y = 510 },
+        ];
+        var project = new TodoProject { Nodes = [.. nodes], Name = "ブロック操作の検証" };
+        var aId = BlockService.Create(project, [nodes[1].Id, nodes[2].Id], "設計").Block!.Id;
+        var bId = BlockService.Create(project, [nodes[3].Id, nodes[4].Id], "実装").Block!.Id;
+        var graph = new TodoGraph(project);
+        graph.Connect(nodes[0].Id, aId);
+        var fullId = graph.Connect(aId, bId)!.Id;
+        var individualId = graph.Connect(nodes[2].Id, nodes[3].Id)!.Id;
+        graph.Connect(nodes[1].Id, nodes[2].Id);
+        graph.Connect(nodes[3].Id, nodes[4].Id);
+        var artifacts = Path.Combine(AppContext.BaseDirectory, "artifacts");
+        var vm = new MainViewModel(new JsonProjectStore(), new AppSettings(), project, null, artifacts);
+        var view = new GraphView { DataContext = vm, Width = 1280, Height = 720 };
+        view.Measure(new Size(1280, 720)); view.Arrange(new Rect(0, 0, 1280, 720)); view.UpdateLayout();
+        var host = new Window { Content = view, Width = 1280, Height = 720, Opacity = 0,
+            ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None };
+        host.Show();
+        view.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+        var zoom = (ScaleTransform)view.FindName("ZoomTransform");
+        var pan = (TranslateTransform)view.FindName("PanTransform");
+        zoom.ScaleX = zoom.ScaleY = 1; pan.X = pan.Y = 24;
+        BlockViewModel A() => vm.Blocks.Single(b => b.Id == aId);
+        BlockViewModel B() => vm.Blocks.Single(b => b.Id == bId);
+        NodeViewModel N(int i) => vm.Nodes.Single(n => n.Id == nodes[i].Id);
+        Check(vm.Edges.Count == 5, "All stored block and node edges must have a view model.");
+        Check(N(3).Readiness == Readiness.Blocked, "Block predecessor gates readiness in the UI.");
+        Render(view, "expanded-light");
+        ThemeManager.Apply(AppTheme.Dark); vm.RefreshAll();
+        Render(view, "expanded-dark");
+        ThemeManager.Apply(AppTheme.Light); vm.RefreshAll();
+
+        Button CollapseButton() => Descendants(view).OfType<Button>()
+            .Single(b => b.Tag is "block-collapse" && b.DataContext is BlockViewModel block && block.Id == aId);
+        var beforeButton = State(vm);
+        var buttonUndoCount = History(vm, "_undo");
+        CollapseButton().RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Check(A().IsCollapsed && vm.SelectedBlock?.Id == aId && History(vm, "_undo") == buttonUndoCount + 1,
+            "The collapse button selects its block and folds exactly once through the standard Click event.");
+        CollapseButton().RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(view),
+            Environment.TickCount, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
+        Check(!A().IsCollapsed, "Enter on the button opens the block through WPF keyboard handling.");
+        vm.Undo(); vm.Undo();
+        Check(State(vm) == beforeButton, "Button actions preserve the existing undo behavior.");
+
+        var positions = vm.Nodes.Select(n => (n.Id, n.X, n.Y)).ToArray();
+        vm.SelectBlock(A()); vm.ToggleBlockCollapse(A());
+        Check(A().IsVisible && A().IsCollapsed && A().Height == 48, "A collapsed block remains visible.");
+        Check(!N(1).IsVisible && !N(2).IsVisible, "Collapsed members must be hidden.");
+        Check(vm.Nodes.Select(n => (n.Id, n.X, n.Y)).SequenceEqual(positions), "Folding must preserve coordinates.");
+        var full = vm.Edges.Single(e => e.Model.Id == fullId);
+        var individual = vm.Edges.Single(e => e.Model.Id == individualId);
+        Check(full.IsVisible && !full.IsAggregated && full.IsBlockConnection, "Full-block edges remain solid.");
+        Check(individual.IsVisible && individual.IsAggregated, "Individual edges are projected when collapsed.");
+        Check(vm.Edges.Count(e => e.IsVisible) == 4, "Internal edges disappear while collapsed.");
+        Check(individual.GetRoute(vm.Nodes).Count >= 2, "A projected edge has a hit-testable route.");
+        var beforeReveal = State(vm);
+        vm.SelectEdge(individual); vm.DeleteSelectedEdge();
+        Check(vm.Edges.Count == 5, "Projected lines cannot silently delete one of several overlapping edges.");
+        vm.RevealEdgeCommand.Execute(null);
+        Check(N(2).IsVisible && vm.SelectedEdge?.IsAggregated == false, "A projected line can reveal and select its original endpoints.");
+        vm.Undo(); Check(State(vm) == beforeReveal, "Revealing projected endpoints is undoable.");
+        vm.ToggleBlockCollapse(B());
+        Check(full.GetRoute(vm.Nodes)[0] != individual.GetRoute(vm.Nodes)[0], "Full and projected edges use separate ports to stay distinguishable.");
+        Render(view, "collapsed-light");
+        var originalTitle = A().Title;
+        A().Title = "とても長いブロック名でも進捗を隠さずに表示できることを確認する";
+        Render(view, "collapsed-long-title-light");
+        vm.BeginBlockRename(A());
+        Render(view, "collapsed-editing-light");
+        vm.EndBlockRename(commit: true);
+        A().Title = originalTitle;
+        ThemeManager.Apply(AppTheme.Dark); vm.RefreshAll();
+        Render(view, "collapsed-dark");
+        ThemeManager.Apply(AppTheme.Light); vm.RefreshAll();
+
+        vm.SelectBlock(A());
+        var beforeDrag = State(vm);
+        Check(vm.BeginBlockDrag(A()), "Collapsed blocks can move with all their members.");
+        vm.UpdateBlockDrag(32, 48); vm.CommitBlockDrag();
+        Check(N(1).X == positions.Single(p => p.Id == N(1).Id).X + 32 && N(1).Y == positions.Single(p => p.Id == N(1).Id).Y + 48, "Collapsed members move by the requested delta.");
+        vm.Undo(); Check(State(vm) == beforeDrag, "Undo restores collapsed block positions.");
+        vm.Redo(); Check(State(vm) != beforeDrag, "Redo restores the block movement.");
+        vm.Undo();
+
+        zoom.ScaleX = zoom.ScaleY = 0.8; pan.X = 47; pan.Y = 63;
+        var beforeFocus = State(vm);
+        vm.FocusBlock(A());
+        Check(!A().IsCollapsed && A().Model.IsCollapsed, "Focus temporarily opens the block without changing the file.");
+        Check(N(1).IsVisible && N(2).IsVisible && N(0).IsVisible, "Focus includes members and direct predecessors.");
+        Check(!N(5).IsVisible && B().IsVisible, "Focus hides unrelated nodes, retaining connected blocks.");
+        Check(State(vm) == beforeFocus, "Focus does not mutate project data.");
+        Render(view, "focused-light");
+        vm.ToggleFocus();
+        Check(A().IsCollapsed && N(5).IsVisible, "Leaving focus restores folding and visibility.");
+        Check(zoom.ScaleX == 0.8 && pan.X == 47 && pan.Y == 63, "Leaving focus restores the viewport.");
+
+        vm.SelectOnly(N(5));
+        var beforeTransfer = State(vm);
+        var undoCount = History(vm, "_undo");
+        vm.BeginNodeDrag(); N(5).X += 50; N(5).Y += 70;
+        Check(vm.IsBlockEditing, "Autosave pauses during a node drag transaction.");
+        vm.FinishNodeDrag([N(5).Id], true, aId);
+        Check(A().Model.NodeIds.Contains(N(5).Id), "Shift drop adds the member.");
+        Check(History(vm, "_undo") == undoCount + 1, "Position and membership share a single undo.");
+        vm.Undo(); Check(State(vm) == beforeTransfer, "Undo restores both membership and position.");
+        var redoCount = History(vm, "_redo");
+        vm.BeginNodeDrag(); N(5).X += 20; vm.CancelNodeDrag();
+        Check(State(vm) == beforeTransfer && History(vm, "_redo") == redoCount, "Cancelled drags preserve state and redo.");
+        vm.Redo(); Check(A().Model.NodeIds.Contains(N(5).Id), "Redo still applies the original transfer.");
+        vm.Undo();
+
+        var beforeFailure = State(vm); undoCount = History(vm, "_undo");
+        vm.SelectOnly(N(0)); vm.BeginNodeDrag(); N(0).X += 99;
+        vm.FinishNodeDrag([N(0).Id], true, bId);
+        Check(State(vm) == beforeFailure, "A cycle-causing transfer restores coordinates and membership.");
+        Check(History(vm, "_undo") == undoCount && vm.StatusMessage.Contains("循環"), "Rejected transfer explains why without adding history.");
+        vm.BeginNodeDrag(); vm.FinishNodeDrag([N(0).Id], false, null);
+        Check(History(vm, "_undo") == undoCount, "A zero-movement drag adds no history.");
+
+        vm.SelectBlock(A()); vm.UngroupSelectedBlock();
+        Check(vm.Graph.Project.Blocks.All(b => b.Id != aId), "Dissolve removes only the selected block.");
+        Check(vm.Edges.Count == vm.Graph.Project.Edges.Count, "Dissolved edges are rebuilt for display.");
+        Check(vm.Graph.ReadinessOf(N(3).Model) == Readiness.Blocked, "Dissolve preserves dependency gates.");
+        vm.Undo(); Check(A().IsCollapsed, "Undo restores the block and collapse state.");
+
+        vm.SelectBlock(A()); vm.StartKeyboardConnect(); vm.SelectBlock(B());
+        Check(vm.IsConnecting && vm.ConnectSource?.Id == aId, "Selecting a block destination preserves the keyboard source.");
+        vm.CancelKeyboardConnect();
+        Check(!vm.IsConnecting, "Keyboard connection cancellation clears the source.");
+
+        vm.ToggleBlockCollapse(A()); vm.ToggleBlockCollapse(B());
+        N(0).Model.Status = N(1).Model.Status = N(2).Model.Status = NodeStatus.Done;
+        N(3).Model.Status = NodeStatus.InProgress;
+        vm.RefreshAll();
+        vm.BeginNodeDrag(); vm.FinishNodeDrag([N(5).Id], true, aId);
+        Check(N(3).Status == NodeStatus.InProgress && N(3).StatusLabel.Contains("先行に未完了あり"), "Late prerequisites warn without resetting started work.");
+        vm.FocusBlock(A());
+        vm.ToggleBlockCollapse(A());
+        Check(!vm.IsFocusMode && A().IsCollapsed, "Collapse during focus exits focus and folds the block.");
+        vm.SelectedNode = N(1);
+        Check(N(1).IsVisible && !A().IsCollapsed, "Selecting a hidden member reveals its block.");
+        vm.Graph.Project.Bookmark = new WorkBookmark { NodeId = N(1).Id };
+        vm.ToggleBlockCollapse(A());
+        Check(vm.ResumeBookmark() && N(1).IsVisible, "A bookmark inside a folded block is revealed.");
+        vm.ToggleBlockCollapse(A());
+        if (!B().IsCollapsed) vm.ToggleBlockCollapse(B());
+        N(0).Model.Status = NodeStatus.Done;
+        vm.HideCompleted = true;
+        // Keep the unfinished member so that A remains represented despite completion filtering.
+        Check(vm.Nodes.All(n => !n.IsVisible), "The test scene contains only collapsed blocks.");
+        pan.X = 9999; pan.Y = 9999; view.ZoomToFit();
+        Check(double.IsFinite(pan.X) && pan.X != 9999, "Zoom-to-fit works when only blocks are visible.");
+        var map = new MiniMap(); map.Update([], [A(), B()], new Rect(0, 0, 20, 20));
+        var mapBounds = (Rect)typeof(MiniMap).GetMethod("ComputeBounds", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(map, null)!;
+        Check(mapBounds.Contains(new Point(B().Bounds.Right, B().Bounds.Bottom)), "The minimap includes collapsed blocks outside the current viewport.");
+        host.Close();
+    }
+
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+    }
+
+    private static void Render(GraphView view, string name)
+    {
+        view.ZoomToFit();
+        view.UpdateLayout();
+        view.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+        var bitmap = new RenderTargetBitmap(1280, 720, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(view);
+        var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
+        var directory = Path.Combine(AppContext.BaseDirectory, "artifacts"); Directory.CreateDirectory(directory);
+        using var stream = File.Create(Path.Combine(directory, name + ".png")); png.Save(stream);
+    }
+}

@@ -39,7 +39,7 @@ public static class ThemeManager
         var name = theme == AppTheme.Dark ? "Dark" : "Light";
         var palette = new ResourceDictionary
         {
-            Source = new Uri($"Themes/Palette.{name}.xaml", UriKind.Relative),
+            Source = new Uri($"/{typeof(ThemeManager).Assembly.GetName().Name};component/Themes/Palette.{name}.xaml", UriKind.Relative),
         };
 
         var merged = app.Resources.MergedDictionaries;

@@ -52,7 +52,7 @@
     <SolidColorBrush x:Key="Brush.OverlayBorder" Color="#FF2C3341" po:Freeze="True" />
 
     <!-- ==== キャンバスの方眼（ドット） ==== -->
-    <DrawingBrush x:Key="Brush.CanvasGrid" TileMode="Tile" Viewport="0,0,26,26" ViewportUnits="Absolute" po:Freeze="True">
+    <DrawingBrush x:Key="Brush.CanvasGrid" TileMode="Tile" Viewport="0,0,26,26" ViewportUnits="Absolute" Viewbox="0,0,26,26" ViewboxUnits="Absolute" po:Freeze="True">
         <DrawingBrush.Drawing>
             <GeometryDrawing Brush="#FF1E2530">
                 <GeometryDrawing.Geometry>

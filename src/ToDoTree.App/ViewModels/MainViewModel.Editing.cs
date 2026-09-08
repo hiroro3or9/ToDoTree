@@ -333,6 +333,15 @@ public sealed partial class MainViewModel
             return;
         }
 
+        var fromId = isParent ? other.Id : node.Id;
+        var toId = isParent ? node.Id : other.Id;
+        if (!_project.Edges.Any(e => e.FromId == fromId && e.ToId == toId))
+        {
+            var inherited = _graph.OutgoingOf(fromId).FirstOrDefault(e => e.ToId == toId);
+            if (inherited is not null) SelectEdge(Edges.FirstOrDefault(e => e.Model.Id == inherited.Id));
+            StatusMessage = "ブロック全体の依存関係です。選択したブロックへの線から変更してください。";
+            return;
+        }
         PushUndo();
         if (isParent)
         {

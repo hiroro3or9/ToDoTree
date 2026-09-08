@@ -139,17 +139,12 @@ public sealed class MiniMap : FrameworkElement
 
     private Rect ComputeBounds()
     {
-        if (_nodes.Count == 0)
-        {
+        if (_nodes.Count == 0 && _blocks.Count == 0)
             return _viewport.Width > 0 ? _viewport : new Rect(0, 0, 1, 1);
-        }
 
-        var minX = _nodes.Min(n => n.X);
-        var minY = _nodes.Min(n => n.Y);
-        var maxX = _nodes.Max(n => n.X) + NodeViewModel.CardWidth;
-        var maxY = _nodes.Max(n => n.Y) + NodeViewModel.CardHeight;
-
-        var bounds = new Rect(minX, minY, Math.Max(1, maxX - minX), Math.Max(1, maxY - minY));
+        var bounds = Rect.Empty;
+        foreach (var node in _nodes)
+            bounds.Union(new Rect(node.X, node.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight));
 
         // 囲みは見出しのぶんカードより上へ出る。切れないよう地図の範囲にも含める。
         foreach (var block in _blocks)

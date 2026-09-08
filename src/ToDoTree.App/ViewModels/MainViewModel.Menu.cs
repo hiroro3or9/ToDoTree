@@ -18,7 +18,7 @@ public sealed partial class MainViewModel
 
     /// <summary>選んでいる線を外す。</summary>
     public ICommand DeleteEdgeCommand => _deleteEdgeCommand ??=
-        new RelayCommand(DeleteSelectedEdge, () => HasSelectedEdge);
+        new RelayCommand(DeleteSelectedEdge, () => SelectedEdge is { IsAggregated: false });
 
     /// <summary>右クリックした場所にステップを足す。</summary>
     public ICommand AddNodeHereCommand => _addNodeHereCommand ??=

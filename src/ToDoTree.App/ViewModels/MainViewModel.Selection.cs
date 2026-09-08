@@ -232,6 +232,11 @@ public sealed partial class MainViewModel
 
     public void DeleteSelectedEdge()
     {
+        if (SelectedEdge is { IsAggregated: true })
+        {
+            StatusMessage = "破線の右クリックから「内部ステップを表示」で開き、個別の線を選んで外してください。";
+            return;
+        }
         if (SelectedEdge is not { } edge)
         {
             return;

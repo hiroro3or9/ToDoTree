@@ -15,8 +15,8 @@ public readonly record struct BlockResult(TodoBlock? Block, string? Error)
 /// <summary>
 /// ブロック（囲み）の作成・所属更新・解除・検証。
 ///
-/// ここは依存関係に一切触れない。辺もノードも作らず消さないので、
-/// 着手可能判定・進捗・最長経路・完了予測はブロック操作の前後で必ず同じになる。
+/// ブロックへの接続がある場合、所属変更は依存関係の条件も変える。
+/// 解除時はブロック端点を所属ステップへ展開し、着手条件を維持する。
 /// </summary>
 public static class BlockService
 {
