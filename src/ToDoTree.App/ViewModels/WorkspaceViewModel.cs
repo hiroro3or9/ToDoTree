@@ -26,7 +26,7 @@ public sealed class WorkspaceViewModel : ObservableObject
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _autoSaveTimer;
     private MainViewModel? _activeDocument;
-    private bool _restoringSession;
+    private readonly bool _restoringSession;
 
     public WorkspaceViewModel()
         : this(new JsonProjectStore(), AppSettings.Load())
@@ -335,7 +335,7 @@ public sealed class WorkspaceViewModel : ObservableObject
         PersistSession();
     }
 
-    private void PersistSession(IReadOnlySet<Guid>? excludedUnsaved = null)
+    private void PersistSession(HashSet<Guid>? excludedUnsaved = null)
     {
         if (_restoringSession)
         {

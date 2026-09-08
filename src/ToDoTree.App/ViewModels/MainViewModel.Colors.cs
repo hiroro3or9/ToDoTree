@@ -111,7 +111,7 @@ public sealed partial class MainViewModel
         }
     }
 
-    private IReadOnlyList<ColorChoiceViewModel> BuildColorChoices(bool forEdge)
+    private List<ColorChoiceViewModel> BuildColorChoices(bool forEdge)
     {
         var choices = new List<ColorChoiceViewModel>(ColorPresets.All.Count + 1)
         {

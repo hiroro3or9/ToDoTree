@@ -130,11 +130,20 @@ public sealed partial class MainViewModel
             return;
         }
 
-        var result = BlockLayoutService.Compute(_project, block.Id, NodeMetrics.LayoutFor(Direction));
+        var result = BlockLayoutService.Compute(_project, block.Id, RepeatLoopVisuals.LayoutFor(Direction,
+            _project.Nodes.Any(n => n.Repeat is not null && block.Model.NodeIds.Contains(n.Id))));
 
         if (!result.IsReady)
         {
             // 失敗と無変化では、履歴・Redo・未保存の印・選択のどれも変えない。
+            StatusMessage = MessageFor(result.Status, block);
+            return;
+        }
+
+        // 上に張り出すループまで含めて、見出し位置の維持と周囲との重なりを確認する。
+        result = FitRepeatLoopLayout(result, block);
+        if (!result.IsReady)
+        {
             StatusMessage = MessageFor(result.Status, block);
             return;
         }
@@ -175,6 +184,27 @@ public sealed partial class MainViewModel
         StatusMessage = changed
             ? $"「{block.Title}」の中を整列しました。手動の通過点は保持しています。"
             : $"「{block.Title}」の中はすでに整列されています。";
+    }
+
+    private BlockLayoutResult FitRepeatLoopLayout(BlockLayoutResult result, BlockViewModel block)
+    {
+        if (!Nodes.Any(n => n.IsRepeating)) return result;
+        var rects = result.Positions.Select(pair =>
+        {
+            var area = RepeatLoopVisuals.Bounds(pair.Value.X, pair.Value.Y, _byId[pair.Key].IsRepeating);
+            return new NodeRect(pair.Key, area.X, area.Y, area.Width, area.Height);
+        }).ToArray();
+        if (BlockGeometry.Compute(rects) is not { } bounds) return result;
+
+        var shift = new Vec2(block.X - bounds.X, block.Y - bounds.Y);
+        var positions = result.Positions.ToDictionary(pair => pair.Key, pair => pair.Value + shift);
+        var fitted = new BlockBounds(block.X, block.Y, bounds.Width, bounds.Height);
+        var area = new System.Windows.Rect(fitted.X, fitted.Y, fitted.Width, fitted.Height);
+        if (Nodes.Any(n => n.IsVisible && !positions.ContainsKey(n.Id) && area.IntersectsWith(n.VisualBounds))
+            || Blocks.Any(b => b.Id != block.Id && b.IsVisible && fitted.IntersectsWith(b.Bounds)))
+            return new BlockLayoutResult(BlockLayoutStatus.OverlapsOutside, new Dictionary<Guid, Vec2>(), null);
+
+        return result with { Positions = positions, Bounds = fitted };
     }
 
     private static string MessageFor(BlockLayoutStatus status, BlockViewModel block) => status switch
@@ -381,8 +411,6 @@ public sealed partial class MainViewModel
 
     private void ComputeBlockBounds()
     {
-        var width = NodeMetrics.Width;
-        var height = NodeMetrics.Height;
         var rects = new List<NodeRect>();
 
         foreach (var block in Blocks)
@@ -400,7 +428,9 @@ public sealed partial class MainViewModel
                 total++;
                 if (node.IsVisible || (block.IsCollapsed && _baseVisible.Contains(node.Id)))
                 {
-                    rects.Add(new NodeRect(node.Id, node.X, node.Y, width, height));
+                    // 畳んだ見出しも同じ原点に置き、開閉でループの高さだけ跳ねないようにする。
+                    var visual = node.VisualBounds;
+                    rects.Add(new NodeRect(node.Id, visual.X, visual.Y, visual.Width, visual.Height));
                 }
             }
 
@@ -429,7 +459,7 @@ public sealed partial class MainViewModel
     /// </param>
     internal LayoutOptions BuildLayoutOptions(Guid? adoptingBlockId = null)
     {
-        var options = NodeMetrics.LayoutFor(Direction);
+        var options = RepeatLoopVisuals.LayoutFor(Direction, Nodes.Any(n => n.IsRepeating));
 
         if (Blocks.Count == 0)
         {
@@ -441,7 +471,12 @@ public sealed partial class MainViewModel
         [
             .. Blocks
                 .Where(b => b.IsVisible && b.Id != adoptingBlockId)
-                .Select(b => b.Bounds),
+                .Select(b =>
+                {
+                    if (!Nodes.Any(n => n.IsRepeating)) return b.Bounds;
+                    var pad = (RepeatLoopVisuals.Width - NodeMetrics.Width) / 2;
+                    return new BlockBounds(b.X - pad, b.Y, b.Width + 2 * pad, b.Height + RepeatLoopVisuals.Height);
+                }),
         ];
 
         return options;

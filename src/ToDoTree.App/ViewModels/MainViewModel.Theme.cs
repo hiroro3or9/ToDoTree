@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Windows.Input;
 using ToDoTree.App.Services;
 
 namespace ToDoTree.App.ViewModels;
@@ -10,8 +11,12 @@ public sealed partial class MainViewModel
 
     public ICommand ToggleThemeCommand => _toggleThemeCommand ??= new RelayCommand(ToggleTheme);
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public bool IsDarkTheme => ThemeManager.IsDark;
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public string ThemeTooltip => ThemeManager.IsDark
         ? "明るい配色に切り替える"
         : "暗い配色に切り替える";

@@ -29,6 +29,7 @@ internal static class Program
                 { Source = new Uri($"/{typeof(GraphView).Assembly.GetName().Name};component/Themes/{resource}.xaml", UriKind.Relative) });
             Verify();
             VerifyRepeat();
+            VerifyLoopLayout();
             Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
             return 0;
         }
@@ -221,9 +222,9 @@ internal static class Program
         TodoNode[] nodes = [
             new() { Title = "素振り", X = 40, Y = 70 },
             new() { Title = "フォーム確認", X = 420, Y = 70 },
-            new() { Title = "資料をまとめる", X = 40, Y = 240 },
-            new() { Title = "取り消した練習", X = 420, Y = 240 },
-            new() { Title = "読書", X = 40, Y = 410 },
+            new() { Title = "資料をまとめる", X = 40, Y = 300 },
+            new() { Title = "取り消した練習", X = 420, Y = 300 },
+            new() { Title = "読書", X = 40, Y = 530 },
         ];
         var project = new TodoProject { Nodes = [.. nodes], Name = "回数で完了する項目の検証" };
         var graph = new TodoGraph(project);
@@ -236,7 +237,7 @@ internal static class Program
         RepeatService.Cancel(nodes[3], now);
 
         // ブロックの中でもバッジと加算ボタンが重ならないことを、この場面で一緒に見る。
-        var blockId = BlockService.Create(project, [nodes[2].Id], "まとめ").Block!.Id;
+        var blockId = BlockService.Create(project, [nodes[2].Id, nodes[3].Id], "まとめ").Block!.Id;
 
         var artifacts = Path.Combine(AppContext.BaseDirectory, "artifacts");
         var vm = new MainViewModel(new JsonProjectStore(), new AppSettings(), project, null, artifacts);
@@ -304,6 +305,8 @@ internal static class Program
             "Choosing 完了 on a repeating item advances once instead of forcing the status.");
         Check(RepeatService.Validate(N(4).Model) is null, "The item stays consistent after the status route.");
 
+        // 設定要求の検証中はダイアログの購読を外し、無人検証でモーダルを開かない。
+        view.DataContext = null;
         var requests = 0;
         var lastIsNew = false;
         vm.RepeatSettingsRequested += (_, isNew) => { requests++; lastIsNew = isNew; };
@@ -316,6 +319,19 @@ internal static class Program
             "A block connected to itself explains that whole-block repetition is unsupported.");
         Check(vm.Graph.Project.Edges.All(e => e.FromId != e.ToId), "Self connections never become dependency edges.");
 
+        view.DataContext = vm;
+        RepeatService.Configure(N(0).Model, 3, 2, now);
+        RepeatService.Configure(N(2).Model, 4, 1, now);
+        vm.SelectOnly(null); vm.RefreshAll();
+        Check(N(0).VisualBounds.Top < N(0).Y, "Visual bounds include the external self loop.");
+        var repeatBlock = vm.Blocks.Single(b => b.Id == blockId);
+        Check(repeatBlock.Bounds.Header.Bottom < N(2).VisualBounds.Top,
+            "Block headers leave room for the member's self loop.");
+        var repeatHeader = repeatBlock.Bounds.Header;
+        vm.ToggleBlockCollapse(repeatBlock);
+        Check(repeatBlock.X == repeatHeader.X && repeatBlock.Y == repeatHeader.Y && !N(2).IsVisible,
+            "Collapsing a repeating block keeps its header anchored and hides the member loops.");
+        vm.Undo();
         Render(view, "repeat-light");
         ThemeManager.Apply(AppTheme.Dark); vm.RefreshAll();
         Render(view, "repeat-dark");
@@ -327,8 +343,56 @@ internal static class Program
         vm.RefreshAll();
         Check(N(4).RepeatText == "1234 / 9999 回", "Four digit counts render in full.");
         Render(view, "repeat-wide-light");
+        NodeMetrics.Apply(ToDoTree.Core.Layout.NodeStyle.Minimal);
+        ((ItemsControl)view.FindName("NodeHost")).ItemTemplate = (DataTemplate)view.FindResource("NodeMinimalTemplate");
+        vm.RefreshAll();
+        Render(view, "repeat-minimal-light");
+        Check(N(4).VisualBounds.Width >= 112, "Minimal bounds include the full loop label.");
+        var label = Descendants(view).OfType<Button>().Single(b => b.Tag is "repeat-badge" && ReferenceEquals(b.DataContext, N(4)));
+        var rightOfLabel = label.TransformToAncestor(view).Transform(new Point(label.ActualWidth - 3, label.ActualHeight / 2));
+        var hit = view.InputHitTest(rightOfLabel) as DependencyObject;
+        while (hit is not null && !ReferenceEquals(hit, label)) hit = VisualTreeHelper.GetParent(hit);
+        Check(hit == label, "The right side of the minimal loop label is visible and clickable beyond the node bounds.");
+        vm.SelectOnly(N(0)); vm.StartKeyboardConnect();
+        var edgeLayer = (EdgeLayer)view.FindName("EdgeRenderer");
+        Check(typeof(EdgeLayer).GetField("_previewLoopGeometry", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(edgeLayer) is Geometry,
+            "A keyboard self connection previews the same external loop.");
+        vm.CancelKeyboardConnect();
+        Check(typeof(EdgeLayer).GetField("_previewLoopGeometry", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(edgeLayer) is null,
+            "Cancelling connection clears the loop preview.");
+        ThemeManager.Apply(AppTheme.Dark); vm.RefreshAll();
+        Render(view, "repeat-minimal-dark");
+        ThemeManager.Apply(AppTheme.Light);
+        NodeMetrics.Apply(ToDoTree.Core.Layout.NodeStyle.Card); vm.RefreshAll();
 
         host.Close();
+    }
+
+    private static void VerifyLoopLayout()
+    {
+        foreach (var direction in new[] { ToDoTree.Core.Layout.LayoutDirection.LeftToRight, ToDoTree.Core.Layout.LayoutDirection.TopToBottom })
+        {
+            var first = new TodoNode { Title = "反復1", X = 100, Y = 120 };
+            var second = new TodoNode { Title = "反復2", X = 150, Y = 340 };
+            RepeatService.Configure(first, 3, 1, DateTimeOffset.Now);
+            RepeatService.Configure(second, 3, 1, DateTimeOffset.Now);
+            var project = new TodoProject { Nodes = [first, second] };
+            new TodoGraph(project).Connect(first.Id, second.Id);
+            var id = BlockService.Create(project, [first.Id, second.Id], "周囲に収まるループ").Block!.Id;
+            var vm = new MainViewModel(new JsonProjectStore(), new AppSettings { Direction = direction }, project, null, AppContext.BaseDirectory);
+            var block = vm.Blocks.Single(b => b.Id == id);
+            vm.SelectBlock(block);
+            var original = State(vm);
+            var header = block.Bounds.Header;
+            vm.LayoutSelectedBlock();
+            Check(State(vm) != original, "Loop layout produces an arranged block in both directions.");
+            Check(block.Bounds.Header.X == header.X && block.Bounds.Header.Y == header.Y,
+                "Arranging repeating members preserves the block header position.");
+            Check(!vm.Nodes[0].VisualBounds.IntersectsWith(vm.Nodes[1].VisualBounds),
+                "Arranged cards leave enough room for their external loops.");
+            vm.Undo();
+            Check(State(vm) == original, "The loop-aware block layout is one undo step.");
+        }
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)

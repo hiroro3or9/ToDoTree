@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Windows.Input;
 using ToDoTree.App.Services;
 using ToDoTree.Core.Layout;
 
@@ -11,11 +12,17 @@ public sealed partial class MainViewModel
 
     public ICommand ToggleNodeStyleCommand => _toggleNodeStyleCommand ??= new RelayCommand(ToggleNodeStyle);
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public bool IsMinimalView => NodeMetrics.IsMinimal;
 
     /// <summary>ボタンには「押したら何になるか」を出す。</summary>
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public string NodeStyleLabel => NodeMetrics.IsMinimal ? "カード表示" : "ミニマル";
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public string NodeStyleTooltip => NodeMetrics.IsMinimal
         ? "カード表示に戻す (Ctrl+Shift+M)"
         : "丸と線だけの表示にする (Ctrl+Shift+M)";

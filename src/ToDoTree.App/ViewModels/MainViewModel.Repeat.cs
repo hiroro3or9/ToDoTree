@@ -204,7 +204,7 @@ public sealed partial class MainViewModel
     // ---- 設定画面 ----
 
     /// <summary>設定画面の初期値。まだ設定していない完了済み項目は、完了のまま扱えるようにする。</summary>
-    public (int Target, int Completed) RepeatSeed(NodeViewModel node)
+    public static (int Target, int Completed) RepeatSeed(NodeViewModel node)
     {
         if (node.Model.Repeat is { } repeat) return (repeat.TargetCount, repeat.CompletedCount);
         return node.Model.Status == NodeStatus.Done

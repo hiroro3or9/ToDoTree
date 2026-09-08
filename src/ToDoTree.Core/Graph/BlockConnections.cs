@@ -11,7 +11,7 @@ public static class BlockConnections
 
     public static IEnumerable<TodoEdge> Expand(TodoProject project)
     {
-        var endpoints = project.Nodes.ToDictionary(n => n.Id, n => (IReadOnlyList<Guid>)new[] { n.Id });
+        var endpoints = project.Nodes.ToDictionary(n => n.Id, n => (IReadOnlyList<Guid>)[n.Id]);
         foreach (var block in project.Blocks) endpoints[block.Id] = block.NodeIds;
         foreach (var edge in project.Edges)
         {

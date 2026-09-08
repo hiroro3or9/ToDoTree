@@ -12,7 +12,7 @@ public partial class GraphView
     {
         if (_viewModel is not { } viewModel) return;
 
-        var (target, completed) = viewModel.RepeatSeed(node);
+        var (target, completed) = MainViewModel.RepeatSeed(node);
         var dialog = new RepeatSettingsWindow();
         if (Window.GetWindow(this) is { } owner) dialog.Owner = owner;
         dialog.Configure(node.Title, RepeatState.Of(node.Model), node.Model.Status, target, completed, isNew);

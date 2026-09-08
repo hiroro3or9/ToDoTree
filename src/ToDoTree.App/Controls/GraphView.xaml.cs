@@ -779,7 +779,7 @@ public partial class GraphView : UserControl
 
         CompletionHintText.Text = _viewModel?.Blocks.Any(b => b.Id == sourceId) == true
             ? "ブロック全体の繰り返しは未対応です（中のステップには設定できます）"
-            : "離すと「繰り返しを設定」を開きます。依存線は作りません";
+            : "離すと繰り返し回数を設定できます";
         CompletionHint.Visibility = Visibility.Visible;
         _selfConnectHintShown = true;
     }
@@ -865,8 +865,14 @@ public partial class GraphView : UserControl
         var target = ConnectionTarget(hit, world);
 
         // 自分の上に戻ってきているあいだだけ、何が起きるかを出す。
-        // 依存線のプレビューは出さない（自己ループは辺として持たないため）。
+        // 設定後と同じ形のループを予告する。保存上の依存辺は作らない。
         ShowSelfConnectHint(target is not null && target.Id == _connectSource.Id, _connectSource.Id);
+
+        if (target?.Id == _connectSource.Id && _viewModel.Nodes.Any(n => n.Id == target.Id))
+        {
+            EdgeRenderer.SetPreviewLoop(new Point(target.X, target.Y));
+            return;
+        }
 
         if (target is not null && target.Id != _connectSource.Id)
         {
@@ -886,9 +892,15 @@ public partial class GraphView : UserControl
         }
 
         if (_viewModel is { IsConnecting: true, ConnectSource: { } source } &&
-            (_viewModel.SelectedNode ?? _viewModel.SelectedBlock?.ConnectionNode) is { } target &&
-            !ReferenceEquals(source, target))
+            (_viewModel.SelectedNode ?? _viewModel.SelectedBlock?.ConnectionNode) is { } target)
         {
+            if (source.Id == target.Id)
+            {
+                if (_viewModel.Nodes.Any(n => n.Id == source.Id))
+                    EdgeRenderer.SetPreviewLoop(new Point(source.X, source.Y));
+                else EdgeRenderer.SetPreview(null, null);
+                return;
+            }
             var preview = new EdgeViewModel(new TodoEdge { FromId = source.Id, ToId = target.Id }, source, target, _viewModel);
             EdgeRenderer.SetPreviewRoute(preview.GetRoute(_viewModel.Nodes));
             return;
@@ -1242,10 +1254,10 @@ public partial class GraphView : UserControl
         var shown = _viewModel.Nodes.Where(n => n.IsVisible).ToList();
         if (shown.Count == 0 && !_viewModel.Blocks.Any(b => b.IsVisible)) return;
 
-        var minX = shown.Select(n => n.X).DefaultIfEmpty(double.PositiveInfinity).Min();
-        var minY = shown.Select(n => n.Y).DefaultIfEmpty(double.PositiveInfinity).Min();
-        var maxX = shown.Select(n => n.X + NodeViewModel.CardWidth).DefaultIfEmpty(double.NegativeInfinity).Max();
-        var maxY = shown.Select(n => n.Y + NodeViewModel.CardHeight).DefaultIfEmpty(double.NegativeInfinity).Max();
+        var minX = shown.Select(n => n.VisualBounds.Left).DefaultIfEmpty(double.PositiveInfinity).Min();
+        var minY = shown.Select(n => n.VisualBounds.Top).DefaultIfEmpty(double.PositiveInfinity).Min();
+        var maxX = shown.Select(n => n.VisualBounds.Right).DefaultIfEmpty(double.NegativeInfinity).Max();
+        var maxY = shown.Select(n => n.VisualBounds.Bottom).DefaultIfEmpty(double.NegativeInfinity).Max();
 
         foreach (var point in _viewModel.Edges.Where(e => e.IsVisible && !e.IsAggregated).SelectMany(e => e.Model.Waypoints))
         {
@@ -1291,10 +1303,11 @@ public partial class GraphView : UserControl
     {
         if (IsViewportLocked) return;
         var scale = ZoomTransform.ScaleX;
-        var left = (node.X * scale) + PanTransform.X;
-        var top = (node.Y * scale) + PanTransform.Y;
-        var right = left + (NodeViewModel.CardWidth * scale);
-        var bottom = top + (NodeViewModel.CardHeight * scale);
+        var visual = node.VisualBounds;
+        var left = (visual.Left * scale) + PanTransform.X;
+        var top = (visual.Top * scale) + PanTransform.Y;
+        var right = (visual.Right * scale) + PanTransform.X;
+        var bottom = (visual.Bottom * scale) + PanTransform.Y;
         const double margin = 48;
 
         if (left < margin)

@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Windows;
 using System.Windows.Media;
 using ToDoTree.App.Services;
 using ToDoTree.Core.Graph;
@@ -246,6 +247,24 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
     /// <summary>回数で完了する項目。null 判定はここに集約する。</summary>
     public bool IsRepeating => Model.Repeat is not null;
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
+    public Geometry RepeatLoopPath => RepeatLoopVisuals.Path;
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
+    public Geometry RepeatLoopArrow => RepeatLoopVisuals.Arrow;
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
+    public double RepeatLoopWidth => RepeatLoopVisuals.Width;
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
+    public double RepeatLoopHeight => RepeatLoopVisuals.Height;
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
+    public Thickness RepeatLoopMargin => RepeatLoopVisuals.Margin;
+    public Rect VisualBounds => RepeatLoopVisuals.Bounds(X, Y, IsRepeating);
+
+
     /// <summary>カードのバッジに出す「2 / 3 回」。通常の項目では空。</summary>
     public string RepeatText => RepeatService.Describe(Model);
 
@@ -263,7 +282,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
     public bool IsRepeatFinalNext => RepeatService.IsFinalNext(Model);
 
     /// <summary>色だけに頼らず、回数とチェックでも状態を伝える。</summary>
-    public string RepeatActionGlyph => IsRepeatFull ? "✓" : "＋1";
+    public string RepeatActionGlyph => IsRepeatFull ? "✓ 達成済み" : "＋1 回";
 
     /// <summary>読み上げ名。ボタンだけを聞いても、いま何回目かが分かるようにする。</summary>
     public string RepeatActionName => Model.Repeat is { } repeat
@@ -288,6 +307,8 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         ? NodePalette.DoneTextBrush
         : NodePalette.RepeatText;
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public Brush RepeatBadgeFill => NodePalette.RepeatBadgeFill;
 
     public Brush RepeatLoopBrush => Readiness is Readiness.Done or Readiness.Cancelled
@@ -581,6 +602,12 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         nameof(CollapsedBadge),
         nameof(HasCollapsedBadge),
         nameof(IsRepeating),
+        nameof(RepeatLoopPath),
+        nameof(RepeatLoopArrow),
+        nameof(RepeatLoopWidth),
+        nameof(RepeatLoopHeight),
+        nameof(RepeatLoopMargin),
+        nameof(VisualBounds),
         nameof(RepeatText),
         nameof(RepeatCompactText),
         nameof(CanAdvanceRepeat),
@@ -616,7 +643,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         nameof(ZIndex));
 
     /// <summary>自動整列などでモデルの座標を直接書き換えたあとに呼ぶ。</summary>
-    public void NotifyPositionChanged() => OnPropertyChanged(nameof(X), nameof(Y), nameof(Center));
+    public void NotifyPositionChanged() => OnPropertyChanged(nameof(X), nameof(Y), nameof(Center), nameof(VisualBounds));
 
     private void Touch()
     {
