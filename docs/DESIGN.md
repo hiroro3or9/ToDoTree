@@ -1,6 +1,6 @@
 ﻿# ToDoTree 設計メモ
 
-更新日: 2026-09-06
+更新日: 2026-09-08
 
 対象: 現在の構成と責務。操作は[README](../README.md)、保存仕様は[保存と復旧](STORAGE.md)を参照。
 
@@ -47,6 +47,7 @@ TodoProject
 | `Due` | 期限（任意） |
 | `CompletedAt` / `CreatedAt` / `UpdatedAt` | 完了・作成・更新日時 |
 | `EstimateMinutes` | 見積もり（任意、クリティカルパス計算に使用） |
+| `Repeat` | 回数で完了する項目の目標・達成回数（任意）。null なら通常の項目 |
 | `Tags` | タグ |
 | `X` / `Y` / `IsPinned` | 座標。`IsPinned` が true の間は自動レイアウトで動かさない |
 
@@ -58,9 +59,15 @@ TodoProject
 ユーザーが管理するのは `Status` だけで、「今やれるか」はグラフから自動で決まる。
 これが本アプリの中心的な体験。
 
+`Repeat` を持つ項目では、`Status` を単独で書き換えず、回数・状態・完了日時を
+`RepeatService` でまとめて動かす。目標に達したときだけ `Done` になる（取り消し中は別）。
+自己ループは繰り返しの表示であって依存ではないので、`TodoEdge` としては保存しない。
+詳細は[繰り返し項目の設計](REPEAT_DESIGN.md)を参照。
+
 ### TodoEdge
 
 `From → To` の有向辺。`Label`（任意）。自己ループ・重複辺・循環は追加時に拒否する。
+UI 側では、自分自身へ引いた線だけを「繰り返しの設定」へ振り替える（辺は作らない）。
 `FromSide`／`ToSide`で接続辺を指定し、`Waypoints`に通過点の座標・順序・滑らかさを持つ。
 
 ### TodoBlock
@@ -69,7 +76,7 @@ TodoProject
 依存関係やタスク状態には関与せず、境界は所属ノードの表示矩形から求める。
 作成には2件以上必要で、所属変更後に1件になっても維持し、0件になれば除去する。
 
-プロジェクトの形式バージョンは2。互換性とJSONの詳細は[保存と復旧](STORAGE.md)を参照。
+プロジェクトの形式バージョンは6。互換性とJSONの詳細は[保存と復旧](STORAGE.md)を参照。
 
 ## 3. Core の機能
 
@@ -87,6 +94,8 @@ TodoProject
   3. 座標を割り当てる（左→右 / 上→下 を切り替え可能）
   - `IsPinned` のノードは動かさない
 - **JsonProjectStore** … `System.Text.Json`。一時ファイルに書いてから置換する原子的保存＋ `.bak`
+- **RepeatService** … 回数の不変条件と、加算・減算・設定・解除・取消・再開。
+  時刻を引数で受け取り、UpdatedAt と CompletedAt を1操作でそろえる
 - **BlockService / BlockGeometry** … 所属操作・検証、囲みの境界、内部通過点の移動対象
 - **BlockLayoutService** … 一時グラフで内部整列の候補を計算し、外部との衝突を検証
 - **BlockSnapService** … 未補正の移動量から端・中心への吸着を計算。保持と解除を別の距離で判定

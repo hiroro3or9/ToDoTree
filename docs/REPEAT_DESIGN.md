@@ -1,7 +1,8 @@
 # 回数で完了する項目と自己ループ表示
 
 作成日: 2026-09-08  
-状態: 設計済み・未実装  
+更新日: 2026-09-08  
+状態: 初版実装済み（ビルド・テスト実行・実操作の確認は未実施）  
 対象: 指定回数の達成で完了する単一の項目。ブロック所属の項目にも適用する。
 
 ## 1. 機能の意味
@@ -258,6 +259,37 @@ UI側は「依存線を作成」と「繰り返し設定を要求」を分け、
 12. 実マウスのドラッグ、ボタン外での解放、Tab/Space/Enter、キー長押し、IME、複数DPIを確認する。
 
 実装時はCoreの状態・保存・部品テストとWPFスモークテストを追加する。
-この設計作成ではアプリの機能実装・動作試験は行っていない。
+
+## 11. 実装の記録
+
+2026-09-08に段階1〜7を実装した。主な配置は次のとおり。
+
+| 役割 | 実装 |
+|---|---|
+| 回数の入れ物 | [`RepeatProgress`](../src/ToDoTree.Core/Models/RepeatProgress.cs)、`TodoNode.Repeat` |
+| 検証と状態遷移 | [`RepeatService`](../src/ToDoTree.Core/Graph/RepeatService.cs) |
+| 保存形式6と検証 | [`JsonProjectStore`](../src/ToDoTree.Core/Storage/JsonProjectStore.cs)、[`BranchTemplate`](../src/ToDoTree.Core/Graph/BranchTemplate.cs) |
+| 操作・履歴・案内 | [`MainViewModel.Repeat`](../src/ToDoTree.App/ViewModels/MainViewModel.Repeat.cs) |
+| 設定画面 | [`RepeatSettingsWindow`](../src/ToDoTree.App/Views/RepeatSettingsWindow.xaml) |
+| 自己接続と表示 | [`GraphView`](../src/ToDoTree.App/Controls/GraphView.xaml.cs)、`GraphView.Repeat`、`GraphView.Completion` |
+| 検証 | [`RepeatTests`](../tests/ToDoTree.Core.Tests/RepeatTests.cs)、[WPFスモーク](../tests/ToDoTree.App.SmokeTests/Program.cs) |
+
+### 設計から変えた点
+
+- 「繰り返しを編集…」と「回数を訂正…」は同じ画面にした。入口が2つに増えると、
+  同じ画面が別物に見える。右クリックは「繰り返しを編集…」、詳細パネルのリンクは「回数を訂正…」。
+- 解除は、設定画面では結果を常時表示し、メニューからは確認ダイアログで結果を示してから実行する。
+- 接続ドラッグ中の予告は、依存線のプレビューではなく画面左上の案内文にした。
+  自己ループを線として描くと、依存線と見分けがつかなくなる。
+- カードの加算ボタンは「＋1」、上限では「✓」。読み上げ名は
+  「（名前）を1回達成、現在2回、目標3回」の形式で、状態は色に頼らず文字でも伝える。
+- `取り消し・1 / 3 回`の区別は、状態名の文字列を変えるのではなく、
+  カードのバッジと一覧の回数表示で示す。
+
+### この時点で確認していないこと
+
+- ビルドと自動テストの実行（サンドボックスに.NET SDKが無いため、Windows側で実施する）。
+- 実マウスのドラッグ、ボタン外での解放、Tab/Space/Enter、キー長押し、IME、複数DPI。
+- 明暗テーマ・カード／ミニマル・長い名前・4桁の回数の見え方（スモークテストのPNGで確認する）。
 
 [文書一覧](README.md) / [全体設計](DESIGN.md) / [ブロック接続](BLOCK_CONNECTIONS.md)
