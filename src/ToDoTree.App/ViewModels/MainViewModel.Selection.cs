@@ -131,6 +131,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(HasMultipleSelected));
         OnPropertyChanged(nameof(SelectionSummary));
         NotifyBlockCommandStates();
+        NotifyRepeatCommandStates();
 
         UpdateHighlights();
         NotifyVisualsChanged();
@@ -275,7 +276,9 @@ public sealed partial class MainViewModel
 
         if ((SelectedNode ?? SelectedBlock?.ConnectionNode) is { } target)
         {
-            TryConnect(from, target.Id);
+            // 自分自身を選んで Enter は「繰り返しを設定」。線は作らない。
+            if (target.Id == from) RequestRepeatFromSelfConnection(from);
+            else TryConnect(from, target.Id);
         }
 
         NotifyVisualsChanged();
@@ -328,16 +331,26 @@ public sealed partial class MainViewModel
     public void SetStatusOfSelection(NodeStatus status)
     {
         var targets = SelectedNodes;
-        var impact = CompletionImpact.Calculate(_graph, targets.Select(n => n.Id));
         if (targets.Count == 0)
         {
             return;
         }
 
+        // 回数つきの項目は状態だけを動かせない。回数と一緒に動かす操作へ回す。
+        if (targets.Any(n => n.Model.Repeat is not null))
+        {
+            if (status == NodeStatus.Done) { AdvanceSelection(targets); return; }
+            if (targets.Count == 1) { ApplyRepeatStatus(targets[0], status); return; }
+        }
+
+        var impact = CompletionImpact.Calculate(_graph, targets.Where(n => n.Model.Repeat is null).Select(n => n.Id));
+
         PushUndo();
 
         foreach (var node in targets)
         {
+            // 混在選択で完了以外を指定したときは、繰り返しの項目に触れない。
+            if (node.Model.Repeat is not null) continue;
             node.Model.Status = status;
             node.Model.CompletedAt = status == NodeStatus.Done ? DateTimeOffset.Now : null;
             node.Model.UpdatedAt = DateTimeOffset.Now;

@@ -32,6 +32,8 @@ public sealed partial class EdgeLayer : FrameworkElement
         set => SetValue(NodesProperty, value);
     }
 
+    private Geometry? _previewLoopGeometry;
+
     private int _paletteGeneration = -1;
     private int _styleGeneration = -1;
 
@@ -82,6 +84,7 @@ public sealed partial class EdgeLayer : FrameworkElement
     /// <summary>接続中のガイド線。null を渡すと消える。</summary>
     public void SetPreview(Point? from, Point? to, ConnectionSide side = ConnectionSide.Auto)
     {
+        _previewLoopGeometry = null;
         _previewRoute = null;
         _previewControls = null;
         _previewSide = side;
@@ -90,8 +93,23 @@ public sealed partial class EdgeLayer : FrameworkElement
         InvalidateVisual();
     }
 
+    public void SetPreviewLoop(Point nodeOrigin)
+    {
+        SetPreview(null, null);
+        var loop = new GeometryGroup();
+        loop.Children.Add(RepeatLoopVisuals.Path);
+        loop.Children.Add(RepeatLoopVisuals.Arrow);
+        loop.Transform = new TranslateTransform(
+            nodeOrigin.X + (NodeMetrics.Width - RepeatLoopVisuals.Width) / 2,
+            nodeOrigin.Y - RepeatLoopVisuals.Height);
+        loop.Freeze();
+        _previewLoopGeometry = loop;
+        InvalidateVisual();
+    }
+
     public void SetPreviewCurve((Vec2 Start, Vec2 End, Vec2 Control1, Vec2 Control2) curve)
     {
+        _previewLoopGeometry = null;
         _previewRoute = null;
         _previewFrom = ToPoint(curve.Start);
         _previewTo = ToPoint(curve.End);
@@ -101,6 +119,7 @@ public sealed partial class EdgeLayer : FrameworkElement
 
     public void SetPreviewRoute(IReadOnlyList<Vec2> route)
     {
+        _previewLoopGeometry = null;
         _previewRoute = route;
         _previewFrom = ToPoint(route[0]);
         _previewTo = ToPoint(route[^1]);
@@ -133,6 +152,8 @@ public sealed partial class EdgeLayer : FrameworkElement
         }
 
         DrawCompletionEffects(drawingContext);
+        if (_previewLoopGeometry is not null)
+            drawingContext.DrawGeometry(null, _previewPen, _previewLoopGeometry);
 
         if (_previewFrom is { } previewFrom && _previewTo is { } previewTo)
         {

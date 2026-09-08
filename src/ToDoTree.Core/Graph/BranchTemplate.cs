@@ -42,6 +42,10 @@ public static class BranchTemplate
             node.X += dx; node.Y += dy;
             node.Status = NodeStatus.NotStarted;
             node.Due = null; node.CompletedAt = null;
+
+            // 目標回数は部品の性格なので残し、実績だけ 0 に戻す。
+            // 元の実績を持ち込むと、置いた直後から完了済みの項目が現れる。
+            if (node.Repeat is { } repeat) repeat.CompletedCount = 0;
             node.IsPinned = false;
             node.CreatedAt = node.UpdatedAt = now;
         }
@@ -79,6 +83,7 @@ public static class BranchTemplate
             || template.Edges.Select(e => e.Id).Distinct().Count() != template.Edges.Count
             || template.Edges.Select(e => (e.FromId, e.ToId)).Distinct().Count() != template.Edges.Count)
             throw new InvalidDataException("部品の接続情報が不正です。");
+        if (RepeatService.Validate(template) is { } repeatError) throw new InvalidDataException(repeatError);
         if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);
         if (new TodoGraph(template.DeepClone()).HasCycle()) throw new InvalidDataException("部品の接続が循環しています。");
     }

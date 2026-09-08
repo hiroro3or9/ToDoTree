@@ -239,6 +239,14 @@ public sealed partial class MainViewModel
             return;
         }
 
+        // 回数つきの項目が混ざるときは巻き戻さない。達成した回数を、
+        // 「全部完了しているから」という理由で勝手に減らさないため。
+        if (targets.Any(n => n.Model.Repeat is not null))
+        {
+            AdvanceSelection(targets);
+            return;
+        }
+
         // 1 つでも未完了があれば「まとめて完了」、全部完了なら「まとめて戻す」。
         var toDone = targets.Any(n => n.Status != NodeStatus.Done);
 
@@ -467,6 +475,7 @@ public sealed partial class MainViewModel
 
         // 位置固定の切り替えなどでも「中を整列」の可否は変わる。
         NotifyBlockCommandStates();
+        NotifyRepeatCommandStates();
 
         RefreshTags();
         RefreshVisibility();

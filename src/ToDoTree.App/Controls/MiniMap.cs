@@ -144,7 +144,7 @@ public sealed class MiniMap : FrameworkElement
 
         var bounds = Rect.Empty;
         foreach (var node in _nodes)
-            bounds.Union(new Rect(node.X, node.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight));
+            bounds.Union(node.VisualBounds);
 
         // 囲みは見出しのぶんカードより上へ出る。切れないよう地図の範囲にも含める。
         foreach (var block in _blocks)

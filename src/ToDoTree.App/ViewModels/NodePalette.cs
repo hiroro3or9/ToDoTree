@@ -27,6 +27,14 @@ public static class NodePalette
 
     public static Brush ConnectorFill => ThemeManager.BrushOf("Node.Connector.Fill");
 
+    // ---- 回数で完了する項目 ----
+
+    public static Brush RepeatBadgeFill => ThemeManager.BrushOf("Node.Repeat.Badge");
+
+    public static Brush RepeatText => ThemeManager.BrushOf("Node.Repeat.Text");
+
+    public static Brush RepeatLoop => ThemeManager.BrushOf("Node.Repeat.Loop");
+
     /// <summary>種別を表すカード左端の色帯。</summary>
     public static Brush AccentOf(NodeKind kind) => kind switch
     {

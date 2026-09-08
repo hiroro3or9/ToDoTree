@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using ToDoTree.App.Services;
@@ -82,6 +83,8 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
 
     public double Height => Math.Max(1, _bounds.Height);
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public double HeaderHeight => BlockGeometry.HeaderHeight;
 
     public BlockBounds Bounds => _bounds;
@@ -198,8 +201,12 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
         ? ThemeManager.BrushOf("Block.Header.Selected.Fill")
         : ColorPalette.BrushOf("Block.Header.Fill", PaintColorId);
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public Brush HeaderText => ThemeManager.BrushOf("Block.Header.Text");
 
+    [SuppressMessage("Performance", "CA1822:Mark members as static",
+        Justification = "WPFのDataContext経由のインスタンスバインディングに使用するため。")]
     public Brush CountBrush => ThemeManager.BrushOf("Block.Header.Count");
 
     /// <summary>

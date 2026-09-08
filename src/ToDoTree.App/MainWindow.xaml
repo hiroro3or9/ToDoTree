@@ -483,6 +483,9 @@
                                                            FontWeight="SemiBold" Foreground="{Binding StatusBrush}" />
                                                 <TextBlock Text="{Binding KindLabel}" FontSize="10" Margin="7,0,0,0"
                                                            Foreground="{DynamicResource Brush.TextFaint}" />
+                                                <TextBlock Text="{Binding RepeatText}" FontSize="10" Margin="7,0,0,0"
+                                                           Foreground="{Binding RepeatTextBrush}"
+                                                           Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
@@ -581,14 +584,29 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="状態" Style="{StaticResource Text.Label}" />
+
+                                        <!--
+                                            回数つきの項目では汎用のドロップダウンを出さない。
+                                            途中の回数のまま「完了」を選べてしまうため。
+                                            代わりに下の「繰り返し」の専用操作で動かす。
+                                        -->
                                         <ComboBox ItemsSource="{Binding DataContext.ActiveDocument.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  SelectedItem="{Binding Status}">
+                                                  SelectedItem="{Binding Status}"
+                                                  Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
                                                 </DataTemplate>
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
+                                        <Border Padding="10,7" CornerRadius="8"
+                                                Background="{DynamicResource Brush.SurfaceAlt}"
+                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                                ToolTip="回数の操作で状態が決まります"
+                                                Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="{Binding StatusLabel}" TextTrimming="CharacterEllipsis"
+                                                       Foreground="{Binding StatusBrush}" FontWeight="SemiBold" />
+                                        </Border>
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2">
@@ -629,6 +647,51 @@
                                 <TextBox Text="{Binding Notes, UpdateSourceTrigger=LostFocus}"
                                          AcceptsReturn="True" TextWrapping="Wrap" Height="96"
                                          VerticalScrollBarVisibility="Auto" />
+
+                                <!-- ============ 回数で完了する項目 ============ -->
+                                <Border Style="{StaticResource Panel.Flat}" Padding="12,10" Margin="0,14,0,0"
+                                        Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="繰り返し" FontSize="10.5" FontWeight="Bold"
+                                                       Foreground="{DynamicResource Brush.TextFaint}" />
+                                            <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                                       Text="{Binding RepeatText}" FontSize="12.5" FontWeight="SemiBold"
+                                                       Foreground="{Binding RepeatTextBrush}" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding RepeatActionTooltip}" FontSize="11" Margin="0,6,0,0"
+                                                   TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSubtle}" />
+
+                                        <WrapPanel Margin="0,9,0,0">
+                                            <Button Content="1回達成" Style="{StaticResource Btn.Primary}"
+                                                    Padding="14,6" Margin="0,0,7,7"
+                                                    AutomationProperties.Name="{Binding RepeatActionName}"
+                                                    Command="{Binding DataContext.ActiveDocument.AdvanceRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="1回戻す" Style="{StaticResource Btn.Outline}"
+                                                    Padding="14,6" Margin="0,0,7,7"
+                                                    Command="{Binding DataContext.ActiveDocument.StepBackRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="着手する" Style="{StaticResource Btn.Outline}"
+                                                    Padding="14,6" Margin="0,0,7,7"
+                                                    Command="{Binding DataContext.ActiveDocument.BeginRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="{Binding DataContext.ActiveDocument.RepeatCancelLabel, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    Style="{StaticResource Btn.Outline}" Padding="14,6" Margin="0,0,7,7"
+                                                    Command="{Binding DataContext.ActiveDocument.ToggleRepeatCancelCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </WrapPanel>
+
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="回数を訂正…" Style="{StaticResource Btn.Link}" FontSize="11"
+                                                    Command="{Binding DataContext.ActiveDocument.AdjustRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <Button Content="繰り返しを解除" Style="{StaticResource Btn.Link}" FontSize="11" Margin="14,0,0,0"
+                                                    Command="{Binding DataContext.ActiveDocument.ClearRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <Button Content="繰り返しを設定…" Style="{StaticResource Btn.Outline}"
+                                        Padding="14,6" Margin="0,14,0,0" HorizontalAlignment="Left"
+                                        ToolTip="指定した回数を達成したときに完了する項目にします"
+                                        Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}"
+                                        Command="{Binding DataContext.ActiveDocument.ConfigureRepeatCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
 
                                 <CheckBox Margin="2,14,0,0" Content="この位置を固定する（自動整列で動かさない）"
                                           IsChecked="{Binding IsPinned}" />

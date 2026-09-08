@@ -173,7 +173,7 @@ public static class BlockLayoutService
     private static TodoGraph BuildInnerGraph(
         IReadOnlyList<TodoNode> members,
         TodoProject project,
-        IReadOnlySet<Guid> memberIds,
+        HashSet<Guid> memberIds,
         LayoutDirection direction)
     {
         var ordered = members.OrderBy(n => n.CreatedAt).ThenBy(n => n.Id).ToList();
@@ -254,8 +254,8 @@ public static class BlockLayoutService
     private static bool IntersectsOutside(
         TodoProject project,
         Guid blockId,
-        IReadOnlySet<Guid> memberIds,
-        IReadOnlyDictionary<Guid, TodoNode> byId,
+        HashSet<Guid> memberIds,
+        Dictionary<Guid, TodoNode> byId,
         BlockBounds bounds,
         LayoutOptions options)
     {

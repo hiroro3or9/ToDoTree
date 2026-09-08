@@ -101,12 +101,12 @@ public static class EdgeRouting
 
     private static Vec2 Unit(Vec2 vector) => vector.Length > 0.001 ? vector * (1 / vector.Length) : new Vec2(0, 0);
 
-    private static Vec2 Tangent(IReadOnlyList<Vec2> knots, int index) =>
+    private static Vec2 Tangent(Vec2[] knots, int index) =>
         Unit(Unit(knots[index] - knots[index - 1]) + Unit(knots[index + 1] - knots[index]));
 
     // 局所的に角を削るのではなく、隣の通過点またはカードまでを1本のベジェでつなぐ。
     // 共通接線で指定点を通り、カードの出入りも指定された辺の向きに揃える。
-    private static IReadOnlyList<Vec2>? SmoothLeg(Vec2 start, Vec2 end, Vec2 entry, Vec2 exit,
+    private static Vec2[]? SmoothLeg(Vec2 start, Vec2 end, Vec2 entry, Vec2 exit,
         double entryLength, double exitLength, List<Box> boxes)
     {
         if (entry.Length < 0.001 || exit.Length < 0.001 || (end - start).Length < 0.001) return null;
@@ -149,7 +149,7 @@ public static class EdgeRouting
 
     // 単純な迂回が塞がれているときだけ、矩形の縁で作った通路をA*で探索する。
     // 曲がり角にもコストを付け、短くても細かく折れ続ける経路を避ける。
-    private static IReadOnlyList<Vec2>? SearchCorridor(Vec2 start, Vec2 end, Vec2 a, Vec2 b, List<Box> boxes)
+    private static List<Vec2>? SearchCorridor(Vec2 start, Vec2 end, Vec2 a, Vec2 b, List<Box> boxes)
     {
         if (!Clear([start, a], boxes) || !Clear([b, end], boxes)) return null;
         if (boxes.Any(r => a.X > r.Left && a.X < r.Right && a.Y > r.Top && a.Y < r.Bottom

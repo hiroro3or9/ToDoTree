@@ -68,6 +68,9 @@ public partial class GraphView : UserControl
     /// <summary>右クリックでメニューを用意した直後だけ true。キーボードからの要求と区別する。</summary>
     private bool _menuRequested;
 
+    /// <summary>自己接続の案内を出している。完了予告の表示と取り合わないよう印を持つ。</summary>
+    private bool _selfConnectHintShown;
+
     public GraphView()
     {
         InitializeComponent();
@@ -147,6 +150,7 @@ public partial class GraphView : UserControl
             _viewModel.BlockFocusChanged -= OnBlockFocusChanged;
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.TemplateLibraryRequested -= OpenTemplateLibrary;
+            _viewModel.RepeatSettingsRequested -= OpenRepeatSettings;
             _viewModel.CompletionRequested -= OnCompletionRequested;
             _viewModel.ZoomToFitRequested -= OnZoomToFitRequested;
             _viewModel.ZoomStepRequested -= OnZoomStepRequested;
@@ -163,6 +167,7 @@ public partial class GraphView : UserControl
             _viewModel.BlockFocusChanged += OnBlockFocusChanged;
             _viewModel.VisualsChanged += OnVisualsChanged;
             _viewModel.TemplateLibraryRequested += OpenTemplateLibrary;
+            _viewModel.RepeatSettingsRequested += OpenRepeatSettings;
             _viewModel.CompletionRequested += OnCompletionRequested;
             _viewModel.ZoomToFitRequested += OnZoomToFitRequested;
             _viewModel.ZoomStepRequested += OnZoomStepRequested;
@@ -417,6 +422,15 @@ public partial class GraphView : UserControl
                 return;
             }
 
+            // 回数のボタンは通常の Click に任せる。押してから外へ逃がす取り消しができ、
+            // 「クリック解放で 1 回」という約束もそのまま守れる。
+            if (FindAncestor<Button>(e.OriginalSource as DependencyObject) is { Tag: string repeatTag }
+                && repeatTag is "repeat-advance" or "repeat-badge")
+            {
+                _viewModel.SelectOnly(node);
+                return;
+            }
+
             if (e.ClickCount >= 2)
             {
                 _viewModel.BeginEdit(node);
@@ -660,6 +674,9 @@ public partial class GraphView : UserControl
             return;
         }
 
+        // 自分へ戻した接続。設定画面はキャプチャを手放してから開く。
+        Guid? repeatRequest = null;
+
         if (_blockPress is not null)
         {
             if (_blockDragActive) UpdateBlockSnap(e.GetPosition(Surface));
@@ -682,14 +699,22 @@ public partial class GraphView : UserControl
         {
             var hit = HitTestAt(e.GetPosition(Viewport));
             var target = ConnectionTarget(hit, e.GetPosition(Surface));
+            var sourceId = _connectSource.Id;
 
-            if (target is not null && target.Id != _connectSource.Id)
+            if (target is not null && target.Id != sourceId)
             {
-                _viewModel.TryConnect(_connectSource.Id, target.Id, _connectSide, SideOf(hit));
+                _viewModel.TryConnect(sourceId, target.Id, _connectSide, SideOf(hit));
             }
             else if (target is null)
             {
                 _viewModel.StatusMessage = "繋ぎたいステップまたはブロックの上で離してください。";
+            }
+            else if (IsBeyondDragThreshold(e.GetPosition(Viewport)))
+            {
+                // 自分の接続点から自分へ戻したら「繰り返しを設定」。
+                // 接続点の単純クリックや、掴んだ直後の手ぶれでは開かない。
+                // しきい値は画面座標で見る（ズーム倍率で開けやすさを変えない）。
+                repeatRequest = sourceId;
             }
 
             _connectSource = null;
@@ -734,7 +759,35 @@ public partial class GraphView : UserControl
             }
         }
         EndInteraction();
+
+        if (repeatRequest is { } repeatId && _viewModel is { } viewModel)
+        {
+            Dispatcher.BeginInvoke(
+                new Action(() => viewModel.RequestRepeatFromSelfConnection(repeatId)),
+                System.Windows.Threading.DispatcherPriority.Input);
+        }
     }
+
+    /// <summary>接続ドラッグ中、自分へ戻したときだけ出す案内。</summary>
+    private void ShowSelfConnectHint(bool show, Guid sourceId)
+    {
+        if (!show)
+        {
+            if (_selfConnectHintShown) { CompletionHint.Visibility = Visibility.Collapsed; _selfConnectHintShown = false; }
+            return;
+        }
+
+        CompletionHintText.Text = _viewModel?.Blocks.Any(b => b.Id == sourceId) == true
+            ? "ブロック全体の繰り返しは未対応です（中のステップには設定できます）"
+            : "離すと繰り返し回数を設定できます";
+        CompletionHint.Visibility = Visibility.Visible;
+        _selfConnectHintShown = true;
+    }
+
+    /// <summary>押した位置から、ドラッグと呼べるだけ離れたか。ブロック移動と同じ基準を使う。</summary>
+    private bool IsBeyondDragThreshold(Point screen) =>
+        Math.Abs(screen.X - _pressScreen.X) >= SystemParameters.MinimumHorizontalDragDistance
+        || Math.Abs(screen.Y - _pressScreen.Y) >= SystemParameters.MinimumVerticalDragDistance;
 
     private void OnViewportMouseDown(object sender, MouseButtonEventArgs e)
     {
@@ -776,6 +829,7 @@ public partial class GraphView : UserControl
         _panning = false;
         _marqueeStart = null;
         EdgeRenderer.SetMarquee(null);
+        ShowSelfConnectHint(false, Guid.Empty);
 
         if (Viewport.IsMouseCaptured)
         {
@@ -809,6 +863,17 @@ public partial class GraphView : UserControl
         var port = EdgeRouting.Port(Bounds, _connectSide);
         var hit = HitTestAt(Surface.TranslatePoint(world, Viewport));
         var target = ConnectionTarget(hit, world);
+
+        // 自分の上に戻ってきているあいだだけ、何が起きるかを出す。
+        // 設定後と同じ形のループを予告する。保存上の依存辺は作らない。
+        ShowSelfConnectHint(target is not null && target.Id == _connectSource.Id, _connectSource.Id);
+
+        if (target?.Id == _connectSource.Id && _viewModel.Nodes.Any(n => n.Id == target.Id))
+        {
+            EdgeRenderer.SetPreviewLoop(new Point(target.X, target.Y));
+            return;
+        }
+
         if (target is not null && target.Id != _connectSource.Id)
         {
             var preview = new EdgeViewModel(new TodoEdge { FromId = _connectSource.Id, ToId = target.Id,
@@ -827,9 +892,15 @@ public partial class GraphView : UserControl
         }
 
         if (_viewModel is { IsConnecting: true, ConnectSource: { } source } &&
-            (_viewModel.SelectedNode ?? _viewModel.SelectedBlock?.ConnectionNode) is { } target &&
-            !ReferenceEquals(source, target))
+            (_viewModel.SelectedNode ?? _viewModel.SelectedBlock?.ConnectionNode) is { } target)
         {
+            if (source.Id == target.Id)
+            {
+                if (_viewModel.Nodes.Any(n => n.Id == source.Id))
+                    EdgeRenderer.SetPreviewLoop(new Point(source.X, source.Y));
+                else EdgeRenderer.SetPreview(null, null);
+                return;
+            }
             var preview = new EdgeViewModel(new TodoEdge { FromId = source.Id, ToId = target.Id }, source, target, _viewModel);
             EdgeRenderer.SetPreviewRoute(preview.GetRoute(_viewModel.Nodes));
             return;
@@ -881,6 +952,37 @@ public partial class GraphView : UserControl
     }
 
     // ---- ブロックの見出しの入力欄 ----
+
+    /// <summary>カードの「＋1」。1 操作で 1 だけ増え、上限を超えない。</summary>
+    private void OnRepeatAdvanceClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not null && sender is Button { DataContext: NodeViewModel node })
+        {
+            _viewModel.SelectOnly(node);
+            _viewModel.AdvanceRepeat(node);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>回数のバッジ。押すと設定を開く。</summary>
+    private void OnRepeatBadgeClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel is not { } viewModel || sender is not Button { DataContext: NodeViewModel node }) return;
+
+        viewModel.SelectOnly(node);
+        e.Handled = true;
+
+        // ボタンの押下処理を終えてから開く。押したままの状態で別ウィンドウを出さない。
+        Dispatcher.BeginInvoke(
+            new Action(() => viewModel.RequestRepeatSettings(node)),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    /// <summary>キーを押しっぱなしにしたときの自動リピートでは加算しない。</summary>
+    private void OnRepeatButtonPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.IsRepeat && e.Key is Key.Space or Key.Enter) e.Handled = true;
+    }
 
     private void OnBlockCollapseClick(object sender, RoutedEventArgs e)
     {
@@ -939,6 +1041,14 @@ public partial class GraphView : UserControl
 
         // 入力欄に文字を打っている最中は、キャンバスの操作を拾わない。
         if (Keyboard.FocusedElement is TextBox)
+        {
+            return;
+        }
+
+        // カード上のボタンにフォーカスがあるときは、そのボタンの操作に任せる。
+        // ここで拾うと Space が「ボタンを押す」と「完了 / 1回達成」の二重になる。
+        if (Keyboard.FocusedElement is System.Windows.Controls.Primitives.ButtonBase
+            && e.Key is Key.Space or Key.Enter)
         {
             return;
         }
@@ -1024,6 +1134,11 @@ public partial class GraphView : UserControl
             case Key.Delete:
                 if (_viewModel.SelectedWaypointIndex >= 0) _viewModel.RemoveWaypoint();
                 else _viewModel.DeleteSelected();
+                e.Handled = true;
+                break;
+
+            // 押しっぱなしの自動リピートでは加算しない。1 操作で 1 回だけ進める。
+            case Key.Space when e.IsRepeat:
                 e.Handled = true;
                 break;
 
@@ -1139,10 +1254,10 @@ public partial class GraphView : UserControl
         var shown = _viewModel.Nodes.Where(n => n.IsVisible).ToList();
         if (shown.Count == 0 && !_viewModel.Blocks.Any(b => b.IsVisible)) return;
 
-        var minX = shown.Select(n => n.X).DefaultIfEmpty(double.PositiveInfinity).Min();
-        var minY = shown.Select(n => n.Y).DefaultIfEmpty(double.PositiveInfinity).Min();
-        var maxX = shown.Select(n => n.X + NodeViewModel.CardWidth).DefaultIfEmpty(double.NegativeInfinity).Max();
-        var maxY = shown.Select(n => n.Y + NodeViewModel.CardHeight).DefaultIfEmpty(double.NegativeInfinity).Max();
+        var minX = shown.Select(n => n.VisualBounds.Left).DefaultIfEmpty(double.PositiveInfinity).Min();
+        var minY = shown.Select(n => n.VisualBounds.Top).DefaultIfEmpty(double.PositiveInfinity).Min();
+        var maxX = shown.Select(n => n.VisualBounds.Right).DefaultIfEmpty(double.NegativeInfinity).Max();
+        var maxY = shown.Select(n => n.VisualBounds.Bottom).DefaultIfEmpty(double.NegativeInfinity).Max();
 
         foreach (var point in _viewModel.Edges.Where(e => e.IsVisible && !e.IsAggregated).SelectMany(e => e.Model.Waypoints))
         {
@@ -1188,10 +1303,11 @@ public partial class GraphView : UserControl
     {
         if (IsViewportLocked) return;
         var scale = ZoomTransform.ScaleX;
-        var left = (node.X * scale) + PanTransform.X;
-        var top = (node.Y * scale) + PanTransform.Y;
-        var right = left + (NodeViewModel.CardWidth * scale);
-        var bottom = top + (NodeViewModel.CardHeight * scale);
+        var visual = node.VisualBounds;
+        var left = (visual.Left * scale) + PanTransform.X;
+        var top = (visual.Top * scale) + PanTransform.Y;
+        var right = (visual.Right * scale) + PanTransform.X;
+        var bottom = (visual.Bottom * scale) + PanTransform.Y;
         const double margin = 48;
 
         if (left < margin)

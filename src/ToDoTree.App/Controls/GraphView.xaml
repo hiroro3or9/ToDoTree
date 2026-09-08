@@ -143,7 +143,18 @@
             <MenuItem Header="並行して追加" InputGestureText="Shift+Enter" Command="{Binding AddSiblingCommand}" />
             <MenuItem Header="ここから繋ぐ" InputGestureText="Ctrl+E" Command="{Binding StartConnectCommand}" />
             <Separator />
-            <MenuItem Header="完了 / 未着手" InputGestureText="Space" Command="{Binding ToggleDoneCommand}" />
+            <!--
+                回数つきの項目では、この行が「1回達成」になる。混在選択では何が起きるかを見出しに出す。
+                実際の振り分けは MainViewModel.ToggleDone が行う。
+            -->
+            <MenuItem Header="{Binding ToggleDoneLabel}" InputGestureText="Space" Command="{Binding ToggleDoneCommand}"
+                      ToolTip="{Binding ToggleDoneHint}" />
+            <MenuItem Header="1回戻す" Command="{Binding StepBackRepeatCommand}"
+                      Visibility="{Binding IsSelectedRepeating, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="{Binding RepeatConfigureLabel}" Command="{Binding ConfigureRepeatCommand}"
+                      ToolTip="目標回数と達成回数をまとめて直します" />
+            <MenuItem Header="繰り返しを解除" Command="{Binding ClearRepeatCommand}"
+                      Visibility="{Binding IsSelectedRepeating, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="この先を畳む / 開く" Command="{Binding CollapseSelectedCommand}" />
             <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
@@ -187,8 +198,35 @@
             ステップのカード。状態・種別・期限・見積り・タグまで載せる、標準の見た目。
             大きさは NodeViewModel.CardWidth / CardHeight と揃えること（線の接続位置がずれる）。
         -->
+        <!-- 自己ループはノードの外側へ描く。線上の回数から設定を開く。 -->
+        <DataTemplate x:Key="NodeRepeatLoopTemplate">
+            <Grid Width="{Binding RepeatLoopWidth}" Height="{Binding RepeatLoopHeight}">
+                <Path Data="{Binding RepeatLoopPath}" Stroke="{Binding RepeatLoopBrush}" StrokeThickness="1.7"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      IsHitTestVisible="False" />
+                <Path Data="{Binding RepeatLoopArrow}" Stroke="{Binding RepeatLoopBrush}" StrokeThickness="1.7"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      IsHitTestVisible="False" />
+                <Button Tag="repeat-badge" Style="{StaticResource Btn.Ghost}"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" Height="24" MinWidth="62"
+                        Margin="0" Padding="8,2" FontSize="10.5" FontWeight="Medium"
+                        Background="{Binding RepeatBadgeFill}" Foreground="{Binding RepeatTextBrush}"
+                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                        Content="{Binding RepeatText}" Click="OnRepeatBadgeClick"
+                        PreviewKeyDown="OnRepeatButtonPreviewKeyDown"
+                        AutomationProperties.Name="繰り返しの設定"
+                        AutomationProperties.HelpText="{Binding RepeatActionName}"
+                        ToolTip="回数を変更・訂正" />
+            </Grid>
+        </DataTemplate>
+
         <DataTemplate x:Key="NodeCardTemplate">
             <Grid x:Name="Root" Width="242" Height="88" Opacity="{Binding CardOpacity}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource NodeRepeatLoopTemplate}"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Width="{Binding RepeatLoopWidth}" Height="{Binding RepeatLoopHeight}"
+                                Margin="{Binding RepeatLoopMargin}" Focusable="False"
+                                Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- 選択の輪郭はカードの外側に置き、接続位置とカード寸法を保つ。 -->
                 <Border Width="232" Height="96" Margin="-4,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -269,18 +307,40 @@
                                          Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
                             </Grid>
 
-                            <!-- 期限・見積り・タグ と 折りたたみ -->
+                            <!-- 期限・見積り・タグ ／ 回数 ／ 折りたたみ -->
                             <Grid Grid.Row="2">
-                                <TextBlock Text="{Binding MetaText}" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,26,0"
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="{Binding MetaText}" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
                                            Foreground="{DynamicResource Node.TextSubtle}"
                                            TextTrimming="CharacterEllipsis"
                                            Visibility="{Binding HasMeta, Converter={StaticResource BoolToVisibility}}" />
 
-                                <Button Tag="collapse"
+                                <!-- 1 回達成。上限まで来たらチェックに変わり、押しても減らない。 -->
+                                <Button Grid.Column="2" Tag="repeat-advance"
+                                        Style="{StaticResource Btn.Ghost}"
+                                        Background="{Binding RepeatBadgeFill}" Foreground="{Binding RepeatTextBrush}"
+                                        Content="{Binding RepeatActionGlyph}"
+                                        Margin="5,0,0,0" Padding="7,1" MinWidth="26" FontSize="10"
+                                        VerticalAlignment="Center"
+                                        Click="OnRepeatAdvanceClick"
+                                        PreviewKeyDown="OnRepeatButtonPreviewKeyDown"
+                                        IsEnabled="{Binding CanAdvanceRepeat}"
+                                        AutomationProperties.Name="{Binding RepeatActionName}"
+                                        ToolTip="{Binding RepeatActionTooltip}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
+
+                                <Button Grid.Column="3" Tag="collapse"
                                         Style="{StaticResource Btn.Chip}"
                                         Content="{Binding CollapseLabel}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Margin="5,0,0,0" VerticalAlignment="Center"
                                         Padding="6,0" MinWidth="22" FontSize="9.5"
                                         Visibility="{Binding CanCollapse, Converter={StaticResource BoolToVisibility}}"
                                         ToolTip="この先を畳む / 開く" />
@@ -356,6 +416,11 @@
                   UseLayoutRounding="False" SnapsToDevicePixels="False"
                   Background="Transparent" Cursor="SizeAll"
                   ToolTip="{Binding CardTooltip}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource NodeRepeatLoopTemplate}"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Width="{Binding RepeatLoopWidth}" Height="{Binding RepeatLoopHeight}"
+                                Margin="{Binding RepeatLoopMargin}" Focusable="False"
+                                Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- 名前を常時表示して、丸だけでもタスクを識別できるようにする。 -->
                 <TextBlock Text="⚑" FontSize="14" Margin="-10,-19,0,0"
@@ -365,10 +430,12 @@
                 <Border Width="96" HorizontalAlignment="Center" VerticalAlignment="Top"
                         Margin="-36,34,-36,-30" Background="{DynamicResource Brush.Canvas}"
                         Padding="3,1" CornerRadius="3" IsHitTestVisible="False">
-                    <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
-                               Foreground="{Binding TitleBrush}"
-                               TextDecorations="{Binding TitleDecorations}"
-                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
+                                   Foreground="{Binding TitleBrush}"
+                                   TextDecorations="{Binding TitleDecorations}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
                 </Border>
                 <!-- 畳んでいる印。この先にまだ続きがあることを、外側の破線で示す。 -->
                 <Ellipse Width="24" Height="24" StrokeThickness="1" StrokeDashArray="2 2"
@@ -458,6 +525,11 @@
                                  KeyDown="OnCardEditorKeyDown"
                                  LostKeyboardFocus="OnCardEditorLostFocus"
                                  Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
+
+                        <TextBlock Text="{Binding RepeatText}" FontSize="10.5" Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding RepeatTextBrush}"
+                                   Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
 
                         <TextBlock Text="{Binding CollapsedBadge}" FontSize="10.5" Margin="8,0,0,0"
                                    VerticalAlignment="Center"

@@ -442,7 +442,7 @@ public class BlockLayoutTests
     }
 
     /// <summary>手で動かしたあとのように、規則性のない座標へ散らす。</summary>
-    private static void Scatter(IReadOnlyList<TodoNode> nodes)
+    private static void Scatter(List<TodoNode> nodes)
     {
         for (var i = 0; i < nodes.Count; i++)
         {

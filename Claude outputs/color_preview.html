@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ToDoTree 個別色プリセット 確認用</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; padding:24px; font-family:"Yu Gothic UI","Meiryo",system-ui,sans-serif; background:#20262f; color:#e7eaf2; }
+  h1 { font-size:17px; margin:0 0 4px; font-weight:600; }
+  p.note { font-size:12px; color:#9fb0c4; margin:0 0 20px; }
+  .themes { display:flex; gap:20px; flex-wrap:wrap; }
+  .theme { flex:1 1 460px; min-width:0; border-radius:12px; overflow:hidden; }
+  .theme > h2 { font-size:13px; margin:0; padding:10px 14px; font-weight:600; }
+  .light > h2 { background:#F8FBFC; color:#192D40; }
+  .dark  > h2 { background:#101C2C; color:#E7EAF2; }
+  .canvas { padding:16px 14px 20px; }
+  .light .canvas { background:#F3F8F9; }
+  .dark  .canvas { background:#0B1625; }
+  .row { display:flex; align-items:center; gap:12px; margin-bottom:11px; }
+  .name { width:74px; flex:none; font-size:11.5px; }
+  .light .name { color:#536D7C; }
+  .dark  .name { color:#ACBED0; }
+  .block { position:relative; width:196px; flex:none; height:58px; border-radius:11px; box-sizing:border-box; }
+  .hdr { position:absolute; left:8px; top:-10px; height:22px; padding:0 9px; border-radius:7px;
+         display:flex; align-items:center; gap:7px; font-size:11px; font-weight:600; box-sizing:border-box; }
+  .cnt { font-weight:400; font-size:10px; }
+  .light .hdr { color:#334155; } .light .cnt { color:#7A8A99; }
+  .dark  .hdr { color:#DCE3EE; } .dark  .cnt { color:#95A5B8; }
+  .card { position:absolute; left:22px; top:22px; width:104px; height:26px; border-radius:7px;
+          font-size:10.5px; display:flex; align-items:center; padding-left:9px; box-sizing:border-box; }
+  .light .card { background:#fff; border:1px solid #DCE1E9; color:#1B2030; }
+  .dark  .card { background:#182A40; border:1px solid #2F3644; color:#E7EAF2; }
+  svg { flex:none; }
+  .sel { font-size:10px; margin-left:2px; }
+</style>
+</head>
+<body>
+<h1>個別色プリセット（案）— ブロックの囲みと線</h1>
+<p class="note">左が実寸に近いブロックの見え方、右が同じ色の線。既定色を一番上に置いています。文字色は色分けしません。</p>
+<div class="themes">
+  <div class="theme light"><h2>ライト</h2><div class="canvas" id="light"></div></div>
+  <div class="theme dark"><h2>ダーク</h2><div class="canvas" id="dark"></div></div>
+</div>
+<script>
+const P = [
+  ["既定","(null)", ["#0F5B7488","#FFC3CCD8","#FFEDF1F5","#FFB9C0CE"], ["#14A3B4C9","#FF3A4454","#FF232A36","#FF3C4457"]],
+  ["灰","slate",    ["#1494A3B8","#FF94A3B8","#FFEDF1F5","#FF94A3B8"], ["#1E94A3B8","#FF64748B","#FF232A36","#FF64748B"]],
+  ["赤","red",      ["#14DC2626","#FFDC2626","#FFFBE9E9","#FFDC2626"], ["#1EF87171","#FFF87171","#FF3A2028","#FFEF6B6B"]],
+  ["橙","orange",   ["#14F97316","#FFF97316","#FFFDEEE1","#FFEA580C"], ["#1EFB923C","#FFFB923C","#FF36261B","#FFF59A4B"]],
+  ["黄","amber",    ["#14D97706","#FFD97706","#FFFBF1DC","#FFD97706"], ["#1EFBBF24","#FFFBBF24","#FF332B18","#FFEBB43C"]],
+  ["緑","green",    ["#1422C55E","#FF22C55E","#FFE8F7EE","#FF16A34A"], ["#1E4ADE80","#FF4ADE80","#FF1A3328","#FF4ADE80"]],
+  ["青緑","teal",   ["#140D9488","#FF0D9488","#FFE2F3F0","#FF0D9488"], ["#1E2DD4BF","#FF2DD4BF","#FF15332F","#FF2DD4BF"]],
+  ["青","blue",     ["#143B82F6","#FF3B82F6","#FFE7EFFD","#FF2563EB"], ["#1E60A5FA","#FF60A5FA","#FF1B2A45","#FF6E9BF7"]],
+  ["紫","violet",   ["#148B5CF6","#FF8B5CF6","#FFF0EAFE","#FF7C3AED"], ["#1EA78BFA","#FFA78BFA","#FF272348","#FF9B87F5"]],
+  ["桃","pink",     ["#14EC4899","#FFEC4899","#FFFCE8F1","#FFDB2777"], ["#1EF472B6","#FFF472B6","#FF3A2036","#FFEE72B0"]],
+];
+const css = a => { const h=a.slice(1); return "#"+h.slice(2)+h.slice(0,2); }; // AARRGGBB -> #RRGGBBAA
+for (const [mode, idx] of [["light",0],["dark",1]]) {
+  const host = document.getElementById(mode);
+  for (const row of P) {
+    const [ja, id] = row, [fill, stroke, header, edge] = row[2+idx];
+    const d = document.createElement("div"); d.className = "row";
+    d.innerHTML =
+      `<div class="name">${ja} <span style="opacity:.6">${id==="(null)"?"":id}</span></div>` +
+      `<div class="block" style="background:${css(fill)};border:1.2px solid ${css(stroke)}">` +
+        `<div class="hdr" style="background:${css(header)};border:1px solid ${css(stroke)}">設計 <span class="cnt">3 件</span></div>` +
+        `<div class="card">要件整理</div></div>` +
+      `<svg width="150" height="34" viewBox="0 0 150 34"><g stroke="${css(edge)}" fill="none" stroke-width="1.8" stroke-linecap="round">` +
+        `<path d="M4 17 L118 17"/></g><path d="M130 17 L121 12.8 L121 21.2 Z" fill="${css(edge)}"/>` +
+        `<g stroke="${css(edge)}" fill="none" stroke-width="1.8" opacity="0.45"><path d="M4 29 L126 29"/></g>` +
+      `</svg>` +
+      `<span class="sel" style="color:${css(edge)}">通常／完了後45%</span>`;
+    host.appendChild(d);
+  }
+}
+</script>
+</body>
+</html>

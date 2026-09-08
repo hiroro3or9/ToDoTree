@@ -22,6 +22,12 @@ public sealed class TodoNode
     /// <summary>見積もり（分）。クリティカルパスと重み付き進捗で使う。</summary>
     public int? EstimateMinutes { get; set; }
 
+    /// <summary>
+    /// 回数で完了する項目の目標・達成回数。null は従来の通常項目。
+    /// 目標に達したときだけ <see cref="Status"/> が Done になる（取り消し中は別）。
+    /// </summary>
+    public RepeatProgress? Repeat { get; set; }
+
     public List<string> Tags { get; set; } = [];
 
     public double X { get; set; }
@@ -41,10 +47,17 @@ public sealed class TodoNode
     public bool IsOverdue =>
         Due is { } due && Status is not (NodeStatus.Done or NodeStatus.Cancelled) && due < DateTimeOffset.Now;
 
+    /// <summary>回数で完了する項目。</summary>
+    public bool IsRepeating => Repeat is not null;
+
     public TodoNode Clone()
     {
         var copy = (TodoNode)MemberwiseClone();
         copy.Tags = [.. Tags];
+
+        // MemberwiseClone は参照をそのまま写す。回数を共有したままだと、
+        // 履歴・部品・プロジェクト複製の片方で加算したぶんが元にも乗ってしまう。
+        copy.Repeat = Repeat?.Clone();
         return copy;
     }
 
