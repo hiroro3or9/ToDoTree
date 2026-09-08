@@ -38,7 +38,7 @@ public partial class GraphView
         if (transfer) _viewModel.StatusMessage = target is { } id
             ? $"離すと「{_viewModel.Blocks.First(b => b.Id == id).Title}」へ所属を変更します（Shiftを離すと位置だけ移動）。"
             : "離すとブロックから外します（Shiftを離すと位置だけ移動）。";
-        else _viewModel.StatusMessage = "Shiftを押すと、ドロップ先へ所属を変更できます。";
+        else _viewModel.StatusMessage = CardDragHint;
     }
 
     private void ClearMembershipPreview()

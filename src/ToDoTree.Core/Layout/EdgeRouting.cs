@@ -24,7 +24,7 @@ public static class EdgeRouting
     public static IReadOnlyList<Vec2> RouteRects(BlockBounds from, BlockBounds to,
         IReadOnlyList<BlockBounds> obstacles, ConnectionSide fromSide = ConnectionSide.Auto,
         ConnectionSide toSide = ConnectionSide.Auto, IReadOnlyList<Vec2>? waypoints = null,
-        IReadOnlyList<bool>? smoothWaypoints = null)
+        IReadOnlyList<bool>? smoothWaypoints = null, double fromOffset = 0, double toOffset = 0)
     {
         var dx = (to.X + to.Width / 2) - (from.X + from.Width / 2);
         var dy = (to.Y + to.Height / 2) - (from.Y + from.Height / 2);
@@ -35,7 +35,7 @@ public static class EdgeRouting
         if (toSide == ConnectionSide.Auto) toSide = horizontal
             ? (dx >= 0 ? ConnectionSide.Left : ConnectionSide.Right)
             : (dy >= 0 ? ConnectionSide.Top : ConnectionSide.Bottom);
-        var start = Port(from, fromSide); var end = Port(to, toSide);
+        var start = Port(from, fromSide, fromOffset); var end = Port(to, toSide, toOffset);
         var (c1, c2) = CurveGeometry.ControlPoints(start, end);
         c1 = CurveGeometry.SourceControlPoint(start, end, c1, fromSide);
         c2 = CurveGeometry.SourceControlPoint(end, start, c2, toSide);
@@ -46,13 +46,18 @@ public static class EdgeRouting
         return RouteAnchors(start, end, c1, c2, boxes, original, waypoints, smoothWaypoints);
     }
 
-    public static Vec2 Port(BlockBounds box, ConnectionSide side) => side switch
+    public static Vec2 Port(BlockBounds box, ConnectionSide side, double offset = 0)
     {
-        ConnectionSide.Top => new(box.X + box.Width / 2, box.Y),
-        ConnectionSide.Bottom => new(box.X + box.Width / 2, box.Bottom),
-        ConnectionSide.Left => new(box.X, box.Y + box.Height / 2),
-        _ => new(box.Right, box.Y + box.Height / 2),
-    };
+        var x = box.X + Math.Clamp(box.Width / 2 + offset, 0, box.Width);
+        var y = box.Y + Math.Clamp(box.Height / 2 + offset, 0, box.Height);
+        return side switch
+        {
+            ConnectionSide.Top => new(x, box.Y),
+            ConnectionSide.Bottom => new(x, box.Bottom),
+            ConnectionSide.Left => new(box.X, y),
+            _ => new(box.Right, y),
+        };
+    }
 
     private static IReadOnlyList<Vec2> RouteAnchors(Vec2 start, Vec2 end, Vec2 c1, Vec2 c2,
         List<Box> boxes, IReadOnlyList<Vec2> original, IReadOnlyList<Vec2>? waypoints, IReadOnlyList<bool>? smoothWaypoints)

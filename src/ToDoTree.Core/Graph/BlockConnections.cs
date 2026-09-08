@@ -11,10 +11,13 @@ public static class BlockConnections
 
     public static IEnumerable<TodoEdge> Expand(TodoProject project)
     {
+        var endpoints = project.Nodes.ToDictionary(n => n.Id, n => (IReadOnlyList<Guid>)new[] { n.Id });
+        foreach (var block in project.Blocks) endpoints[block.Id] = block.NodeIds;
         foreach (var edge in project.Edges)
         {
-            foreach (var from in Members(project, edge.FromId))
-            foreach (var to in Members(project, edge.ToId))
+            if (!endpoints.TryGetValue(edge.FromId, out var sources) || !endpoints.TryGetValue(edge.ToId, out var targets)) continue;
+            foreach (var from in sources)
+            foreach (var to in targets)
             {
                 if (from == edge.FromId && to == edge.ToId) yield return edge;
                 else yield return new TodoEdge { Id = edge.Id, FromId = from, ToId = to, Label = edge.Label };
@@ -42,8 +45,8 @@ public static class BlockConnections
         foreach (var edge in project.Edges.Where(e => e.FromId == block.Id || e.ToId == block.Id).ToArray())
         {
             project.Edges.Remove(edge);
-            var sources = edge.FromId == block.Id ? block.NodeIds : new List<Guid> { edge.FromId };
-            var targets = edge.ToId == block.Id ? block.NodeIds : new List<Guid> { edge.ToId };
+            var sources = edge.FromId == block.Id ? block.NodeIds : [edge.FromId];
+            var targets = edge.ToId == block.Id ? block.NodeIds : [edge.ToId];
             foreach (var from in sources)
             foreach (var to in targets)
             {

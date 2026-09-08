@@ -11,6 +11,62 @@
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
 
+
+        <!-- 小さな線のシェブロン。操作領域はアイコンより広く確保する。 -->
+        <Style x:Key="BlockCollapseButton" TargetType="Button">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Margin" Value="0,0,7,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{Binding HeaderText}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="ToolTip" Value="{Binding CollapseActionText}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding CollapseActionText}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding Title}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="7"
+                                BorderBrush="Transparent" BorderThickness="1">
+                            <Grid Width="12" Height="12" RenderTransformOrigin="0.5,0.5">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value><RotateTransform Angle="90" /></Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                                                <Setter Property="RenderTransform">
+                                                    <Setter.Value><RotateTransform Angle="0" /></Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Path Data="M 4,2 L 8,6 L 4,10" Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="1.6" StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.AccentBorder}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!--
             色見本の 1 行。ブロックの「色」と線の「色」で共通に使う。
             このメニューの見た目には印を出す場所が無いので、選択中の色は行末のチェックで示す。
@@ -41,6 +97,7 @@
             GraphView.xaml.cs が出し分ける。DataContext は Viewport から受け継ぐ。
         -->
         <ContextMenu x:Key="EdgeMenu">
+            <MenuItem Header="内部ステップを表示" Command="{Binding RevealEdgeCommand}" />
             <!-- 線は細いので、掴んだのがどれかを名前で確かめられるようにする -->
             <MenuItem Header="{Binding EdgeMenuHeader}" IsEnabled="False" FontSize="11" Padding="10,4" />
             <Separator />
@@ -496,44 +553,53 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Grid Width="{Binding Width}" Height="{Binding Height}">
-                            <Border CornerRadius="14"
-                                    Background="{Binding BodyFill}"
-                                    BorderBrush="{Binding BorderBrush}"
-                                    BorderThickness="{Binding BorderThickness}"
-                                    IsHitTestVisible="False" />
+                            <Border CornerRadius="14" Background="{Binding BodyFill}" IsHitTestVisible="False" />
 
-                            <!-- 見出し。線と重なっても読めるよう、透けない下地を敷く。 -->
-                            <Border Tag="block-header"
-                                    HorizontalAlignment="Left" VerticalAlignment="Top"
-                                    Height="{Binding HeaderHeight}" MaxWidth="{Binding Width}"
-                                    Margin="10,0,0,0" Padding="10,0" CornerRadius="9"
-                                    Background="{Binding HeaderFill}"
-                                    BorderBrush="{Binding BorderBrush}" BorderThickness="1"
-                                    Cursor="{Binding HeaderCursor}"
-                                    ToolTip="{Binding Tooltip}">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Tag="block-collapse" Content="{Binding CollapseGlyph}" Width="22" Height="24" Padding="0" Margin="0,0,5,0"
-                                            ToolTip="ブロックを畳む / 開く" />
-                                    <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
-                                               MaxWidth="220" VerticalAlignment="Center"
-                                               Foreground="{Binding HeaderText}"
+                            <!-- 展開時は囲みの見出し、折りたたみ時は一枚のカードとして表示する。 -->
+                            <Border Tag="block-header" VerticalAlignment="Top"
+                                    Padding="10,0,12,0" Background="{Binding HeaderFill}"
+                                    Cursor="{Binding HeaderCursor}" ToolTip="{Binding Tooltip}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Height" Value="{Binding HeaderHeight}" />
+                                        <Setter Property="CornerRadius" Value="14,14,0,0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                                                <Setter Property="Height" Value="{Binding Height}" />
+                                                <Setter Property="CornerRadius" Value="14" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Tag="block-collapse" Style="{StaticResource BlockCollapseButton}"
+                                            Click="OnBlockCollapseClick" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" Foreground="{Binding HeaderText}"
                                                TextTrimming="CharacterEllipsis"
                                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}" />
 
-                                    <!-- 見出しの上でそのまま名前を書き換える -->
-                                    <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
-                                             FontSize="12" FontWeight="SemiBold" Width="190" Padding="4,1"
+                                    <!-- 件数の領域を確保し、長い名前もカードからはみ出させない。 -->
+                                    <TextBox Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="12" FontWeight="SemiBold" Padding="4,1" MinWidth="0"
                                              VerticalAlignment="Center" AcceptsReturn="False"
                                              behaviors:FocusBehavior.FocusWhenVisible="True"
-                                             KeyDown="OnBlockEditorKeyDown"
-                                             LostKeyboardFocus="OnBlockEditorLostFocus"
+                                             KeyDown="OnBlockEditorKeyDown" LostKeyboardFocus="OnBlockEditorLostFocus"
                                              Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
-
-                                    <TextBlock Text="{Binding CountText}" FontSize="10.5" Margin="9,0,0,0"
-                                               VerticalAlignment="Center"
-                                               Foreground="{Binding CountBrush}" />
-                                </StackPanel>
+                                    <Border Grid.Column="2" Margin="10,0,0,0" Padding="8,3" CornerRadius="8"
+                                            VerticalAlignment="Center" Background="{Binding BodyFill}">
+                                        <TextBlock Text="{Binding CountText}" FontSize="10.5"
+                                                   Foreground="{Binding CountBrush}" />
+                                    </Border>
+                                </Grid>
                             </Border>
+                            <Border CornerRadius="14" BorderBrush="{Binding BorderBrush}"
+                                    BorderThickness="{Binding BorderThickness}" IsHitTestVisible="False" />
                             <Ellipse Tag="connector-left" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Center"
                                      Margin="-6,0,0,0" Fill="{Binding HeaderFill}" Stroke="{Binding BorderBrush}" StrokeThickness="2" Cursor="Cross" ToolTip="ブロック全体へ接続" />
                             <Ellipse Tag="connector" Width="12" Height="12" HorizontalAlignment="Right" VerticalAlignment="Center"

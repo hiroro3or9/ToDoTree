@@ -158,7 +158,7 @@ public class BlockConnectionTests
     [Test]
     public async Task ExportIncludesResolvedDependencies()
     {
-        var (p, g, a, b, n) = Scene(); g.Connect(a.Id, b.Id);
+        var (p, g, a, b, _) = Scene(); g.Connect(a.Id, b.Id);
         var mermaid = GraphExporter.ToMermaid(p);
         await Assert.That(mermaid.Contains("n1 --> n3")).IsTrue();
         await Assert.That(mermaid.Contains("n2 --> n4")).IsTrue();

@@ -43,7 +43,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
         }
     }
     public bool IsCollapsed => Model.IsCollapsed && owner.FocusedBlockId != Id;
-    public string CollapseGlyph => IsCollapsed ? "▶" : "▼";
+    public string CollapseActionText => IsCollapsed ? "ブロックを開く" : "ブロックを畳む";
     public string ProgressText => $"完了 {Model.NodeIds.Count(id => owner.Graph.Find(id)?.IsSettled == true)}/{Model.NodeIds.Count}";
     private bool _isDropTarget;
     public bool IsDropTarget
@@ -51,7 +51,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
         get => _isDropTarget;
         set { if (SetProperty(ref _isDropTarget, value)) RefreshBrushes(); }
     }
-    public void RefreshSummary() => OnPropertyChanged(nameof(IsCollapsed), nameof(CollapseGlyph), nameof(ProgressText), nameof(CountText));
+    public void RefreshSummary() => OnPropertyChanged(nameof(IsCollapsed), nameof(CollapseActionText), nameof(ProgressText), nameof(CountText));
 
     /// <summary>見出しの名前。書き換えは <see cref="MainViewModel"/> の操作単位に乗せる。</summary>
     public string Title

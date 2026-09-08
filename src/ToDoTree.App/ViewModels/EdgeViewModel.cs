@@ -16,14 +16,16 @@ public sealed class EdgeViewModel(TodoEdge model, NodeViewModel from, NodeViewMo
         if (owner is not null && (owner.DisplayEndpoint(Model.FromId).IsBlock || owner.DisplayEndpoint(Model.ToId).IsBlock))
         {
             var source = owner.DisplayEndpoint(Model.FromId);
-            var target = owner.DisplayEndpoint(Model.ToId);
+            var (Id, Bounds, Visible, IsBlock) = owner.DisplayEndpoint(Model.ToId);
             var boxes = nodes.Where(n => n.IsVisible && n.Id != Model.FromId && n.Id != Model.ToId)
-                .Where(n => owner.BlockOf(n.Id)?.Id != source.Id && owner.BlockOf(n.Id)?.Id != target.Id)
+                .Where(n => owner.BlockOf(n.Id)?.Id != source.Id && owner.BlockOf(n.Id)?.Id != Id)
                 .Select(n => new BlockBounds(n.X, n.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight))
-                .Concat(owner.Blocks.Where(b => b.IsVisible && b.IsCollapsed && b.Id != source.Id && b.Id != target.Id).Select(b => b.Bounds)).ToArray();
-            return EdgeRouting.RouteRects(source.Bounds, target.Bounds, boxes, Model.FromSide, Model.ToSide,
+                .Concat(owner.Blocks.Where(b => b.IsVisible && b.IsCollapsed && b.Id != source.Id && b.Id != Id).Select(b => b.Bounds)).ToArray();
+            return EdgeRouting.RouteRects(source.Bounds, Bounds, boxes, Model.FromSide, Model.ToSide,
                 IsAggregated ? [] : [.. Model.Waypoints.Select(p => p.ToVector())],
-                IsAggregated ? [] : [.. Model.Waypoints.Select(p => p.IsSmooth)]);
+                IsAggregated ? [] : [.. Model.Waypoints.Select(p => p.IsSmooth)],
+                source.Id != Model.FromId ? -12 : 0,
+                Id != Model.ToId ? -12 : 0);
         }
         var from = new Vec2(From.X, From.Y);
         var to = new Vec2(To.X, To.Y);

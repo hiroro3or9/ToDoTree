@@ -20,12 +20,31 @@ public sealed partial class MainViewModel
     public ICommand FocusBlockCommand => _focusBlockCommand ??= new RelayCommand(
         () => { if (SelectedBlock is { } block) FocusBlock(block); }, () => HasSelectedBlock);
 
+    private ICommand? _revealEdgeCommand;
+    public ICommand RevealEdgeCommand => _revealEdgeCommand ??= new RelayCommand(() =>
+    {
+        if (SelectedEdge is not { IsAggregated: true } edge) return;
+        var blocks = Blocks.Where(b => b.IsCollapsed &&
+            (b.Model.NodeIds.Contains(edge.Model.FromId) || b.Model.NodeIds.Contains(edge.Model.ToId))).ToList();
+        if (blocks.Count == 0) return;
+        PushUndo();
+        foreach (var block in blocks) block.Model.IsCollapsed = false;
+        MarkDirty(); RefreshAll(); SelectEdge(edge);
+        ZoomToFitRequested?.Invoke(this, EventArgs.Empty);
+        StatusMessage = "接続先のステップを表示しました。個別の線を選んで編集できます。";
+    }, () => SelectedEdge is { IsAggregated: true });
+
     public void ToggleBlockCollapse(BlockViewModel block)
     {
         CommitPendingBlockEdit();
-        PushUndo();
-        block.Model.IsCollapsed = !block.Model.IsCollapsed;
-        MarkDirty();
+        var collapse = !block.IsCollapsed;
+        if (_focusedBlockId == block.Id) ToggleFocus();
+        if (block.Model.IsCollapsed != collapse)
+        {
+            PushUndo();
+            block.Model.IsCollapsed = collapse;
+            MarkDirty();
+        }
         RefreshAll();
         StatusMessage = block.IsCollapsed ? $"「{block.Title}」を畳みました。破線は内部ステップへの個別接続です。"
             : $"「{block.Title}」を開きました。";
@@ -68,7 +87,7 @@ public sealed partial class MainViewModel
         foreach (var original in BlockGeometry.InternalEdges(_pendingSnapshot, moving))
         {
             var edge = _project.Edges.FirstOrDefault(e => e.Id == original.Id);
-            if (edge is not null) edge.Waypoints = [.. original.Waypoints.Select(p => p with { X = p.X + dx, Y = p.Y + dy })];
+            edge?.Waypoints = [.. original.Waypoints.Select(p => p with { X = p.X + dx, Y = p.Y + dy })];
         }
         NotifyVisualsChanged();
     }
