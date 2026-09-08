@@ -15,7 +15,9 @@ public static class StepSplitter
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(items);
 
-        if (graph.Find(nodeId) is null || items.Count == 0)
+        // 回数つきの項目は初版では対象外。UI 側でも案内するが、
+        // ここでも止めて、別の入口から回数を持つ項目が割られないようにする。
+        if (graph.Find(nodeId) is not { Repeat: null } || items.Count == 0)
         {
             return [];
         }

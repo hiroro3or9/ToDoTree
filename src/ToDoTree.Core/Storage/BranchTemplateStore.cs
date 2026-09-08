@@ -20,6 +20,11 @@ public sealed class BranchTemplateStore(string directory)
                 var template = System.Text.Json.JsonSerializer.Deserialize<TodoProject>(
                     File.ReadAllText(path), JsonProjectStore.SerializerOptions)
                     ?? throw new InvalidDataException("部品の中身が空です。");
+                if (RepeatService.ValidateSchema(template, template.SchemaVersion) is { } repeatError)
+                {
+                    throw new InvalidDataException(repeatError);
+                }
+
                 if (template.SchemaVersion is >= 2 and < TodoProject.CurrentSchemaVersion) template.SchemaVersion = TodoProject.CurrentSchemaVersion;
                 BranchTemplate.Validate(template);
                 templates.Add(template);

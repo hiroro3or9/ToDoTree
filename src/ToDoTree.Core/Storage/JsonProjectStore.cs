@@ -38,6 +38,10 @@ public sealed class JsonProjectStore : IProjectStore
         var project = JsonSerializer.Deserialize<TodoProject>(json, SerializerOptions)
                       ?? throw new InvalidDataException("プロジェクトを読み込めませんでした（中身が空です）。");
 
+        // 移行で書き換える前に控える。回数は形式6からなので、
+        // 「元のファイルが何形式を名乗っていたか」で判定する必要がある。
+        var declaredVersion = project.SchemaVersion;
+
         if (project.SchemaVersion > TodoProject.CurrentSchemaVersion)
         {
             throw new InvalidDataException(
@@ -64,6 +68,13 @@ public sealed class JsonProjectStore : IProjectStore
             throw new InvalidDataException($"ブロックの情報が壊れています。{reason}");
         }
 
+        // 回数も同じ扱いにする。不正な回数を黙って丸めると、
+        // 「完了なのに 2 / 3 回」のまま保存されて後続の待ちが壊れる。
+        if (RepeatService.ValidateSchema(project, declaredVersion) is { } repeatError)
+        {
+            throw new InvalidDataException($"繰り返しの情報が壊れています。{repeatError}");
+        }
+
         if (project.Bookmark is { } bookmark && !project.Nodes.Any(n => n.Id == bookmark.NodeId))
         {
             throw new InvalidDataException("作業のしおりが存在しないステップを指しています。");
@@ -77,6 +88,7 @@ public sealed class JsonProjectStore : IProjectStore
         ArgumentNullException.ThrowIfNull(project);
 
         if (BlockConnections.Validate(project) is { } error) throw new InvalidDataException(error);
+        if (RepeatService.Validate(project) is { } repeatError) throw new InvalidDataException(repeatError);
         project.SchemaVersion = TodoProject.CurrentSchemaVersion;
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(directory))

@@ -25,7 +25,7 @@ public static class ConnectionCheckExtensions
     public static string ToMessage(this ConnectionCheck check) => check switch
     {
         ConnectionCheck.Ok => "接続できます。",
-        ConnectionCheck.SameNode => "同じステップ同士は繋げません。",
+        ConnectionCheck.SameNode => "同じステップ同士は繋げません（自分へ戻すと繰り返しの設定になります）。",
         ConnectionCheck.NodeNotFound => "ステップが見つかりません。",
         ConnectionCheck.Duplicate => "すでに繋がっています。",
         ConnectionCheck.WouldCreateCycle => "循環してしまうため繋げません（ゴールに辿り着けなくなります）。",

@@ -35,7 +35,7 @@ public static class GraphExporter
                 _ => ("[\"", "\"]"),
             };
 
-            builder.Append("    ").Append(ids[node.Id]).Append(open).Append(Escape(node.Title)).AppendLine(close);
+            builder.Append("    ").Append(ids[node.Id]).Append(open).Append(Label(node)).AppendLine(close);
         }
 
         foreach (var edge in graph.Edges)
@@ -126,7 +126,7 @@ public static class GraphExporter
         {
             var box = node.Status == NodeStatus.Done ? "[x]" : "[ ]";
             var title = node.Status == NodeStatus.Cancelled ? $"~~{node.Title}~~" : $"**{node.Title}**";
-            builder.Append($"- {box} {title}");
+            builder.Append($"- {box} {title}{Suffix(node)}");
 
             var notes = new List<string> { Labels(graph, node) };
 
@@ -203,6 +203,16 @@ public static class GraphExporter
             }
         }
     }
+
+    /// <summary>
+    /// 図に出す名前。回数で完了する項目には「2 / 3 回」を添える。
+    /// 自己ループは繰り返しの表示であって依存ではないので、辺としては出力しない。
+    /// </summary>
+    private static string Label(TodoNode node) => Escape(node.Title) + Escape(Suffix(node));
+
+    /// <summary>名前のうしろに添える「（2 / 3 回）」。通常の項目では空。</summary>
+    private static string Suffix(TodoNode node) =>
+        RepeatService.Describe(node) is { Length: > 0 } text ? $"（{text}）" : string.Empty;
 
     /// <summary>Mermaid のラベルで意味を持つ文字を逃がす。</summary>
     private static string Escape(string text) => text
