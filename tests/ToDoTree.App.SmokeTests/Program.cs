@@ -28,6 +28,7 @@ internal static class Program
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary
                 { Source = new Uri($"/{typeof(GraphView).Assembly.GetName().Name};component/Themes/{resource}.xaml", UriKind.Relative) });
             Verify();
+            VerifyRepeat();
             Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
             return 0;
         }
@@ -208,6 +209,125 @@ internal static class Program
         var map = new MiniMap(); map.Update([], [A(), B()], new Rect(0, 0, 20, 20));
         var mapBounds = (Rect)typeof(MiniMap).GetMethod("ComputeBounds", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(map, null)!;
         Check(mapBounds.Contains(new Point(B().Bounds.Right, B().Bounds.Bottom)), "The minimap includes collapsed blocks outside the current viewport.");
+        host.Close();
+    }
+
+    /// <summary>
+    /// 回数で完了する項目。カードの加算ボタン、Space の振り分け、混在選択、履歴、
+    /// 自己接続からの設定要求を、実際のビューを組み立てて確かめる。
+    /// </summary>
+    private static void VerifyRepeat()
+    {
+        TodoNode[] nodes = [
+            new() { Title = "素振り", X = 40, Y = 70 },
+            new() { Title = "フォーム確認", X = 420, Y = 70 },
+            new() { Title = "資料をまとめる", X = 40, Y = 240 },
+            new() { Title = "取り消した練習", X = 420, Y = 240 },
+            new() { Title = "読書", X = 40, Y = 410 },
+        ];
+        var project = new TodoProject { Nodes = [.. nodes], Name = "回数で完了する項目の検証" };
+        var graph = new TodoGraph(project);
+        graph.Connect(nodes[0].Id, nodes[1].Id);
+
+        var now = DateTimeOffset.Now;
+        RepeatService.Configure(nodes[0], 3, 0, now);
+        RepeatService.Configure(nodes[4], 2, 0, now);
+        RepeatService.Configure(nodes[3], 4, 1, now);
+        RepeatService.Cancel(nodes[3], now);
+
+        // ブロックの中でもバッジと加算ボタンが重ならないことを、この場面で一緒に見る。
+        var blockId = BlockService.Create(project, [nodes[2].Id], "まとめ").Block!.Id;
+
+        var artifacts = Path.Combine(AppContext.BaseDirectory, "artifacts");
+        var vm = new MainViewModel(new JsonProjectStore(), new AppSettings(), project, null, artifacts);
+        var view = new GraphView { DataContext = vm, Width = 1280, Height = 720 };
+        view.Measure(new Size(1280, 720)); view.Arrange(new Rect(0, 0, 1280, 720)); view.UpdateLayout();
+        var host = new Window { Content = view, Width = 1280, Height = 720, Opacity = 0,
+            ShowActivated = false, ShowInTaskbar = false, WindowStyle = WindowStyle.None };
+        host.Show();
+        view.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+
+        NodeViewModel N(int i) => vm.Nodes.Single(n => n.Id == nodes[i].Id);
+        Button AdvanceButton(NodeViewModel node)
+        {
+            view.UpdateLayout();
+            return Descendants(view).OfType<Button>()
+                .Single(b => b.Tag is "repeat-advance" && ReferenceEquals(b.DataContext, node));
+        }
+
+        Check(N(0).IsRepeating && N(0).RepeatText == "0 / 3 回" && N(0).RepeatCompactText == "0/3",
+            "The card and the minimal view both show the counts.");
+        Check(!N(2).IsRepeating && N(2).RepeatText.Length == 0, "Plain steps show no repeat badge.");
+        Check(AdvanceButton(N(0)).IsEnabled && !AdvanceButton(N(3)).IsEnabled,
+            "The add button is disabled while the item is cancelled.");
+
+        var undoCount = History(vm, "_undo");
+        AdvanceButton(N(0)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Check(N(0).Model.Repeat!.CompletedCount == 1 && N(0).Status == NodeStatus.InProgress,
+            "The card button adds exactly one through the standard Click event.");
+        Check(History(vm, "_undo") == undoCount + 1, "One repetition is one undo step.");
+        Check(N(1).Readiness == Readiness.Blocked, "Intermediate repetitions keep the successor waiting.");
+
+        vm.SelectOnly(N(0));
+        Check(vm.ToggleDoneLabel == "1回達成", "Space is relabelled for a repeating item.");
+        vm.ToggleDone();
+        vm.ToggleDone();
+        Check(N(0).Status == NodeStatus.Done && N(0).Model.CompletedAt is not null,
+            "The final repetition completes the item and stamps the time.");
+        Check(N(1).Readiness == Readiness.Ready, "The successor is released only after the final repetition.");
+
+        undoCount = History(vm, "_undo");
+        var atCap = State(vm);
+        AdvanceButton(N(0)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        vm.ToggleDone();
+        Check(State(vm) == atCap && History(vm, "_undo") == undoCount,
+            "Pressing again at the target changes neither the counts nor the history.");
+
+        vm.SelectNodes([N(2), N(0), N(3), N(4)]);
+        Check(vm.ToggleDoneLabel.Contains("通常項目を完了"), "A mixed selection says what will happen.");
+        var beforeBatch = State(vm);
+        undoCount = History(vm, "_undo");
+        vm.ToggleDone();
+        Check(N(2).Status == NodeStatus.Done, "Plain unfinished steps complete in a mixed selection.");
+        Check(N(4).Model.Repeat!.CompletedCount == 1, "Repeating items advance by one in a mixed selection.");
+        Check(N(0).Model.Repeat!.CompletedCount == 3 && N(3).Model.Repeat!.CompletedCount == 1,
+            "Finished items and cancelled repeats are left alone.");
+        Check(N(3).Status == NodeStatus.Cancelled, "A cancelled repeat stays cancelled.");
+        Check(History(vm, "_undo") == undoCount + 1, "A mixed batch is a single undo step.");
+        vm.Undo();
+        Check(State(vm) == beforeBatch, "Undo restores counts, statuses and completion times together.");
+
+        // 汎用の状態指定でも、回数を置き去りにした完了は作らせない。
+        vm.SelectOnly(N(4));
+        N(4).Status = NodeStatus.Done;
+        Check(N(4).Model.Repeat!.CompletedCount == 1 && N(4).Status == NodeStatus.InProgress,
+            "Choosing 完了 on a repeating item advances once instead of forcing the status.");
+        Check(RepeatService.Validate(N(4).Model) is null, "The item stays consistent after the status route.");
+
+        var requests = 0;
+        var lastIsNew = false;
+        vm.RepeatSettingsRequested += (_, isNew) => { requests++; lastIsNew = isNew; };
+        vm.RequestRepeatFromSelfConnection(N(2).Id);
+        Check(requests == 1 && lastIsNew, "Connecting a step to itself asks for a new repeat setting.");
+        vm.RequestRepeatFromSelfConnection(N(0).Id);
+        Check(requests == 2 && !lastIsNew, "An item that already repeats opens the edit form.");
+        vm.RequestRepeatFromSelfConnection(blockId);
+        Check(requests == 2 && vm.StatusMessage.Contains("ブロック全体"),
+            "A block connected to itself explains that whole-block repetition is unsupported.");
+        Check(vm.Graph.Project.Edges.All(e => e.FromId != e.ToId), "Self connections never become dependency edges.");
+
+        Render(view, "repeat-light");
+        ThemeManager.Apply(AppTheme.Dark); vm.RefreshAll();
+        Render(view, "repeat-dark");
+        ThemeManager.Apply(AppTheme.Light); vm.RefreshAll();
+
+        // 4 桁の回数と長い名前でも、加算ボタンと折りたたみが重ならないことを目で確かめる。
+        N(4).Title = "とても長い名前でも回数と操作が重ならないことを確認するためのステップ";
+        RepeatService.Configure(N(4).Model, 9999, 1234, now);
+        vm.RefreshAll();
+        Check(N(4).RepeatText == "1234 / 9999 回", "Four digit counts render in full.");
+        Render(view, "repeat-wide-light");
+
         host.Close();
     }
 

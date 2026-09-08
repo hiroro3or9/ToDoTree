@@ -129,6 +129,14 @@ public sealed partial class MainViewModel
             return;
         }
 
+        // 初版では回数つきの項目を割らない。目標と実績を子へどう配るかが決まっておらず、
+        // 黙って回数を捨てると、達成した記録だけが消える。
+        if (node.Model.Repeat is not null)
+        {
+            StatusMessage = "回数で完了する項目は分割できません。繰り返しを解除してから分割してください。";
+            return;
+        }
+
         var dialog = new OutlineInputWindow();
         dialog.Configure(
             "ステップを分割",

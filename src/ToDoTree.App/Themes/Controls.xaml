@@ -21,6 +21,8 @@
     <Geometry x:Key="Icon.Redo">M 16,6 L 21,11 L 16,16 M 21,11 H 10 C 6.1,11 3,14.1 3,18 V 19</Geometry>
     <Geometry x:Key="Icon.Search">M 11,4 A 7,7 0 1 0 11,18 A 7,7 0 1 0 11,4 M 16.2,16.2 L 21,21</Geometry>
     <Geometry x:Key="Icon.Close">M 6,6 L 18,18 M 18,6 L 6,18</Geometry>
+    <!-- 繰り返しの印。上下 2 本の半円と、行き先を示す折れ。自己ループの代わりにカードの中で使う。 -->
+    <Geometry x:Key="Icon.Repeat">M 4,9 A 8,8 0 0 1 20,9 M 20,5 L 20,9 L 16,9 M 20,15 A 8,8 0 0 1 4,15 M 4,19 L 4,15 L 8,15</Geometry>
     <Geometry x:Key="Icon.Sun">M 12,7.5 A 4.5,4.5 0 1 0 12,16.5 A 4.5,4.5 0 1 0 12,7.5 M 12,2 V 4 M 12,20 V 22 M 2,12 H 4 M 20,12 H 22 M 4.9,4.9 L 6.3,6.3 M 17.7,17.7 L 19.1,19.1 M 19.1,4.9 L 17.7,6.3 M 6.3,17.7 L 4.9,19.1</Geometry>
     <Geometry x:Key="Icon.Moon">M 20,14.6 A 8.6,8.6 0 1 1 9.4,4 A 6.7,6.7 0 0 0 20,14.6 Z</Geometry>
     <Geometry x:Key="Icon.Calendar">M 5,6 H 19 V 20 H 5 Z M 5,10 H 19 M 9,4 V 8 M 15,4 V 8</Geometry>

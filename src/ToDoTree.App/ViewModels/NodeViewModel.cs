@@ -81,6 +81,15 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
                 return;
             }
 
+            // 回数つきの項目は、状態だけを書き換えられない。
+            // ここを素通りさせると「3 回中 1 回なのに完了」が作れてしまう。
+            if (Model.Repeat is not null)
+            {
+                owner.ApplyRepeatStatus(this, value);
+                OnPropertyChanged();
+                return;
+            }
+
             owner.PushUndo();
             var impact = CompletionImpact.Calculate(owner.Graph, [Id]);
             Model.Status = value;
@@ -231,6 +240,59 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
     public Readiness Readiness => owner.Graph.ReadinessOf(Model);
 
     public string StatusLabel => Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
+
+    // ---- 回数で完了する項目 ----
+
+    /// <summary>回数で完了する項目。null 判定はここに集約する。</summary>
+    public bool IsRepeating => Model.Repeat is not null;
+
+    /// <summary>カードのバッジに出す「2 / 3 回」。通常の項目では空。</summary>
+    public string RepeatText => RepeatService.Describe(Model);
+
+    /// <summary>ミニマル表示に添える「2/3」。狭いので単位は落とす。</summary>
+    public string RepeatCompactText =>
+        Model.Repeat is { } repeat ? $"{repeat.CompletedCount}/{repeat.TargetCount}" : string.Empty;
+
+    /// <summary>いま「1回達成」を押せる（取り消し中と上限では押せない）。</summary>
+    public bool CanAdvanceRepeat => RepeatService.CanAdvance(Model);
+
+    /// <summary>目標に届いている。ボタンをチェック表示へ変える。</summary>
+    public bool IsRepeatFull => Model.Repeat is { IsFull: true };
+
+    /// <summary>次の1回で完了する。</summary>
+    public bool IsRepeatFinalNext => RepeatService.IsFinalNext(Model);
+
+    /// <summary>色だけに頼らず、回数とチェックでも状態を伝える。</summary>
+    public string RepeatActionGlyph => IsRepeatFull ? "✓" : "＋1";
+
+    /// <summary>読み上げ名。ボタンだけを聞いても、いま何回目かが分かるようにする。</summary>
+    public string RepeatActionName => Model.Repeat is { } repeat
+        ? IsRepeatFull
+            ? $"{Title}は達成済み、{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
+            : $"{Title}を1回達成、現在{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
+        : string.Empty;
+
+    /// <summary>加算ボタンのツールチップ。最終回だけ完了になることを明示する。</summary>
+    public string RepeatActionTooltip => Model.Repeat is { } repeat
+        ? Model.Status == NodeStatus.Cancelled
+            ? $"取り消し中です。{repeat.CompletedCount} / {repeat.TargetCount} 回は残しています"
+            : IsRepeatFull
+                ? $"{repeat.TargetCount} 回すべて達成しました"
+                : IsRepeatFinalNext
+                    ? $"次の1回で完了：{repeat.CompletedCount + 1} / {repeat.TargetCount} 回"
+                    : $"次の1回：{repeat.CompletedCount + 1} / {repeat.TargetCount} 回"
+        : string.Empty;
+
+    /// <summary>バッジの文字色。完了と取り消しは他の文字と同じく落とす。</summary>
+    public Brush RepeatTextBrush => Readiness is Readiness.Done or Readiness.Cancelled
+        ? NodePalette.DoneTextBrush
+        : NodePalette.RepeatText;
+
+    public Brush RepeatBadgeFill => NodePalette.RepeatBadgeFill;
+
+    public Brush RepeatLoopBrush => Readiness is Readiness.Done or Readiness.Cancelled
+        ? NodePalette.DoneTextBrush
+        : NodePalette.RepeatLoop;
 
     public string KindLabel => Labels.Of(Kind);
 
@@ -518,6 +580,18 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         nameof(RingBrush),
         nameof(CollapsedBadge),
         nameof(HasCollapsedBadge),
+        nameof(IsRepeating),
+        nameof(RepeatText),
+        nameof(RepeatCompactText),
+        nameof(CanAdvanceRepeat),
+        nameof(IsRepeatFull),
+        nameof(IsRepeatFinalNext),
+        nameof(RepeatActionGlyph),
+        nameof(RepeatActionName),
+        nameof(RepeatActionTooltip),
+        nameof(RepeatTextBrush),
+        nameof(RepeatBadgeFill),
+        nameof(RepeatLoopBrush),
         nameof(IsAtRisk),
         nameof(AlertText),
         nameof(HasAlert),

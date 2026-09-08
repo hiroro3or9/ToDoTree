@@ -143,7 +143,18 @@
             <MenuItem Header="並行して追加" InputGestureText="Shift+Enter" Command="{Binding AddSiblingCommand}" />
             <MenuItem Header="ここから繋ぐ" InputGestureText="Ctrl+E" Command="{Binding StartConnectCommand}" />
             <Separator />
-            <MenuItem Header="完了 / 未着手" InputGestureText="Space" Command="{Binding ToggleDoneCommand}" />
+            <!--
+                回数つきの項目では、この行が「1回達成」になる。混在選択では何が起きるかを見出しに出す。
+                実際の振り分けは MainViewModel.ToggleDone が行う。
+            -->
+            <MenuItem Header="{Binding ToggleDoneLabel}" InputGestureText="Space" Command="{Binding ToggleDoneCommand}"
+                      ToolTip="{Binding ToggleDoneHint}" />
+            <MenuItem Header="1回戻す" Command="{Binding StepBackRepeatCommand}"
+                      Visibility="{Binding IsSelectedRepeating, Converter={StaticResource BoolToVisibility}}" />
+            <MenuItem Header="{Binding RepeatConfigureLabel}" Command="{Binding ConfigureRepeatCommand}"
+                      ToolTip="目標回数と達成回数をまとめて直します" />
+            <MenuItem Header="繰り返しを解除" Command="{Binding ClearRepeatCommand}"
+                      Visibility="{Binding IsSelectedRepeating, Converter={StaticResource BoolToVisibility}}" />
             <MenuItem Header="この先を畳む / 開く" Command="{Binding CollapseSelectedCommand}" />
             <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
@@ -269,18 +280,65 @@
                                          Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
                             </Grid>
 
-                            <!-- 期限・見積り・タグ と 折りたたみ -->
+                            <!-- 期限・見積り・タグ ／ 回数 ／ 折りたたみ -->
                             <Grid Grid.Row="2">
-                                <TextBlock Text="{Binding MetaText}" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,26,0"
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" Text="{Binding MetaText}" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
                                            Foreground="{DynamicResource Node.TextSubtle}"
                                            TextTrimming="CharacterEllipsis"
                                            Visibility="{Binding HasMeta, Converter={StaticResource BoolToVisibility}}" />
 
-                                <Button Tag="collapse"
+                                <!--
+                                    回数のバッジ。自己ループはここに短い印として収め、
+                                    キャンバスへ張り出す線は描かない（依存線・囲みの枠・上の接続点と重ならない）。
+                                    押すと設定を開く。線の当たり判定には入らない。
+                                -->
+                                <Button Grid.Column="1" Tag="repeat-badge"
+                                        Style="{StaticResource Btn.Chip}"
+                                        Padding="6,1" FontSize="9.5" VerticalAlignment="Center"
+                                        Click="OnRepeatBadgeClick"
+                                        PreviewKeyDown="OnRepeatButtonPreviewKeyDown"
+                                        AutomationProperties.Name="繰り返しの設定"
+                                        AutomationProperties.HelpText="{Binding RepeatText}"
+                                        ToolTip="{Binding RepeatActionTooltip}"
+                                        Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource Icon.Repeat}" Width="10" Height="10"
+                                              Stretch="Uniform" StrokeThickness="2"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                              VerticalAlignment="Center"
+                                              Stroke="{Binding RepeatLoopBrush}" />
+                                        <TextBlock Text="{Binding RepeatText}" Margin="4,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{Binding RepeatTextBrush}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- 1 回達成。上限まで来たらチェックに変わり、押しても減らない。 -->
+                                <Button Grid.Column="2" Tag="repeat-advance"
+                                        Style="{StaticResource Btn.Chip}"
+                                        Content="{Binding RepeatActionGlyph}"
+                                        Margin="5,0,0,0" Padding="7,1" MinWidth="26" FontSize="10"
+                                        VerticalAlignment="Center"
+                                        Click="OnRepeatAdvanceClick"
+                                        PreviewKeyDown="OnRepeatButtonPreviewKeyDown"
+                                        IsEnabled="{Binding CanAdvanceRepeat}"
+                                        AutomationProperties.Name="{Binding RepeatActionName}"
+                                        ToolTip="{Binding RepeatActionTooltip}"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
+
+                                <Button Grid.Column="3" Tag="collapse"
                                         Style="{StaticResource Btn.Chip}"
                                         Content="{Binding CollapseLabel}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Margin="5,0,0,0" VerticalAlignment="Center"
                                         Padding="6,0" MinWidth="22" FontSize="9.5"
                                         Visibility="{Binding CanCollapse, Converter={StaticResource BoolToVisibility}}"
                                         ToolTip="この先を畳む / 開く" />
@@ -365,10 +423,21 @@
                 <Border Width="96" HorizontalAlignment="Center" VerticalAlignment="Top"
                         Margin="-36,34,-36,-30" Background="{DynamicResource Brush.Canvas}"
                         Padding="3,1" CornerRadius="3" IsHitTestVisible="False">
-                    <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
-                               Foreground="{Binding TitleBrush}"
-                               TextDecorations="{Binding TitleDecorations}"
-                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" FontSize="10.5" TextAlignment="Center"
+                                   Foreground="{Binding TitleBrush}"
+                                   TextDecorations="{Binding TitleDecorations}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <!-- 名前に添える小さなループ印と「2/3」。加算は選択してから行う。 -->
+                        <Path Data="{StaticResource Icon.Repeat}" Width="8" Height="8" Margin="4,0,0,0"
+                              Stretch="Uniform" StrokeThickness="2.4"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              VerticalAlignment="Center" Stroke="{Binding RepeatLoopBrush}"
+                              Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
+                        <TextBlock Text="{Binding RepeatCompactText}" FontSize="9.5" Margin="2,0,0,0"
+                                   VerticalAlignment="Center" Foreground="{Binding RepeatTextBrush}"
+                                   Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
                 </Border>
                 <!-- 畳んでいる印。この先にまだ続きがあることを、外側の破線で示す。 -->
                 <Ellipse Width="24" Height="24" StrokeThickness="1" StrokeDashArray="2 2"
@@ -458,6 +527,11 @@
                                  KeyDown="OnCardEditorKeyDown"
                                  LostKeyboardFocus="OnCardEditorLostFocus"
                                  Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}" />
+
+                        <TextBlock Text="{Binding RepeatText}" FontSize="10.5" Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding RepeatTextBrush}"
+                                   Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
 
                         <TextBlock Text="{Binding CollapsedBadge}" FontSize="10.5" Margin="8,0,0,0"
                                    VerticalAlignment="Center"

@@ -81,6 +81,11 @@
     <SolidColorBrush x:Key="Node.TextDone"        Color="#FF71828B" po:Freeze="True" />
     <SolidColorBrush x:Key="Node.Connector.Fill"  Color="#FFFFFFFF" po:Freeze="True" />
 
+    <!-- 回数で完了する項目のバッジ。状態色とは別に、回数だけを静かに示す。 -->
+    <SolidColorBrush x:Key="Node.Repeat.Badge"    Color="#FFEFF1F6" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Repeat.Text"     Color="#FF3D4B63" po:Freeze="True" />
+    <SolidColorBrush x:Key="Node.Repeat.Loop"     Color="#FF6B7A93" po:Freeze="True" />
+
     <!-- 種別を表す色帯 -->
     <SolidColorBrush x:Key="Kind.Start"     Color="#FF8B5CF6" po:Freeze="True" />
     <SolidColorBrush x:Key="Kind.Step"      Color="#FFCBD5E1" po:Freeze="True" />
