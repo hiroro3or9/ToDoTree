@@ -2,6 +2,7 @@
 using System.Windows;
 using ToDoTree.App.Views;
 using ToDoTree.Core.Models;
+using ToDoTree.App.ViewModels;
 
 namespace ToDoTree.App.Controls;
 
@@ -25,6 +26,14 @@ public partial class GraphView
 
     private void OnTemplateDragOver(object sender, DragEventArgs e)
     {
+        if (e.Data.GetData(MainViewModel.InboxDragFormat) is InboxDragData inbox)
+        {
+            e.Effects = _viewModel is { IsNaming: false, IsConnecting: false } vm
+                && vm.DocumentId == inbox.DocumentId && vm.InboxItems.Any(i => i.Id == inbox.ItemId)
+                ? DragDropEffects.Move : DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
         e.Effects = e.Data.GetDataPresent(TemplateLibraryWindow.DragFormat)
             && _viewModel is { IsNaming: false, IsConnecting: false }
             ? DragDropEffects.Copy : DragDropEffects.None;
@@ -36,6 +45,13 @@ public partial class GraphView
         e.Handled = true;
         e.Effects = DragDropEffects.None;
         if (_viewModel is not { IsNaming: false, IsConnecting: false }) return;
+        if (e.Data.GetData(MainViewModel.InboxDragFormat) is InboxDragData inbox)
+        {
+            var point = e.GetPosition(Surface);
+            if (inbox.DocumentId == _viewModel.DocumentId && _viewModel.PlaceInboxItem(inbox.ItemId, point.X, point.Y))
+                e.Effects = DragDropEffects.Move;
+            return;
+        }
         if (e.Data.GetData(TemplateLibraryWindow.DragFormat) is TodoProject template)
         {
             if (PlaceTemplate(template, e.GetPosition(Surface))) e.Effects = DragDropEffects.Copy;

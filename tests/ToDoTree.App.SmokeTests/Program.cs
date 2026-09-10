@@ -32,6 +32,7 @@ internal static partial class Program
             VerifyLoopLayout();
             VerifyBlockPorts();
             VerifyBlockNesting();
+            VerifyTaskDetails();
             Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
             return 0;
         }

@@ -11,9 +11,13 @@ public sealed class TodoProject
     /// 6 で回数で完了する項目（<see cref="TodoNode.Repeat"/>）が加わった。
     /// 7 でブロックの接続点と、線の接続点参照が加わった。
     /// 8 でブロックの親子関係（<see cref="TodoBlock.ParentBlockId"/>）が加わった。
+    /// 9 で受信箱・チェックリスト・手動ブロックが加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 8;
+    public const int CurrentSchemaVersion = 9;
+
+    private List<InboxItem> _inbox = [];
+    public List<InboxItem> Inbox { get => _inbox; set => _inbox = value ?? []; }
 
     private List<TodoNode> _nodes = [];
     private List<TodoEdge> _edges = [];
@@ -48,6 +52,7 @@ public sealed class TodoProject
         Bookmark = Bookmark?.Clone(),
         SchemaVersion = SchemaVersion,
         Nodes = [.. Nodes.Select(n => n.Clone())],
+        Inbox = [.. Inbox.Select(item => item.Clone())],
         Edges = [.. Edges.Select(e => e.Clone())],
         Blocks = [.. Blocks.Select(b => b.Clone())],
     };

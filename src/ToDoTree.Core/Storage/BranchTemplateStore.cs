@@ -24,6 +24,8 @@ public sealed class BranchTemplateStore(string directory)
                 {
                     throw new InvalidDataException(repeatError);
                 }
+                if (TaskDetailsValidation.Validate(template, template.SchemaVersion) is { } detailsError)
+                    throw new InvalidDataException(detailsError);
 
                 if (template.SchemaVersion < 8 && template.Blocks.Any(b => b.ParentBlockId is not null))
                 {

@@ -313,6 +313,7 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedBlockPortId = null;
         ClearEdgeSelection();
         _project = project;
+        LoadInbox();
         _graph = new TodoGraph(project);
         _filePath = path;
 

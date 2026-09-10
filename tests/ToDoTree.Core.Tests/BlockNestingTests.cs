@@ -108,7 +108,7 @@ public class BlockNestingTests
             var store = new JsonProjectStore();
             store.Save(path, p);
             var loaded = store.Load(path);
-            await Assert.That(loaded.SchemaVersion).IsEqualTo(8);
+            await Assert.That(loaded.SchemaVersion).IsEqualTo(TodoProject.CurrentSchemaVersion);
             await Assert.That(loaded.Blocks.Single(b => b.Title == "子").ParentBlockId)
                 .IsEqualTo(loaded.Blocks.Single(b => b.Title == "親").Id);
 

@@ -7,7 +7,7 @@ public sealed record CompletionImpact(IReadOnlySet<Guid> Sources, IReadOnlySet<G
     {
         var sources = completing.Where(id => graph.Find(id) is { IsSettled: false }).ToHashSet();
         var unlocked = sources.SelectMany(graph.ChildrenOf).DistinctBy(n => n.Id)
-            .Where(n => !sources.Contains(n.Id) && graph.ReadinessOf(n) == Models.Readiness.Blocked
+            .Where(n => !sources.Contains(n.Id) && !n.IsManuallyBlocked && graph.ReadinessOf(n) == Models.Readiness.Blocked
                 && graph.ParentsOf(n.Id).All(p => p.IsSettled || sources.Contains(p.Id)))
             .Select(n => n.Id).ToHashSet();
         return new(sources, unlocked);

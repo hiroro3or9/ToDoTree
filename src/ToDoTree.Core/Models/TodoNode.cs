@@ -9,9 +9,23 @@ public sealed class TodoNode
 
     public string Notes { get; set; } = string.Empty;
 
+    public bool IsManuallyBlocked { get; set; }
+    public string BlockReason { get; set; } = string.Empty;
+    private List<ChecklistItem> _checklist = [];
+    public List<ChecklistItem> Checklist { get => _checklist; set => _checklist = value ?? []; }
+
     public NodeKind Kind { get; set; } = NodeKind.Step;
 
-    public NodeStatus Status { get; set; } = NodeStatus.NotStarted;
+    private NodeStatus _status = NodeStatus.NotStarted;
+    public NodeStatus Status
+    {
+        get => _status;
+        set
+        {
+            _status = value;
+            if (value is NodeStatus.Done or NodeStatus.Cancelled) IsManuallyBlocked = false;
+        }
+    }
 
     /// <summary>期限（任意）。</summary>
     public DateTimeOffset? Due { get; set; }
@@ -54,6 +68,7 @@ public sealed class TodoNode
     {
         var copy = (TodoNode)MemberwiseClone();
         copy.Tags = [.. Tags];
+        copy.Checklist = [.. Checklist.Select(item => item.Clone())];
 
         // MemberwiseClone は参照をそのまま写す。回数を共有したままだと、
         // 履歴・部品・プロジェクト複製の片方で加算したぶんが元にも乗ってしまう。

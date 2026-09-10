@@ -396,6 +396,29 @@
                             </StackPanel>
                         </Border>
                         <!-- 次にやること -->
+                        <Expander DockPanel.Dock="Top" Header="受信箱（仮置き）" Foreground="{DynamicResource Brush.Text}" IsExpanded="True" Margin="0,0,4,10">
+                            <StackPanel Margin="2,6,2,0">
+                                <TextBlock Text="名前だけ残して、あとでグラフへ配置" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" />
+                                <DockPanel Margin="0,6,0,6">
+                                    <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource Btn.Outline}" Command="{Binding AddInboxCommand}" Margin="4,0,0,0" />
+                                    <TextBox Text="{Binding InboxTitle, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnInboxInputKeyDown" AutomationProperties.Name="受信箱に追加するToDo" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding InboxItems.Count, StringFormat='未整理 {0} 件'}" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" />
+                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding InboxItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,4">
+                                                    <Button DockPanel.Dock="Right" Content="×" Width="24" Padding="0" Style="{StaticResource Btn.Ghost}" ToolTip="受信箱から削除（Ctrl+Zで戻せます）" Command="{Binding DataContext.ActiveDocument.DeleteInboxCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                                    <Button DockPanel.Dock="Right" Content="配置" Padding="6,4" Style="{StaticResource Btn.Outline}" Command="{Binding DataContext.ActiveDocument.PlaceInboxCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                                                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Brush.Text}" TextWrapping="Wrap" Margin="0,4,6,0" Cursor="Hand" ToolTip="キャンバスへドラッグして配置" MouseLeftButtonDown="OnInboxDragStart" MouseMove="OnInboxDragMove" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Expander>
                         <Border DockPanel.Dock="Top" Margin="0,2,4,0" Padding="12,10"
                                 Background="{DynamicResource Brush.SuccessSoft}"
                                 BorderBrush="{DynamicResource Brush.SuccessBorder}"
@@ -575,6 +598,29 @@
                                          KeyDown="OnTitleBoxKeyDown"
                                          ToolTip="Enter で続きのステップ、Shift+Enter で並行のステップを追加します" />
 
+                                <Border Style="{StaticResource Panel.Flat}" Padding="10" Margin="0,14,0,0">
+                                    <StackPanel>
+                                        <Button Content="{Binding BlockToggleLabel}" Command="{Binding ToggleBlockCommand}" Style="{StaticResource Btn.Outline}" />
+                                        <StackPanel Visibility="{Binding IsManuallyBlocked, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="ブロックの理由（任意）" Style="{StaticResource Text.Label}" />
+                                            <TextBox Text="{Binding BlockReason, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="100" VerticalScrollBarVisibility="Auto" />
+                                        </StackPanel>
+                                        <TextBlock Text="この作業・ゴールが止まっている理由" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,10,0,4" />
+                                        <TextBlock Text="{Binding BlockingSummary}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSubtle}" />
+                                        <ItemsControl ItemsSource="{Binding BlockingCauses}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Style="{StaticResource Btn.Row}" Margin="0,4,0,0" Command="{Binding DataContext.ActiveDocument.FocusBlockingCauseCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Node}" ToolTip="原因のカードへ移動">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Node.Title}" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Reason}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSubtle}" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -649,6 +695,27 @@
                                          VerticalScrollBarVisibility="Auto" />
 
                                 <!-- ============ 回数で完了する項目 ============ -->
+                                <Expander Header="チェックリスト" Foreground="{DynamicResource Brush.Text}" IsExpanded="True" Margin="0,14,0,0">
+                                    <StackPanel Margin="0,6,0,0">
+                                        <TextBlock Text="{Binding ChecklistSummary}" Foreground="{DynamicResource Brush.TextSubtle}" FontSize="11" />
+                                        <ItemsControl ItemsSource="{Binding ChecklistItems}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel Margin="0,4">
+                                                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding IsChecked}" VerticalAlignment="Center" Margin="0,0,6,0" AutomationProperties.Name="{Binding Title}" />
+                                                        <Button DockPanel.Dock="Right" Content="×" Width="24" Padding="0" Style="{StaticResource Btn.Ghost}" ToolTip="チェック項目を削除" Command="{Binding DeleteCommand}" />
+                                                        <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="チェック項目名" />
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <DockPanel Margin="0,5,0,0">
+                                            <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource Btn.Outline}" Command="{Binding AddChecklistCommand}" Margin="4,0,0,0" />
+                                            <TextBox Text="{Binding NewChecklistTitle, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnChecklistInputKeyDown" AutomationProperties.Name="新しいチェック項目" />
+                                        </DockPanel>
+                                        <TextBlock Text="全項目をチェックしても、カードの完了は手動で行います。" TextWrapping="Wrap" FontSize="10.5" Foreground="{DynamicResource Brush.TextSubtle}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Expander>
                                 <Border Style="{StaticResource Panel.Flat}" Padding="12,10" Margin="0,14,0,0"
                                         Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
