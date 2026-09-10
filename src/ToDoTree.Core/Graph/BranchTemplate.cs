@@ -1,4 +1,5 @@
 ﻿using ToDoTree.Core.Models;
+using ToDoTree.Core.Text;
 
 namespace ToDoTree.Core.Graph;
 
@@ -13,10 +14,16 @@ public static class BranchTemplate
         foreach (var blockId in includedBlockIds.ToArray())
             includedBlockIds.UnionWith(hierarchy.AncestorsOf(blockId).Select(b => b.Id));
         var endpoints = ids.Concat(includedBlockIds).ToHashSet();
+        var captured = source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone()).ToList();
         var fragment = new TodoProject
         {
             Name = name.Trim(),
-            Nodes = [.. source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone())],
+
+            // 参照の原文だけを持ち出すと、別のプロジェクトで定義が消える。
+            // 実際に参照している定義だけを複製して連れていく。
+            Variables = ProjectVariableService.CollectUsed(
+                source.Variables, captured.SelectMany(n => new[] { n.Title, n.Notes })),
+            Nodes = captured,
             Edges = [.. source.Edges.Where(e => endpoints.Contains(e.FromId) && endpoints.Contains(e.ToId)).Select(e => e.Clone())],
             Blocks = [.. source.Blocks.Where(b => includedBlockIds.Contains(b.Id)).Select(b => new TodoBlock
             {
@@ -97,6 +104,7 @@ public static class BranchTemplate
             || template.Edges.Select(e => e.Id).Distinct().Count() != template.Edges.Count
             || template.Edges.Select(e => (e.FromId, e.ToId)).Distinct().Count() != template.Edges.Count)
             throw new InvalidDataException("部品の接続情報が不正です。");
+        if (ProjectVariableService.Validate(template.Variables) is { } variableError) throw new InvalidDataException(variableError);
         if (TaskDetailsValidation.Validate(template, template.SchemaVersion) is { } detailsError) throw new InvalidDataException(detailsError);
         if (RepeatService.Validate(template) is { } repeatError) throw new InvalidDataException(repeatError);
         if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);

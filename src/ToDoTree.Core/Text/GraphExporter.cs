@@ -15,6 +15,7 @@ public static class GraphExporter
         ArgumentNullException.ThrowIfNull(project);
 
         var graph = new TodoGraph(project);
+        var resolver = ProjectVariableResolver.From(project);
         var ids = new Dictionary<Guid, string>();
         var index = 1;
 
@@ -35,7 +36,7 @@ public static class GraphExporter
                 _ => ("[\"", "\"]"),
             };
 
-            builder.Append("    ").Append(ids[node.Id]).Append(open).Append(Label(node)).AppendLine(close);
+            builder.Append("    ").Append(ids[node.Id]).Append(open).Append(Label(resolver, node)).AppendLine(close);
         }
 
         foreach (var edge in graph.Edges)
@@ -60,6 +61,7 @@ public static class GraphExporter
 
         var today = now ?? DateTimeOffset.Now;
         var graph = new TodoGraph(project);
+        var resolver = ProjectVariableResolver.From(project);
         var progress = graph.Progress();
         var builder = new StringBuilder();
 
@@ -85,7 +87,7 @@ public static class GraphExporter
             var rank = 1;
             foreach (var action in suggestions)
             {
-                builder.AppendLine($"{rank++}. **{action.Node.Title}** — {action.Reason}");
+                builder.AppendLine($"{rank++}. **{resolver.Expand(action.Node.Title)}** — {action.Reason}");
             }
 
             builder.AppendLine();
@@ -112,7 +114,7 @@ public static class GraphExporter
             builder.AppendLine();
             foreach (var node in recent)
             {
-                builder.AppendLine($"- {node.Title}（{node.CompletedAt!.Value.LocalDateTime:M/d}）");
+                builder.AppendLine($"- {resolver.Expand(node.Title)}（{node.CompletedAt!.Value.LocalDateTime:M/d}）");
             }
 
             builder.AppendLine();
@@ -125,12 +127,13 @@ public static class GraphExporter
         foreach (var node in order)
         {
             var box = node.Status == NodeStatus.Done ? "[x]" : "[ ]";
-            var title = node.Status == NodeStatus.Cancelled ? $"~~{node.Title}~~" : $"**{node.Title}**";
+            var display = resolver.Expand(node.Title);
+            var title = node.Status == NodeStatus.Cancelled ? $"~~{display}~~" : $"**{display}**";
             builder.Append($"- {box} {title}{Suffix(node)}");
 
             var notes = new List<string> { Labels(graph, node) };
 
-            var parents = graph.ParentsOf(node.Id).Select(p => p.Title).ToList();
+            var parents = graph.ParentsOf(node.Id).Select(p => resolver.Expand(p.Title)).ToList();
             if (parents.Count > 0)
             {
                 notes.Add("先行: " + string.Join(", ", parents));
@@ -208,7 +211,8 @@ public static class GraphExporter
     /// 図に出す名前。回数で完了する項目には「2 / 3 回」を添える。
     /// 自己ループは繰り返しの表示であって依存ではないので、辺としては出力しない。
     /// </summary>
-    private static string Label(TodoNode node) => Escape(node.Title) + Escape(Suffix(node));
+    private static string Label(ProjectVariableResolver resolver, TodoNode node) =>
+        Escape(resolver.Expand(node.Title)) + Escape(Suffix(node));
 
     /// <summary>名前のうしろに添える「（2 / 3 回）」。通常の項目では空。</summary>
     private static string Suffix(TodoNode node) =>

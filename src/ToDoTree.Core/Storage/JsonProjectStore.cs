@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
+using ToDoTree.Core.Text;
 
 namespace ToDoTree.Core.Storage;
 
@@ -49,6 +50,15 @@ public sealed class JsonProjectStore : IProjectStore
             throw new InvalidDataException(
                 $"このファイルは新しい形式です (schemaVersion={project.SchemaVersion})。アプリを更新してください。");
         }
+
+        // 変数の検証は原文を書き換える前に済ませる。形式詐称のファイルを
+        // 「移行してから拒否」すると、次の保存で二重に逃がした原文が残る。
+        if (ProjectVariableService.ValidateSchema(project, declaredVersion) is { } variableError)
+        {
+            throw new InvalidDataException($"プロジェクト変数の情報が壊れています。{variableError}");
+        }
+
+        ProjectVariableService.MigrateLegacyText(project, declaredVersion);
 
         if (declaredVersion < 8 && project.Blocks.Any(b => b.ParentBlockId is not null))
         {
@@ -99,6 +109,8 @@ public sealed class JsonProjectStore : IProjectStore
 
         if (BlockConnections.Validate(project) is { } error) throw new InvalidDataException(error);
         if (RepeatService.Validate(project) is { } repeatError) throw new InvalidDataException(repeatError);
+        if (ProjectVariableService.Validate(project.Variables) is { } variableError)
+            throw new InvalidDataException(variableError);
         project.SchemaVersion = TodoProject.CurrentSchemaVersion;
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrEmpty(directory))
