@@ -1,5 +1,6 @@
 ﻿using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
+using ToDoTree.Core.Text;
 
 namespace ToDoTree.Core.Storage;
 
@@ -31,6 +32,15 @@ public sealed class BranchTemplateStore(string directory)
                 {
                     throw new InvalidDataException("旧形式を名乗る部品にブロックの親子関係が入っています。");
                 }
+
+                // 通常のプロジェクトと同じ検証・移行を通す。部品だけが別経路で
+                // 素通りすると、逃がしていない原文が形式10として保存されてしまう。
+                if (ProjectVariableService.ValidateSchema(template, template.SchemaVersion) is { } variableError)
+                {
+                    throw new InvalidDataException(variableError);
+                }
+
+                ProjectVariableService.MigrateLegacyText(template, template.SchemaVersion);
 
                 if (template.SchemaVersion is >= 2 and < TodoProject.CurrentSchemaVersion) template.SchemaVersion = TodoProject.CurrentSchemaVersion;
                 BranchTemplate.Validate(template);

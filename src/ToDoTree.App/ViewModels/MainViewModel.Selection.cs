@@ -182,7 +182,7 @@ public sealed partial class MainViewModel
             OnPropertyChanged(nameof(SelectionSummary));
             UpdateHighlights();
 
-            StatusMessage = $"「{edge.From.Title}」→「{edge.To.Title}」を選びました。Delete で外せます。";
+            StatusMessage = $"「{edge.From.DisplayTitle}」→「{edge.To.DisplayTitle}」を選びました。Delete で外せます。";
         }
 
         OnPropertyChanged(nameof(SelectedEdge));
@@ -261,7 +261,7 @@ public sealed partial class MainViewModel
 
         _connectSourceId = node.Id;
         OnPropertyChanged(nameof(IsConnecting));
-        StatusMessage = $"「{node.Title}」から繋ぎます。矢印キーで相手を選んで Enter（Esc で取り消し）。";
+        StatusMessage = $"「{node.DisplayTitle}」から繋ぎます。矢印キーで相手を選んで Enter（Esc で取り消し）。";
         NotifyVisualsChanged();
     }
 

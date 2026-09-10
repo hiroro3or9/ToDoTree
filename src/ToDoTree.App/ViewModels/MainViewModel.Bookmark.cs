@@ -10,7 +10,7 @@ public sealed partial class MainViewModel
     public ICommand ResumeBookmarkCommand { get; private set; } = null!;
 
     public bool HasBookmark => _project.Bookmark is { } bookmark && _byId.ContainsKey(bookmark.NodeId);
-    public string BookmarkTitle => HasBookmark ? _byId[_project.Bookmark!.NodeId].Title : "しおりはありません";
+    public string BookmarkTitle => HasBookmark ? _byId[_project.Bookmark!.NodeId].DisplayTitle : "しおりはありません";
 
     public string BookmarkNote
     {
@@ -34,7 +34,7 @@ public sealed partial class MainViewModel
             _project.Bookmark = new WorkBookmark { NodeId = node.Id };
             MarkDirty();
             RefreshAll();
-            StatusMessage = $"「{node.Title}」にしおりを置きました。再開メモを残せます。";
+            StatusMessage = $"「{node.DisplayTitle}」にしおりを置きました。再開メモを残せます。";
         }, () => SelectedNode is not null && _project.Bookmark?.NodeId != SelectedNode.Id);
         ClearBookmarkCommand = new RelayCommand(() =>
         {
@@ -63,7 +63,7 @@ public sealed partial class MainViewModel
         RefreshVisibility();
         NotifyVisualsChanged();
         CenterOnRequested?.Invoke(this, node);
-        StatusMessage = $"「{node.Title}」から再開できます。右側のしおりに再開メモを表示しています。";
+        StatusMessage = $"「{node.DisplayTitle}」から再開できます。右側のしおりに再開メモを表示しています。";
         return true;
     }
 

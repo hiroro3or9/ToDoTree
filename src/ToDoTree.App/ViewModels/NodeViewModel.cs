@@ -27,6 +27,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
     private bool _isRelated;
     private bool _isDimmed;
     private bool _isInSelectedBlock;
+    private string? _notesDraft;
 
     public TodoNode Model { get; } = model;
 
@@ -50,8 +51,65 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
             Model.Title = value;
             Touch();
             OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayTitle), nameof(HasTitlePreview), nameof(CardTooltip),
+                nameof(UndefinedVariableText), nameof(HasUndefinedVariables));
             owner.RefreshSidebar();
             owner.RefreshBookmark();
+        }
+    }
+
+    /// <summary>
+    /// 画面に出す名前。原文の <c>{Hoge}</c> をプロジェクト変数の値へ置き換えたもの。
+    /// 編集欄はいつも原文（<see cref="Title"/>）を使い、非編集時だけこちらを出す。
+    /// </summary>
+    public string DisplayTitle => owner.VariableResolver.Expand(Model.Title);
+
+    /// <summary>展開後のメモ。カードのツールチップと検索が見る。</summary>
+    public string DisplayNotes => owner.VariableResolver.Expand(Model.Notes);
+
+    /// <summary>
+    /// 詳細パネルにプレビューを出す。原文と表示が違うときのほか、
+    /// 未定義の参照だけを含むときも出す（なぜ置き換わらないのかを、その場で示すため）。
+    /// </summary>
+    public bool HasTitlePreview =>
+        !string.Equals(Model.Title, DisplayTitle, StringComparison.Ordinal) || HasUndefinedVariables;
+
+    public bool HasNotesPreview => !string.Equals(NotesDraft, DisplayNotesDraft, StringComparison.Ordinal);
+
+    /// <summary>定義の無い参照の名前。カードの警告とツールチップに出す。</summary>
+    public IReadOnlyList<string> UndefinedVariables
+    {
+        get
+        {
+            var resolver = owner.VariableResolver;
+            var names = new List<string>(resolver.Scan(Model.Title).UndefinedNames);
+            foreach (var name in resolver.Scan(Model.Notes).UndefinedNames)
+            {
+                if (!names.Contains(name, StringComparer.Ordinal)) names.Add(name);
+            }
+
+            return names;
+        }
+    }
+
+    public bool HasUndefinedVariables => UndefinedVariables.Count > 0;
+
+    /// <summary>色だけに頼らず、文字でも未定義を伝える。</summary>
+    public string UndefinedVariableText =>
+        UndefinedVariables.Count == 0 ? string.Empty : "未定義: " + string.Join("、", UndefinedVariables);
+
+    /// <summary>ツールチップに添える「使用中の変数」。定義のある参照だけを並べる。</summary>
+    public string VariableSummary
+    {
+        get
+        {
+            var resolver = owner.VariableResolver;
+            var names = resolver.Scan(Model.Title).ReferencedNames
+                .Concat(resolver.Scan(Model.Notes).ReferencedNames)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            return names.Count == 0 ? string.Empty : "変数: " + string.Join("、", names);
         }
     }
 
@@ -69,7 +127,47 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
             Model.Notes = value;
             Touch();
             OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayNotes), nameof(CardTooltip),
+                nameof(UndefinedVariableText), nameof(HasUndefinedVariables));
         }
+    }
+
+    /// <summary>
+    /// 詳細パネルのメモ入力欄。毎入力でプレビューだけを更新し、原文への確定は
+    /// これまでどおりフォーカスが外れたとき（<see cref="CommitNotes"/>）に行う。
+    /// 入力のたびに原文を書き換えると、履歴の粒度が今までと変わってしまう。
+    /// </summary>
+    public string NotesDraft
+    {
+        get => _notesDraft ?? Model.Notes;
+        set
+        {
+            var text = value ?? string.Empty;
+            if (NotesDraft == text)
+            {
+                return;
+            }
+
+            _notesDraft = text;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(DisplayNotesDraft), nameof(HasNotesPreview));
+        }
+    }
+
+    /// <summary>入力中のメモを展開したもの。プレビュー専用。</summary>
+    public string DisplayNotesDraft => owner.VariableResolver.Expand(NotesDraft);
+
+    /// <summary>入力欄から離れたときに原文へ確定する。</summary>
+    public void CommitNotes()
+    {
+        if (_notesDraft is not { } draft)
+        {
+            return;
+        }
+
+        _notesDraft = null;
+        Notes = draft;
+        OnPropertyChanged(nameof(NotesDraft), nameof(DisplayNotesDraft), nameof(HasNotesPreview));
     }
 
     public NodeStatus Status
@@ -287,8 +385,8 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
     /// <summary>読み上げ名。ボタンだけを聞いても、いま何回目かが分かるようにする。</summary>
     public string RepeatActionName => Model.Repeat is { } repeat
         ? IsRepeatFull
-            ? $"{Title}は達成済み、{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
-            : $"{Title}を1回達成、現在{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
+            ? $"{DisplayTitle}は達成済み、{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
+            : $"{DisplayTitle}を1回達成、現在{repeat.CompletedCount}回、目標{repeat.TargetCount}回"
         : string.Empty;
 
     /// <summary>加算ボタンのツールチップ。最終回だけ完了になることを明示する。</summary>
@@ -365,12 +463,18 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
     {
         get
         {
-            var lines = new List<string> { Title };
+            var lines = new List<string> { DisplayTitle };
+
+            // 変数を使っているカードでは、置き換わる前の原文も添える。
+            // 表示だけを見て「なぜこの名前なのか」を追えないと、値を直す先が分からない。
+            if (HasTitlePreview) lines.Add($"原文：{Title}");
+            if (VariableSummary is { Length: > 0 } summary) lines.Add(summary);
+            if (UndefinedVariableText is { Length: > 0 } undefined) lines.Add(undefined);
             if (IsManuallyBlocked) lines.Add(string.IsNullOrWhiteSpace(BlockReason) ? "ブロック中（理由未入力）" : $"ブロック中：{BlockReason}");
             if (Model.Checklist.Count > 0) lines.Add(ChecklistSummary);
-            if (Model.Notes.Length > 0)
+            if (DisplayNotes.Length > 0)
             {
-                lines.Add(Model.Notes.Length > 120 ? Model.Notes[..120] + "…" : Model.Notes);
+                lines.Add(DisplayNotes.Length > 120 ? DisplayNotes[..120] + "…" : DisplayNotes);
             }
 
             if (_schedule?.LatestStart is { } start)
@@ -636,6 +740,15 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         nameof(Status),
         nameof(Kind),
         nameof(Title),
+        nameof(DisplayTitle),
+        nameof(DisplayNotes),
+        nameof(DisplayNotesDraft),
+        nameof(HasTitlePreview),
+        nameof(HasNotesPreview),
+        nameof(UndefinedVariables),
+        nameof(HasUndefinedVariables),
+        nameof(UndefinedVariableText),
+        nameof(VariableSummary),
         nameof(DueDate),
         nameof(EstimateText),
         nameof(TagsText),
@@ -647,6 +760,22 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         nameof(CanCollapse),
         nameof(ZIndex));
 
+    /// <summary>
+    /// 変数の値が変わったときに呼ぶ。表示用の文字列だけを更新し、
+    /// 状態・接続・配置には触れない（値を直すたびに図を作り直さないため）。
+    /// </summary>
+    public void RefreshDisplayText() => OnPropertyChanged(
+        nameof(DisplayTitle),
+        nameof(DisplayNotes),
+        nameof(DisplayNotesDraft),
+        nameof(HasTitlePreview),
+        nameof(HasNotesPreview),
+        nameof(UndefinedVariables),
+        nameof(HasUndefinedVariables),
+        nameof(UndefinedVariableText),
+        nameof(VariableSummary),
+        nameof(CardTooltip));
+
     /// <summary>自動整列などでモデルの座標を直接書き換えたあとに呼ぶ。</summary>
     public void NotifyPositionChanged() => OnPropertyChanged(nameof(X), nameof(Y), nameof(Center), nameof(VisualBounds));
 
@@ -656,5 +785,5 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         owner.MarkDirty();
     }
 
-    public override string ToString() => Title;
+    public override string ToString() => DisplayTitle;
 }

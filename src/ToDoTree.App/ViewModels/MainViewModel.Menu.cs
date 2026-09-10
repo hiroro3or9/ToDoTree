@@ -39,7 +39,7 @@ public sealed partial class MainViewModel
     /// どれを掴んだのかを名前で確かめられるようにしておく。
     /// </summary>
     public string EdgeMenuHeader => SelectedEdge is { } edge
-        ? $"{Shorten(edge.From.Title)}  →  {Shorten(edge.To.Title)} ・ {edge.ConnectionDescription}"
+        ? $"{Shorten(edge.From.DisplayTitle)}  →  {Shorten(edge.To.DisplayTitle)} ・ {edge.ConnectionDescription}"
         : string.Empty;
 
     private static string Shorten(string text) =>

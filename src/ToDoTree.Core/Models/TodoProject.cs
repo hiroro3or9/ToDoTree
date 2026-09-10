@@ -12,13 +12,15 @@ public sealed class TodoProject
     /// 7 でブロックの接続点と、線の接続点参照が加わった。
     /// 8 でブロックの親子関係（<see cref="TodoBlock.ParentBlockId"/>）が加わった。
     /// 9 で受信箱・チェックリスト・手動ブロックが加わった。
+    /// 10 でプロジェクト変数（<see cref="Variables"/>）と、原文の波括弧のエスケープが加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 9;
+    public const int CurrentSchemaVersion = 10;
 
     private List<InboxItem> _inbox = [];
     public List<InboxItem> Inbox { get => _inbox; set => _inbox = value ?? []; }
 
+    private List<ProjectVariable> _variables = [];
     private List<TodoNode> _nodes = [];
     private List<TodoEdge> _edges = [];
     private List<TodoBlock> _blocks = [];
@@ -33,6 +35,12 @@ public sealed class TodoProject
     public WorkBookmark? Bookmark { get; set; }
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
+
+    /// <summary>
+    /// このプロジェクトの中だけで通じる名前と表示値。形式10で追加。
+    /// JSON のキーではなく一覧にしてあるので、重複した定義を読み込み時に見つけられる。
+    /// </summary>
+    public List<ProjectVariable> Variables { get => _variables; set => _variables = value ?? []; }
 
     public List<TodoNode> Nodes { get => _nodes; set => _nodes = value ?? []; }
 
@@ -51,6 +59,7 @@ public sealed class TodoProject
         Description = Description,
         Bookmark = Bookmark?.Clone(),
         SchemaVersion = SchemaVersion,
+        Variables = [.. Variables.Select(v => v.Clone())],
         Nodes = [.. Nodes.Select(n => n.Clone())],
         Inbox = [.. Inbox.Select(item => item.Clone())],
         Edges = [.. Edges.Select(e => e.Clone())],

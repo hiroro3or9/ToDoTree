@@ -23,11 +23,17 @@ public partial class MainWindow
             vm.AddChecklistCommand.Execute(null);
         e.Handled = true;
     }
+    /// <summary>メモは入力中プレビューだけを更新しているので、離れたときに原文へ確定する。</summary>
+    private void OnNotesLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NodeViewModel node }) node.CommitNotes();
+    }
+
     private void OnInboxDragStart(object sender, MouseButtonEventArgs e) => _inboxDragStart = e.GetPosition(this);
     private void OnInboxDragMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed) { _inboxDragStart = null; return; }
-        if (_inboxDragStart is not { } start || sender is not TextBlock { DataContext: InboxItem item } source
+        if (_inboxDragStart is not { } start || sender is not TextBlock { DataContext: InboxItemViewModel item } source
             || _workspace?.ActiveDocument is not { } vm) return;
         var point = e.GetPosition(this);
         if (Math.Abs(point.X - start.X) < SystemParameters.MinimumHorizontalDragDistance
