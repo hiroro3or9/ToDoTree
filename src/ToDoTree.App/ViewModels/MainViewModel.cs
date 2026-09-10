@@ -242,7 +242,7 @@ public sealed partial class MainViewModel : ObservableObject
             if (value is { IsVisible: false } hidden)
             {
                 if (_focusedBlockId is not null) ToggleFocus();
-                if (BlockOf(hidden.Id) is { IsCollapsed: true } block) ToggleBlockCollapse(block);
+                RevealBlockPath(hidden.Id);
             }
             SelectOnly(value);
         }
@@ -309,6 +309,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void LoadProject(TodoProject project, string? path, SelectionState? selection = null)
     {
+        _portDrag = null;
+        _selectedBlockPortId = null;
         ClearEdgeSelection();
         _project = project;
         _graph = new TodoGraph(project);

@@ -311,8 +311,11 @@ public sealed partial class MainViewModel
     }
 
     /// <summary>キャンバス上でドラッグして繋いだときに呼ばれる。</summary>
-    public bool TryConnect(Guid fromId, Guid toId, ConnectionSide fromSide = ConnectionSide.Auto, ConnectionSide toSide = ConnectionSide.Auto)
+    public bool TryConnect(Guid fromId, Guid toId, ConnectionSide fromSide = ConnectionSide.Auto, ConnectionSide toSide = ConnectionSide.Auto,
+        Guid? fromPortId = null, Guid? toPortId = null)
     {
+        if (fromPortId is not null && ToDoTree.Core.Graph.BlockConnections.FindPort(_project, fromId, fromPortId) is null
+            || toPortId is not null && ToDoTree.Core.Graph.BlockConnections.FindPort(_project, toId, toPortId) is null) return false;
         var check = _graph.CanConnect(fromId, toId);
         if (!check.IsOk())
         {
@@ -326,6 +329,8 @@ public sealed partial class MainViewModel
         {
             edge.FromSide = fromSide;
             edge.ToSide = toSide;
+            edge.FromPortId = fromPortId;
+            edge.ToPortId = toPortId;
         }
         RebuildEdges();
         MarkDirty();

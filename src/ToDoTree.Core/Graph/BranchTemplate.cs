@@ -8,17 +8,23 @@ public static class BranchTemplate
     public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name)
     {
         var ids = selection.ToHashSet();
-        var endpoints = ids.Concat(source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => b.Id)).ToHashSet();
+        var hierarchy = new BlockHierarchy(source);
+        var includedBlockIds = source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => b.Id).ToHashSet();
+        foreach (var blockId in includedBlockIds.ToArray())
+            includedBlockIds.UnionWith(hierarchy.AncestorsOf(blockId).Select(b => b.Id));
+        var endpoints = ids.Concat(includedBlockIds).ToHashSet();
         var fragment = new TodoProject
         {
             Name = name.Trim(),
             Nodes = [.. source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone())],
             Edges = [.. source.Edges.Where(e => endpoints.Contains(e.FromId) && endpoints.Contains(e.ToId)).Select(e => e.Clone())],
-            Blocks = [.. source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => new TodoBlock
+            Blocks = [.. source.Blocks.Where(b => includedBlockIds.Contains(b.Id)).Select(b => new TodoBlock
             {
                 Id = b.Id,
+                ParentBlockId = b.ParentBlockId is { } parent && includedBlockIds.Contains(parent) ? parent : null,
                 Title = b.Title,
                 ColorId = b.ColorId,
+                Ports = [.. b.Ports],
                 NodeIds = [.. b.NodeIds.Where(ids.Contains)],
             })],
         };
@@ -58,6 +64,7 @@ public static class BranchTemplate
         foreach (var block in copy.Blocks)
         {
             block.Id = map[block.Id];
+            block.ParentBlockId = block.ParentBlockId is { } parent ? map[parent] : null;
             block.IsCollapsed = false;
             block.NodeIds = [.. block.NodeIds.Select(id => map[id])];
         }
@@ -85,6 +92,7 @@ public static class BranchTemplate
             throw new InvalidDataException("部品の接続情報が不正です。");
         if (RepeatService.Validate(template) is { } repeatError) throw new InvalidDataException(repeatError);
         if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);
+        if (BlockConnections.ValidatePorts(template) is { } portError) throw new InvalidDataException(portError);
         if (new TodoGraph(template.DeepClone()).HasCycle()) throw new InvalidDataException("部品の接続が循環しています。");
     }
 }

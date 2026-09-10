@@ -78,6 +78,17 @@ public static class BlockGeometry
             (maxY + BottomPadding) - top);
     }
 
+    /// <summary>直接ステップと直接子ブロックの表示矩形から親の囲みを作る。</summary>
+    public static BlockBounds? Compute(IReadOnlyList<NodeRect> rects, IReadOnlyList<BlockBounds> childBounds)
+    {
+        ArgumentNullException.ThrowIfNull(rects);
+        ArgumentNullException.ThrowIfNull(childBounds);
+        var all = new List<NodeRect>(rects.Count + childBounds.Count);
+        all.AddRange(rects);
+        all.AddRange(childBounds.Select((b, i) => new NodeRect(Guid.Empty, b.X, b.Y, b.Width, b.Height)));
+        return Compute(all);
+    }
+
     /// <summary>
     /// 見出しをドラッグしたときに、通過点まで一緒に動かす辺。
     /// 両端とも移動対象の辺だけが対象で、片端だけの辺は座標を保って接続部分だけが引き直される。

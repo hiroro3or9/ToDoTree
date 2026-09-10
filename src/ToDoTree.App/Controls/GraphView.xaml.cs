@@ -95,6 +95,8 @@ public partial class GraphView : UserControl
         PreviewKeyUp += OnSnapModifierKey;
         Viewport.LostMouseCapture += (_, _) =>
         {
+            CancelBlockPortDrag();
+            _connectPortId = null;
             _draggingWaypoint = false;
 
             // 予期しないキャプチャ喪失は「移動をやめた」扱いにする。
@@ -137,6 +139,8 @@ public partial class GraphView : UserControl
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
+        CancelBlockPortDrag();
+        _connectPortId = null;
         _templateLibrary?.Close();
         SetCompletionHover(null);
         EdgeRenderer.ClearCompletionEffects();
@@ -312,7 +316,7 @@ public partial class GraphView : UserControl
 
         // 接続中・パン中・矩形選択中・ドラッグ中は、その操作を邪魔しない。
         if (_connectSource is not null || _panning || _marqueeStart is not null
-            || _dragGroup.Count > 0 || _draggingWaypoint || _blockDragActive)
+            || _dragGroup.Count > 0 || _draggingWaypoint || _blockDragActive || _draggingBlockPort)
         {
             return;
         }
@@ -332,6 +336,13 @@ public partial class GraphView : UserControl
         var world = e.GetPosition(Surface);
         _viewModel.SetMenuAnchor(world.X, world.Y);
         Viewport.Focus();
+
+        if (_viewModel.FindBlockPortAt(new Vec2(world.X, world.Y), PortHitTolerance) is { } blockPort)
+        {
+            _viewModel.SelectBlockPort(blockPort.Block, blockPort.Port.Id);
+            ShowMenu("BlockPortMenu");
+            return;
+        }
 
         if (FindNodeElement(e.OriginalSource as DependencyObject)?.DataContext is NodeViewModel node)
         {
@@ -360,7 +371,8 @@ public partial class GraphView : UserControl
         }
 
         // 見出しは線より奥に描いてあるので、線・通過点を先に見てからここへ来る。
-        if (FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext is BlockViewModel block)
+        if ((FindBlockElement(e.OriginalSource as DependencyObject)?.DataContext as BlockViewModel
+            ?? _viewModel.FindBlockBorderAt(new Vec2(world.X, world.Y), PortHitTolerance)) is { } block)
         {
             _viewModel.SelectBlock(block);
             ShowMenu("BlockMenu");
@@ -408,6 +420,8 @@ public partial class GraphView : UserControl
         _pressScreen = e.GetPosition(Viewport);
         _movedSincePress = false;
         var world = e.GetPosition(Surface);
+
+        if (TryPressBlockPort(world)) { e.Handled = true; return; }
 
         var element = FindNodeElement(e.OriginalSource as DependencyObject);
         if (element?.DataContext is NodeViewModel node)
@@ -506,6 +520,9 @@ public partial class GraphView : UserControl
             _blockPressScreen = _pressScreen;
             _blockPressWorld = world;
             _blockDragActive = false;
+            _membershipTargets = [.. _viewModel.Blocks
+                .Where(b => b.IsVisible && b.Id != block.Id && !_viewModel.IsAncestorBlock(block.Id, b.Id))
+                .Select(b => (b.Id, b.Bounds))];
             Viewport.CaptureMouse();
             e.Handled = true;
             return;
@@ -616,6 +633,17 @@ public partial class GraphView : UserControl
             return;
         }
 
+        if (_draggingBlockPort && e.LeftButton == MouseButtonState.Pressed)
+        {
+            if (_movedSincePress)
+            {
+                var position = e.GetPosition(Surface);
+                _viewModel?.MoveBlockPort(new Vec2(position.X, position.Y));
+            }
+            e.Handled = true;
+            return;
+        }
+
         if (_draggingWaypoint && e.LeftButton == MouseButtonState.Pressed)
         {
             if (!_movedSincePress) return;
@@ -677,6 +705,20 @@ public partial class GraphView : UserControl
         // 自分へ戻した接続。設定画面はキャプチャを手放してから開く。
         Guid? repeatRequest = null;
 
+        if (_draggingBlockPort)
+        {
+            if (_movedSincePress)
+            {
+                var position = e.GetPosition(Surface);
+                _viewModel.MoveBlockPort(new Vec2(position.X, position.Y));
+            }
+            _draggingBlockPort = false;
+            _viewModel.EndBlockPortDrag(commit: true);
+            EndInteraction();
+            e.Handled = true;
+            return;
+        }
+
         if (_blockPress is not null)
         {
             if (_blockDragActive) UpdateBlockSnap(e.GetPosition(Surface));
@@ -688,7 +730,8 @@ public partial class GraphView : UserControl
 
             if (wasDragging)
             {
-                _viewModel.CommitBlockDrag();
+                var transfer = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+                _viewModel.CommitBlockDrag(transfer, transfer ? MembershipTarget(e.GetPosition(Surface)) : null);
             }
 
             EndInteraction();
@@ -703,7 +746,8 @@ public partial class GraphView : UserControl
 
             if (target is not null && target.Id != sourceId)
             {
-                _viewModel.TryConnect(sourceId, target.Id, _connectSide, SideOf(hit));
+                var port = TargetPort(e.GetPosition(Surface), target.Id, SideOf(hit));
+                _viewModel.TryConnect(sourceId, target.Id, _connectSide, port.Side, _connectPortId, port.Id);
             }
             else if (target is null)
             {
@@ -816,6 +860,8 @@ public partial class GraphView : UserControl
 
     private void EndInteraction()
     {
+        CancelBlockPortDrag();
+        _connectPortId = null;
         _viewModel?.CancelNodeDrag();
         ClearMembershipPreview();
         _connectSource = null;
@@ -860,7 +906,8 @@ public partial class GraphView : UserControl
         }
 
         var (_, Bounds, _, _) = _viewModel!.DisplayEndpoint(_connectSource.Id);
-        var port = EdgeRouting.Port(Bounds, _connectSide);
+        var sourcePort = ToDoTree.Core.Graph.BlockConnections.FindPort(_viewModel.Graph.Project, _connectSource.Id, _connectPortId);
+        var port = sourcePort?.Resolve(Bounds) ?? EdgeRouting.Port(Bounds, _connectSide);
         var hit = HitTestAt(Surface.TranslatePoint(world, Viewport));
         var target = ConnectionTarget(hit, world);
 
@@ -876,8 +923,9 @@ public partial class GraphView : UserControl
 
         if (target is not null && target.Id != _connectSource.Id)
         {
+            var targetPort = TargetPort(world, target.Id, SideOf(hit));
             var preview = new EdgeViewModel(new TodoEdge { FromId = _connectSource.Id, ToId = target.Id,
-                FromSide = _connectSide, ToSide = SideOf(hit) }, _connectSource, target, _viewModel);
+                FromSide = _connectSide, ToSide = targetPort.Side, FromPortId = _connectPortId, ToPortId = targetPort.Id }, _connectSource, target, _viewModel);
             EdgeRenderer.SetPreviewRoute(preview.GetRoute(_viewModel.Nodes));
         }
         else EdgeRenderer.SetPreview(new Point(port.X, port.Y), world, _connectSide);
@@ -1039,6 +1087,19 @@ public partial class GraphView : UserControl
             return;
         }
 
+        if (_draggingBlockPort)
+        {
+            if ((e.Key == Key.System ? e.SystemKey : e.Key) == Key.Escape) EndInteraction();
+            e.Handled = true;
+            return;
+        }
+        if (_connectSource is not null && e.Key == Key.Escape)
+        {
+            EndInteraction();
+            e.Handled = true;
+            return;
+        }
+
         // 入力欄に文字を打っている最中は、キャンバスの操作を拾わない。
         if (Keyboard.FocusedElement is TextBox)
         {
@@ -1096,6 +1157,13 @@ public partial class GraphView : UserControl
         if (control && e.Key == Key.G)
         {
             _viewModel.GroupSelectedNodes();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Delete && _viewModel.SelectedBlockPort is not null)
+        {
+            _viewModel.RemoveBlockPort();
             e.Handled = true;
             return;
         }

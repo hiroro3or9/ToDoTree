@@ -32,7 +32,7 @@ public static class BlockService
     public static TodoBlock? BlockOf(TodoProject project, Guid nodeId)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return project.Blocks.FirstOrDefault(b => b.NodeIds.Contains(nodeId));
+        return new BlockHierarchy(project).DirectOwnerOf(nodeId);
     }
 
     public static bool IsGrouped(TodoProject project, Guid nodeId) => BlockOf(project, nodeId) is not null;
@@ -46,7 +46,7 @@ public static class BlockService
 
     // ---- 作成 ----
 
-    /// <summary>選んだステップを 1 つの囲みにまとめる。所属済みが混ざっていたら何もしない。</summary>
+    /// <summary>同じ直接所属先のステップを、その場に作る子ブロックへまとめる。</summary>
     public static BlockResult Create(TodoProject project, IReadOnlyList<Guid> nodeIds, string? title = null)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -64,12 +64,22 @@ public static class BlockService
             return BlockResult.Fail("見つからないステップが含まれています。");
         }
 
-        if (distinct.Any(id => IsGrouped(project, id)))
+        var hierarchy = new BlockHierarchy(project);
+        var owners = distinct.Select(id => hierarchy.DirectOwnerOf(id)?.Id).Distinct().ToList();
+        if (owners.Count != 1)
         {
-            return BlockResult.Fail("すでにブロックに入っているステップが含まれています。所属を外してからまとめてください。");
+            return BlockResult.Fail("同じブロック内のステップを選んでください。");
         }
 
-        var block = new TodoBlock { Title = Normalize(title), NodeIds = [.. distinct] };
+        var parentId = owners[0];
+        var candidate = project.DeepClone();
+        if (parentId is { } parent)
+            Find(candidate, parent)!.NodeIds.RemoveAll(distinct.Contains);
+        var block = new TodoBlock { Title = Normalize(title), ParentBlockId = parentId, NodeIds = [.. distinct] };
+        candidate.Blocks.Add(block.Clone());
+        if (BlockConnections.Validate(candidate) is { } error) return BlockResult.Fail(error);
+
+        if (parentId is { } owner) Find(project, owner)!.NodeIds.RemoveAll(distinct.Contains);
         project.Blocks.Add(block);
         return BlockResult.Ok(block);
     }
@@ -137,12 +147,19 @@ public static class BlockService
         return removed;
     }
 
-    /// <summary>囲みだけを取り除く。中のステップと接続・通過点はそのまま残る。</summary>
+    /// <summary>囲みだけを取り除き、直接の中身を一段上へ戻す。</summary>
     public static bool Dissolve(TodoProject project, Guid blockId)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (Find(project, blockId) is not { } block) return false;
-        BlockConnections.Dissolve(project, block);
+        var hierarchy = new BlockHierarchy(project);
+        BlockConnections.Dissolve(project, block, hierarchy.DescendantNodeIds(blockId));
+
+        foreach (var child in hierarchy.ChildrenOf(blockId)) child.ParentBlockId = block.ParentBlockId;
+        if (block.ParentBlockId is { } parentId && Find(project, parentId) is { } parent)
+        {
+            foreach (var nodeId in block.NodeIds.Where(id => !parent.NodeIds.Contains(id))) parent.NodeIds.Add(nodeId);
+        }
         return project.Blocks.Remove(block);
     }
 
@@ -216,11 +233,6 @@ public static class BlockService
                 return $"ブロックの ID が重複しています（{block.Id}）。";
             }
 
-            if (block.NodeIds.Count == 0)
-            {
-                return $"ステップが 1 つも入っていないブロックがあります（{block.Title}）。";
-            }
-
             var withinBlock = new HashSet<Guid>();
             foreach (var id in block.NodeIds)
             {
@@ -241,14 +253,94 @@ public static class BlockService
             }
         }
 
+        // 保存順は親子順とは限らないので、IDを集め終えてから親参照を検査する。
+        foreach (var block in project.Blocks)
+        {
+            if (block.ParentBlockId == block.Id)
+                return $"ブロック「{block.Title}」が自分自身を親にしています。";
+            if (block.ParentBlockId is { } parent && !blockIds.Contains(parent))
+                return $"ブロック「{block.Title}」が、存在しない親ブロック（{parent}）を指しています。";
+        }
+
+        var byId = project.Blocks.ToDictionary(b => b.Id);
+        var done = new HashSet<Guid>();
+        foreach (var start in project.Blocks)
+        {
+            if (done.Contains(start.Id)) continue;
+            var path = new HashSet<Guid>();
+            var current = start;
+            while (true)
+            {
+                if (!path.Add(current.Id))
+                    return $"ブロック「{current.Title}」の親子関係が循環しています。";
+                if (current.ParentBlockId is not { } parent || done.Contains(parent)) break;
+                current = byId[parent];
+            }
+            done.UnionWith(path);
+        }
+
+        var hierarchy = new BlockHierarchy(project);
+        foreach (var block in project.Blocks)
+        {
+            if (hierarchy.DescendantNodeIds(block.Id).Count == 0)
+                return $"子孫にもステップが 1 つも入っていないブロックがあります（{block.Title}）。";
+        }
+
         return null;
     }
 
     private static int RemoveEmpty(TodoProject project)
     {
-        var empty = project.Blocks.Where(b => b.NodeIds.Count == 0).Select(b => b.Id).ToHashSet();
-        project.Edges.RemoveAll(e => empty.Contains(e.FromId) || empty.Contains(e.ToId));
-        return project.Blocks.RemoveAll(b => empty.Contains(b.Id));
+        var removed = 0;
+        while (true)
+        {
+            var parents = project.Blocks.Where(b => b.ParentBlockId is not null)
+                .Select(b => b.ParentBlockId!.Value).ToHashSet();
+            var emptyLeaves = project.Blocks.Where(b => b.NodeIds.Count == 0 && !parents.Contains(b.Id))
+                .Select(b => b.Id).ToHashSet();
+            if (emptyLeaves.Count == 0) return removed;
+            project.Edges.RemoveAll(e => emptyLeaves.Contains(e.FromId) || emptyLeaves.Contains(e.ToId));
+            removed += project.Blocks.RemoveAll(b => emptyLeaves.Contains(b.Id));
+        }
+    }
+
+    /// <summary>ブロック全体を別の親へ移す。null は最上位。</summary>
+    public static string? MoveBlock(TodoProject project, Guid blockId, Guid? targetParentId)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (Find(project, blockId) is not { } block) return "移動するブロックがありません。";
+        if (targetParentId is { } target && Find(project, target) is null) return "追加先のブロックがありません。";
+        if (blockId == targetParentId) return "ブロックを自分自身の中へ移すことはできません。";
+        if (block.ParentBlockId == targetParentId) return null;
+
+        var candidate = project.DeepClone();
+        Find(candidate, blockId)!.ParentBlockId = targetParentId;
+        if (BlockConnections.Validate(candidate) is { } error) return error;
+        block.ParentBlockId = targetParentId;
+        return null;
+    }
+
+    /// <summary>親から一段だけ外す。最上位は変更しない。</summary>
+    public static string? DetachBlock(TodoProject project, Guid blockId)
+    {
+        if (Find(project, blockId) is not { ParentBlockId: { } parentId } block)
+            return Find(project, blockId) is null ? "移動するブロックがありません。" : null;
+        return MoveBlock(project, block.Id, Find(project, parentId)?.ParentBlockId);
+    }
+
+    /// <summary>選んだブロックだけを包む新しい親を同じ階層に作る。</summary>
+    public static BlockResult Wrap(TodoProject project, Guid blockId, string? title = null)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (Find(project, blockId) is not { } block) return BlockResult.Fail("包むブロックがありません。");
+        var wrapper = new TodoBlock { Title = Normalize(title), ParentBlockId = block.ParentBlockId };
+        var candidate = project.DeepClone();
+        Find(candidate, blockId)!.ParentBlockId = wrapper.Id;
+        candidate.Blocks.Add(wrapper.Clone());
+        if (BlockConnections.Validate(candidate) is { } error) return BlockResult.Fail(error);
+        block.ParentBlockId = wrapper.Id;
+        project.Blocks.Add(wrapper);
+        return BlockResult.Ok(wrapper);
     }
 
     /// <summary>位置や状態を変えず所属を移す。検証に失敗したときは一切変更しない。</summary>

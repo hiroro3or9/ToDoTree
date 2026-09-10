@@ -17,6 +17,8 @@ public sealed class TodoEdge
     public string? ColorId { get; set; }
     public ConnectionSide FromSide { get; set; }
     public ConnectionSide ToSide { get; set; }
+    public Guid? FromPortId { get; set; }
+    public Guid? ToPortId { get; set; }
 
     private List<JunctionPoint> _waypoints = [];
     public List<JunctionPoint> Waypoints { get => _waypoints; set => _waypoints = value ?? []; }

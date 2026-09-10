@@ -56,7 +56,7 @@ public partial class GraphView
     /// 移動中はズームと画面移動を止める。座標変換が途中で変わると計算の原点が跳び、
     /// ガイドも古い倍率のまま残る。
     /// </summary>
-    private bool IsViewportLocked => _blockPress is not null || _snapSubject == SnapSubject.Cards;
+    private bool IsViewportLocked => _blockPress is not null || _snapSubject == SnapSubject.Cards || _draggingBlockPort;
 
     /// <summary>いま見えている範囲（ワールド座標）。吸着先を画面内に絞るのに使う。</summary>
     private BlockBounds ViewportBounds()
@@ -84,11 +84,13 @@ public partial class GraphView
     /// <summary>ブロックの見出しを掴んだ。囲み同士で揃える。</summary>
     private void BeginBlockSnap(BlockViewModel block)
     {
-        BeginSnapSession(SnapSubject.Block, block.Bounds, [.. block.Model.NodeIds]);
+        BeginSnapSession(SnapSubject.Block, block.Bounds, [.. _viewModel!.DescendantNodeIds(block.Id)]);
 
         var viewport = ViewportBounds();
-        _snapTargets = [.. _viewModel!.Blocks
-            .Where(b => b.Id != block.Id && b.IsVisible && b.VisibleCount == b.TotalCount
+        _snapTargets = [.. _viewModel.Blocks
+            .Where(b => b.Id != block.Id && !_viewModel.IsAncestorBlock(b.Id, block.Id)
+                && !_viewModel.IsAncestorBlock(block.Id, b.Id)
+                && b.IsVisible && b.VisibleCount == b.TotalCount
                 && b.Bounds.IntersectsWith(viewport))
             .Select(b => new SnapTarget(b.Id, b.Bounds))];
 
@@ -125,7 +127,7 @@ public partial class GraphView
             .ToList();
         var blocks = _viewModel.Blocks
             .Where(b => b.IsVisible)
-            .Select(b => new BlockSnapCandidate(b.Id, b.Bounds, b.Model.NodeIds))
+            .Select(b => new BlockSnapCandidate(b.Id, b.Bounds, [.. _viewModel.DescendantNodeIds(b.Id)]))
             .ToList();
 
         _snapTargets = [.. CardSnapService.Targets(cards, blocks, _dragGroupIds, ViewportBounds())];
@@ -158,7 +160,7 @@ public partial class GraphView
         {
             SnapSubject.Block => _blockPress is { } source
                 && source.CanMove && source.IsVisible && vm.Blocks.Contains(source)
-                && _snapMembers.SequenceEqual(source.Model.NodeIds)
+                && _snapMembers.ToHashSet().SetEquals(vm.DescendantNodeIds(source.Id))
                 && _snapTargets.All(t => vm.Blocks.Any(b => b.Id == t.Id && b.IsVisible
                     && b.VisibleCount == b.TotalCount && b.Bounds == t.Bounds)),
 
@@ -217,6 +219,7 @@ public partial class GraphView
         if (_blockDragActive)
         {
             _viewModel.UpdateBlockDrag(delta.X, delta.Y);
+            UpdateMembershipPreview(pointer);
         }
     }
 

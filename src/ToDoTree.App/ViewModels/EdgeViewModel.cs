@@ -1,5 +1,6 @@
 ﻿using ToDoTree.Core.Layout;
 using ToDoTree.Core.Models;
+using ToDoTree.Core.Graph;
 
 namespace ToDoTree.App.ViewModels;
 
@@ -21,11 +22,13 @@ public sealed class EdgeViewModel(TodoEdge model, NodeViewModel from, NodeViewMo
                 .Where(n => owner.BlockOf(n.Id)?.Id != source.Id && owner.BlockOf(n.Id)?.Id != Id)
                 .Select(n => new BlockBounds(n.X, n.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight))
                 .Concat(owner.Blocks.Where(b => b.IsVisible && b.IsCollapsed && b.Id != source.Id && b.Id != Id).Select(b => b.Bounds)).ToArray();
-            return EdgeRouting.RouteRects(source.Bounds, Bounds, boxes, Model.FromSide, Model.ToSide,
+            var fromPort = source.Id == Model.FromId ? BlockConnections.FindPort(owner.Graph.Project, Model.FromId, Model.FromPortId) : null;
+            var toPort = Id == Model.ToId ? BlockConnections.FindPort(owner.Graph.Project, Model.ToId, Model.ToPortId) : null;
+            return EdgeRouting.RouteRects(source.Bounds, Bounds, boxes, fromPort?.Side ?? Model.FromSide, toPort?.Side ?? Model.ToSide,
                 IsAggregated ? [] : [.. Model.Waypoints.Select(p => p.ToVector())],
                 IsAggregated ? [] : [.. Model.Waypoints.Select(p => p.IsSmooth)],
-                source.Id != Model.FromId ? -12 : 0,
-                Id != Model.ToId ? -12 : 0);
+                fromPort?.Offset(source.Bounds) ?? (source.Id != Model.FromId ? -12 : 0),
+                toPort?.Offset(Bounds) ?? (Id != Model.ToId ? -12 : 0));
         }
         var from = new Vec2(From.X, From.Y);
         var to = new Vec2(To.X, To.Y);

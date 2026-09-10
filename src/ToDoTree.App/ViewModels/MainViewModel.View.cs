@@ -154,7 +154,9 @@ public sealed partial class MainViewModel
         _hiddenCount = 0;
         foreach (var node in Nodes)
         {
-            node.IsVisible = _baseVisible.Contains(node.Id) && BlockOf(node.Id) is not { IsCollapsed: true };
+            var owner = BlockOf(node.Id);
+            node.IsVisible = _baseVisible.Contains(node.Id)
+                && (owner is null || CollapsedProjection(owner.Id) is null);
             node.IsCollapsed = _collapsed.Contains(node.Id);
             node.HiddenCount = result.HiddenBehind(node.Id);
 

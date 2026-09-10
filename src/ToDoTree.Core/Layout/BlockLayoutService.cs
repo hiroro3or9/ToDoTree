@@ -18,6 +18,9 @@ public enum BlockLayoutStatus
     /// <summary>位置を固定したステップが混ざっている。</summary>
     ContainsPinnedNodes,
 
+    /// <summary>子ブロックを持つ親。初版の内部整列は葉だけを対象にする。</summary>
+    ContainsChildBlocks,
+
     /// <summary>並べ直すと、外のカードや別の囲みに重なってしまう。</summary>
     OverlapsOutside,
 
@@ -66,6 +69,11 @@ public static class BlockLayoutService
         if (project.Blocks.FirstOrDefault(b => b.Id == blockId) is not { } block)
         {
             return Failed(BlockLayoutStatus.InvalidInput);
+        }
+
+        if (project.Blocks.Any(b => b.ParentBlockId == blockId))
+        {
+            return Failed(BlockLayoutStatus.ContainsChildBlocks);
         }
 
         var byId = new Dictionary<Guid, TodoNode>(project.Nodes.Count);
@@ -260,16 +268,19 @@ public static class BlockLayoutService
         LayoutOptions options)
     {
         var claimed = new HashSet<Guid>(memberIds);
+        var hierarchy = new BlockHierarchy(project);
+        var ancestors = hierarchy.AncestorsOf(blockId).Select(b => b.Id).ToHashSet();
 
         foreach (var other in project.Blocks)
         {
-            if (other.Id == blockId)
+            if (other.Id == blockId || ancestors.Contains(other.Id))
             {
                 continue;
             }
 
-            var rects = new List<NodeRect>(other.NodeIds.Count);
-            foreach (var id in other.NodeIds)
+            var otherMembers = hierarchy.DescendantNodeIds(other.Id);
+            var rects = new List<NodeRect>(otherMembers.Count);
+            foreach (var id in otherMembers)
             {
                 if (byId.TryGetValue(id, out var node))
                 {

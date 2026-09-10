@@ -15,7 +15,7 @@ using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
 using ToDoTree.Core.Storage;
 
-internal static class Program
+internal static partial class Program
 {
     private static int _checks;
     [STAThread]
@@ -30,6 +30,8 @@ internal static class Program
             Verify();
             VerifyRepeat();
             VerifyLoopLayout();
+            VerifyBlockPorts();
+            VerifyBlockNesting();
             Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
             return 0;
         }
@@ -204,7 +206,8 @@ internal static class Program
         N(0).Model.Status = NodeStatus.Done;
         vm.HideCompleted = true;
         // Keep the unfinished member so that A remains represented despite completion filtering.
-        Check(vm.Nodes.All(n => !n.IsVisible), "The test scene contains only collapsed blocks.");
+        Check(vm.Nodes.All(n => !n.IsVisible),
+            "The test scene contains only collapsed blocks. visible=" + string.Join(",", vm.Nodes.Where(n => n.IsVisible).Select(n => n.Title)));
         pan.X = 9999; pan.Y = 9999; view.ZoomToFit();
         Check(double.IsFinite(pan.X) && pan.X != 9999, "Zoom-to-fit works when only blocks are visible.");
         var map = new MiniMap(); map.Update([], [A(), B()], new Rect(0, 0, 20, 20));

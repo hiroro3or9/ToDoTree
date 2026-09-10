@@ -188,6 +188,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(SelectedEdge));
         OnPropertyChanged(nameof(HasSelectedEdge));
         OnPropertyChanged(nameof(EdgeMenuHeader));
+        OnPropertyChanged(nameof(FromPortChoices), nameof(ToPortChoices));
         OnPropertyChanged(nameof(CanColorSelectedEdge), nameof(EdgeColorHint));
         NotifyVisualsChanged();
     }

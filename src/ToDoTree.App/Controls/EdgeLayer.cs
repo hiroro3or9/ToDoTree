@@ -26,6 +26,16 @@ public sealed partial class EdgeLayer : FrameworkElement
         nameof(Nodes), typeof(IEnumerable<NodeViewModel>), typeof(EdgeLayer),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty BlocksProperty = DependencyProperty.Register(
+        nameof(Blocks), typeof(IEnumerable<BlockViewModel>), typeof(EdgeLayer),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public IEnumerable<BlockViewModel>? Blocks
+    {
+        get => (IEnumerable<BlockViewModel>?)GetValue(BlocksProperty);
+        set => SetValue(BlocksProperty, value);
+    }
+
     public IEnumerable<NodeViewModel>? Nodes
     {
         get => (IEnumerable<NodeViewModel>?)GetValue(NodesProperty);
@@ -152,6 +162,18 @@ public sealed partial class EdgeLayer : FrameworkElement
         }
 
         DrawCompletionEffects(drawingContext);
+        if (Blocks is not null)
+        {
+            foreach (var block in Blocks.Where(b => b.IsVisible))
+            foreach (var port in block.Model.Ports)
+            {
+                var selected = (DataContext as MainViewModel)?.SelectedBlockPort?.Id == port.Id && block.IsSelected;
+                drawingContext.DrawEllipse(ThemeManager.BrushOf("Node.Connector.Fill"),
+                    selected ? _selectedPen : _normalPen, ToPoint(port.Resolve(block.Bounds)), 6, 6);
+                drawingContext.DrawEllipse(selected ? _selectedArrow : _normalArrow, null,
+                    ToPoint(port.Resolve(block.Bounds)), 2, 2);
+            }
+        }
         if (_previewLoopGeometry is not null)
             drawingContext.DrawGeometry(null, _previewPen, _previewLoopGeometry);
 

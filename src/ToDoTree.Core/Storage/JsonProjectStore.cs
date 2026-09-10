@@ -48,6 +48,12 @@ public sealed class JsonProjectStore : IProjectStore
                 $"このファイルは新しい形式です (schemaVersion={project.SchemaVersion})。アプリを更新してください。");
         }
 
+        if (declaredVersion < 8 && project.Blocks.Any(b => b.ParentBlockId is not null))
+        {
+            throw new InvalidDataException(
+                $"schemaVersion={declaredVersion} のファイルにブロックの親子関係が入っています。読み込みを中止しました。");
+        }
+
         // 旧形式（ブロックが無い版）は、メモリ上で空のブロック一覧として扱う。
         // 次の保存で新しい形式として書き出され、そこから先は古い版に上書きされなくなる。
         if (project.SchemaVersion < TodoProject.CurrentSchemaVersion)

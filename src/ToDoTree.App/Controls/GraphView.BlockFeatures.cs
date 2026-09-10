@@ -48,7 +48,8 @@ public partial class GraphView
     }
 
     private NodeViewModel? ConnectionTarget(DependencyObject? hit, Point world) =>
-        FindNodeElement(hit)?.DataContext as NodeViewModel
+        _viewModel?.FindBlockPortAt(new Vec2(world.X, world.Y), PortHitTolerance)?.Block.ConnectionNode
+        ?? FindNodeElement(hit)?.DataContext as NodeViewModel
         ?? (FindBlockElement(hit)?.DataContext as BlockViewModel)?.ConnectionNode
         ?? _viewModel?.Blocks.Where(b => b.IsVisible && b.Bounds.Contains(world.X, world.Y))
             .OrderBy(b => b.Width * b.Height).FirstOrDefault()?.ConnectionNode;
