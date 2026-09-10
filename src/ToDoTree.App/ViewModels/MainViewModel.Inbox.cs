@@ -7,7 +7,7 @@ namespace ToDoTree.App.ViewModels;
 public sealed partial class MainViewModel
 {
     public const string InboxDragFormat = "ToDoTree.InboxItem";
-    public ObservableCollection<InboxItem> InboxItems { get; } = [];
+    public ObservableCollection<InboxItemViewModel> InboxItems { get; } = [];
     private string _inboxTitle = string.Empty;
     private ICommand? _addInboxCommand, _placeInboxCommand, _deleteInboxCommand, _focusBlockingCauseCommand;
     public string InboxTitle
@@ -22,30 +22,34 @@ public sealed partial class MainViewModel
         PushUndo();
         var item = new InboxItem { Title = title };
         _project.Inbox.Add(item);
-        InboxItems.Add(item);
+        InboxItems.Add(new InboxItemViewModel(item, this));
         InboxTitle = string.Empty;
         MarkDirty();
         StatusMessage = "受信箱に保存しました。キャンバスへドラッグするか、配置ボタンで整理できます。";
     }, () => !string.IsNullOrWhiteSpace(InboxTitle));
     public ICommand DeleteInboxCommand => _deleteInboxCommand ??= new RelayCommand(value =>
     {
-        if (value is not InboxItem item || !_project.Inbox.Contains(item)) return;
+        if (value is not InboxItemViewModel row || !_project.Inbox.Contains(row.Model)) return;
         PushUndo();
-        _project.Inbox.Remove(item);
-        InboxItems.Remove(item);
+        _project.Inbox.Remove(row.Model);
+        InboxItems.Remove(row);
         MarkDirty();
         StatusMessage = "受信箱から削除しました。Ctrl+Zで戻せます。";
     });
     public ICommand PlaceInboxCommand => _placeInboxCommand ??= new RelayCommand(value =>
     {
-        if (value is InboxItem item) PlaceInboxItem(item.Id);
+        if (value is InboxItemViewModel row) PlaceInboxItem(row.Id);
     });
     public bool PlaceInboxItem(Guid itemId, double? x = null, double? y = null)
     {
-        var item = _project.Inbox.FirstOrDefault(i => i.Id == itemId);
-        if (item is null || IsNaming || IsConnecting) return false;
+        var row = InboxItems.FirstOrDefault(i => i.Id == itemId);
+        if (row is null || !_project.Inbox.Contains(row.Model) || IsNaming || IsConnecting) return false;
         if (x is { } px && !double.IsFinite(px) || y is { } py && !double.IsFinite(py)) return false;
         PushUndo();
+
+        // 受信箱に書いた原文をそのまま引き継ぐ。展開後の文字列を持ち込むと、
+        // 値を直したときにキャンバス側だけが古い名前のまま取り残される。
+        var item = row.Model;
         var model = new TodoNode { Title = item.Title, CreatedAt = item.CreatedAt };
         if (x is { } xx && y is { } yy)
         {
@@ -54,7 +58,7 @@ public sealed partial class MainViewModel
         }
         else PlaceNear(model, null, false);
         _project.Inbox.Remove(item);
-        InboxItems.Remove(item);
+        InboxItems.Remove(row);
         _graph.AddNode(model);
         if (_focusedBlockId is not null) ToggleFocus();
         _focusId = null;
@@ -87,8 +91,40 @@ public sealed partial class MainViewModel
     private void LoadInbox()
     {
         InboxItems.Clear();
-        foreach (var item in _project.Inbox) InboxItems.Add(item);
+        foreach (var item in _project.Inbox) InboxItems.Add(new InboxItemViewModel(item, this));
     }
 }
 
 public sealed record InboxDragData(Guid DocumentId, Guid ItemId);
+
+/// <summary>受信箱の 1 行。原文を持ったまま、一覧には展開後の名前を出す。</summary>
+public sealed class InboxItemViewModel(InboxItem model, MainViewModel owner) : ObservableObject
+{
+    public InboxItem Model { get; } = model;
+
+    public Guid Id => Model.Id;
+
+    /// <summary>保存してある原文。配置したときはこれがステップのタイトルになる。</summary>
+    public string Title => Model.Title;
+
+    public string DisplayTitle => owner.VariableResolver.Expand(Model.Title);
+
+    public bool HasUndefinedVariables => owner.VariableResolver.Scan(Model.Title).HasUndefined;
+
+    public string Tooltip
+    {
+        get
+        {
+            var scan = owner.VariableResolver.Scan(Model.Title);
+            if (!scan.HasSubstitution && !scan.HasUndefined) return "キャンバスへドラッグして配置";
+
+            var lines = new List<string> { $"原文：{Model.Title}" };
+            if (scan.HasUndefined) lines.Add("未定義: " + string.Join("、", scan.UndefinedNames));
+            lines.Add("キャンバスへドラッグして配置");
+            return string.Join("\n", lines);
+        }
+    }
+
+    internal void RefreshDisplay() =>
+        OnPropertyChanged(nameof(DisplayTitle), nameof(HasUndefinedVariables), nameof(Tooltip));
+}

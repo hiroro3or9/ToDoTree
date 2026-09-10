@@ -77,8 +77,8 @@ public sealed partial class MainViewModel
         NotifyVisualsChanged();
 
         StatusMessage = _collapsed.Contains(node.Id)
-            ? $"「{node.Title}」の先を畳みました（{node.HiddenCount} 件）。"
-            : $"「{node.Title}」の先を開きました。";
+            ? $"「{node.DisplayTitle}」の先を畳みました（{node.HiddenCount} 件）。"
+            : $"「{node.DisplayTitle}」の先を開きました。";
     }
 
     /// <summary>選択中のステップに関係する筋だけを残す / 解除する。</summary>
@@ -100,7 +100,7 @@ public sealed partial class MainViewModel
         else if (SelectedNode is { } node)
         {
             _focusId = node.Id;
-            StatusMessage = $"「{node.Title}」に関わる筋だけを表示しています。";
+            StatusMessage = $"「{node.DisplayTitle}」に関わる筋だけを表示しています。";
         }
 
         RefreshVisibility();

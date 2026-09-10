@@ -313,6 +313,9 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedBlockPortId = null;
         ClearEdgeSelection();
         _project = project;
+
+        // Undo／Redo でモデルごと差し替わる。表示を組む前にリゾルバーを作り直す。
+        RebuildVariableResolver();
         LoadInbox();
         _graph = new TodoGraph(project);
         _filePath = path;

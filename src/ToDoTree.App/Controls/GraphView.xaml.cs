@@ -155,6 +155,7 @@ public partial class GraphView : UserControl
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.TemplateLibraryRequested -= OpenTemplateLibrary;
             _viewModel.RepeatSettingsRequested -= OpenRepeatSettings;
+            _viewModel.ProjectVariablesRequested -= OpenProjectVariables;
             _viewModel.CompletionRequested -= OnCompletionRequested;
             _viewModel.ZoomToFitRequested -= OnZoomToFitRequested;
             _viewModel.ZoomStepRequested -= OnZoomStepRequested;
@@ -172,6 +173,7 @@ public partial class GraphView : UserControl
             _viewModel.VisualsChanged += OnVisualsChanged;
             _viewModel.TemplateLibraryRequested += OpenTemplateLibrary;
             _viewModel.RepeatSettingsRequested += OpenRepeatSettings;
+            _viewModel.ProjectVariablesRequested += OpenProjectVariables;
             _viewModel.CompletionRequested += OnCompletionRequested;
             _viewModel.ZoomToFitRequested += OnZoomToFitRequested;
             _viewModel.ZoomStepRequested += OnZoomStepRequested;

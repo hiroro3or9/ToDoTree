@@ -140,7 +140,7 @@ public sealed partial class MainViewModel
         var dialog = new OutlineInputWindow();
         dialog.Configure(
             "ステップを分割",
-            $"「{node.Title}」を細かいステップに割ります",
+            $"「{node.DisplayTitle}」を細かいステップに割ります",
             "ここに書いたステップがこの下に入り、いまの後続にはそのまま繋がります。インデントで親子になります。",
             "分割する");
 

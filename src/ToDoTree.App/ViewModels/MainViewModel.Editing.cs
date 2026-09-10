@@ -75,8 +75,8 @@ public sealed partial class MainViewModel
             return null;
         }
 
-        var fromTitle = edge.From.Title;
-        var toTitle = edge.To.Title;
+        var fromTitle = edge.From.DisplayTitle;
+        var toTitle = edge.To.DisplayTitle;
 
         PushUndo();
 
@@ -482,6 +482,7 @@ public sealed partial class MainViewModel
         NotifyBlockCommandStates();
         NotifyRepeatCommandStates();
 
+        RefreshVariableDisplays();
         RefreshTags();
         RefreshVisibility();
         UpdateHighlights();
@@ -534,7 +535,7 @@ public sealed partial class MainViewModel
         var desired = Nodes
             .Where(n => Matches(n) && (!HideCompleted || !n.Model.IsSettled))
             .OrderBy(n => n.GroupOrder)
-            .ThenBy(n => n.Title, StringComparer.CurrentCulture)
+            .ThenBy(n => n.DisplayTitle, StringComparer.CurrentCulture)
             .ToList();
 
         _rebuildingSidebar = true;
@@ -582,8 +583,13 @@ public sealed partial class MainViewModel
         }
 
         var needle = SearchText.Trim();
+
+        // 原文と展開後の両方を見る。「{製品名}」でも「みかん箱」でも同じステップに行き着く。
+        // 検索語そのものは展開しない（値だけが一致するステップを拾わない）。
         return node.Title.Contains(needle, StringComparison.CurrentCultureIgnoreCase)
                || node.Model.Notes.Contains(needle, StringComparison.CurrentCultureIgnoreCase)
+               || node.DisplayTitle.Contains(needle, StringComparison.CurrentCultureIgnoreCase)
+               || node.DisplayNotes.Contains(needle, StringComparison.CurrentCultureIgnoreCase)
                || node.Model.Tags.Any(t => t.Contains(needle, StringComparison.CurrentCultureIgnoreCase));
     }
 

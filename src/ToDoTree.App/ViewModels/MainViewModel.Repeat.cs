@@ -182,7 +182,7 @@ public sealed partial class MainViewModel
         if (confirm)
         {
             var answer = MessageBox.Show(
-                $"「{node.Title}」の繰り返しを解除します。\n\n"
+                $"「{node.DisplayTitle}」の繰り返しを解除します。\n\n"
                 + $"回数の記録（{before.Completed} / {before.Target} 回）が消え、"
                 + $"{Labels.Of(before.Status)}のまま通常のステップに戻ります。\n"
                 + "解除したあとでも Ctrl+Z で元に戻せます。",

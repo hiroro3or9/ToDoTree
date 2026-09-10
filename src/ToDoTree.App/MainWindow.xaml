@@ -288,6 +288,10 @@
                                 <MenuItem Header="保存" Command="{Binding ActiveDocument.SaveCommand}" InputGestureText="Ctrl+S" />
                                 <MenuItem Header="名前を付けて保存" Command="{Binding ActiveDocument.SaveAsCommand}" InputGestureText="Ctrl+Shift+S" />
                                 <Separator />
+                                <MenuItem Header="{Binding ActiveDocument.ProjectVariablesLabel}"
+                                          Command="{Binding ActiveDocument.OpenProjectVariablesCommand}"
+                                          ToolTip="このプロジェクトの中だけで通じる名前と値を決めます（ステップのタイトル・メモ・受信箱に効きます）" />
+                                <Separator />
                                 <MenuItem Header="書き出す" Command="{Binding ActiveDocument.ExportCommand}" InputGestureText="Ctrl+Shift+E" />
                                 <MenuItem Header="図をコピー（Mermaid）" Command="{Binding ActiveDocument.CopyMermaidCommand}" />
                             </ContextMenu>
@@ -411,7 +415,7 @@
                                                 <DockPanel Margin="0,4">
                                                     <Button DockPanel.Dock="Right" Content="×" Width="24" Padding="0" Style="{StaticResource Btn.Ghost}" ToolTip="受信箱から削除（Ctrl+Zで戻せます）" Command="{Binding DataContext.ActiveDocument.DeleteInboxCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
                                                     <Button DockPanel.Dock="Right" Content="配置" Padding="6,4" Style="{StaticResource Btn.Outline}" Command="{Binding DataContext.ActiveDocument.PlaceInboxCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
-                                                    <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Brush.Text}" TextWrapping="Wrap" Margin="0,4,6,0" Cursor="Hand" ToolTip="キャンバスへドラッグして配置" MouseLeftButtonDown="OnInboxDragStart" MouseMove="OnInboxDragMove" />
+                                                    <TextBlock Text="{Binding DisplayTitle}" Foreground="{DynamicResource Brush.Text}" TextWrapping="Wrap" Margin="0,4,6,0" Cursor="Hand" ToolTip="{Binding Tooltip}" MouseLeftButtonDown="OnInboxDragStart" MouseMove="OnInboxDragMove" />
                                                 </DockPanel>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -445,7 +449,7 @@
                                                                TextTrimming="CharacterEllipsis">
                                                         <Run Text="{Binding RankLabel, Mode=OneWay}"
                                                              Foreground="{DynamicResource Brush.Success}" />
-                                                        <Run Text="{Binding Node.Title, Mode=OneWay}" />
+                                                        <Run Text="{Binding Node.DisplayTitle, Mode=OneWay}" />
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding Reason}" FontSize="10.5" TextWrapping="Wrap"
                                                                Margin="0,1,0,0"
@@ -497,8 +501,8 @@
                                         </Grid.ColumnDefinitions>
                                         <Border Grid.Column="0" CornerRadius="999" Background="{Binding StatusBrush}" />
                                         <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                                                       FontSize="12.5"
+                                            <TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis"
+                                                       FontSize="12.5" ToolTip="{Binding CardTooltip}"
                                                        Foreground="{Binding TitleBrush}"
                                                        TextDecorations="{Binding TitleDecorations}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -509,6 +513,10 @@
                                                 <TextBlock Text="{Binding RepeatText}" FontSize="10" Margin="7,0,0,0"
                                                            Foreground="{Binding RepeatTextBrush}"
                                                            Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}}" />
+                                                <TextBlock Text="{Binding UndefinedVariableText}" FontSize="10" Margin="7,0,0,0"
+                                                           FontWeight="SemiBold" Foreground="{DynamicResource Brush.Danger}"
+                                                           ToolTip="定義が見つからない変数です。「ファイル ▾ ＞ プロジェクト変数…」で定義できます"
+                                                           Visibility="{Binding HasUndefinedVariables, Converter={StaticResource BoolToVisibility}}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
@@ -596,7 +604,25 @@
                                 <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
                                          FontSize="13.5" FontWeight="SemiBold" Padding="10,8"
                                          KeyDown="OnTitleBoxKeyDown"
-                                         ToolTip="Enter で続きのステップ、Shift+Enter で並行のステップを追加します" />
+                                         ToolTip="Enter で続きのステップ、Shift+Enter で並行のステップを追加します。{名前} と書くとプロジェクト変数の値で表示します" />
+
+                                <!-- 入力欄はいつも原文。変数やエスケープを含むときだけ、真下に表示を出す。 -->
+                                <Border Style="{StaticResource Panel.Flat}" Padding="9,6" Margin="0,5,0,0"
+                                        Visibility="{Binding HasTitlePreview, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="表示名をコピー" Style="{StaticResource Btn.Link}"
+                                                    FontSize="10.5"
+                                                    Command="{Binding DataContext.ActiveDocument.CopyDisplayTitleCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <TextBlock Text="表示" FontSize="10.5" FontWeight="Bold"
+                                                       Foreground="{DynamicResource Brush.TextFaint}" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding DisplayTitle}" FontSize="12.5" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding UndefinedVariableText}" FontSize="10.5" TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" Foreground="{DynamicResource Brush.Danger}"
+                                                   Visibility="{Binding HasUndefinedVariables, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </Border>
 
                                 <Border Style="{StaticResource Panel.Flat}" Padding="10" Margin="0,14,0,0">
                                     <StackPanel>
@@ -612,7 +638,7 @@
                                                 <DataTemplate>
                                                     <Button Style="{StaticResource Btn.Row}" Margin="0,4,0,0" Command="{Binding DataContext.ActiveDocument.FocusBlockingCauseCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Node}" ToolTip="原因のカードへ移動">
                                                         <StackPanel>
-                                                            <TextBlock Text="{Binding Node.Title}" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                            <TextBlock Text="{Binding Node.DisplayTitle}" Foreground="{DynamicResource Brush.Text}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                                             <TextBlock Text="{Binding Reason}" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSubtle}" />
                                                         </StackPanel>
                                                     </Button>
@@ -690,9 +716,29 @@
                                 <TextBox Text="{Binding TagsText, UpdateSourceTrigger=LostFocus}" />
 
                                 <TextBlock Text="メモ" Style="{StaticResource Text.Label}" />
-                                <TextBox Text="{Binding Notes, UpdateSourceTrigger=LostFocus}"
+
+                                <!--
+                                    入力は下書きへ受け、プレビューだけ毎回更新する。
+                                    原文への確定はこれまでどおりフォーカスが外れたとき（履歴の粒度を変えない）。
+                                -->
+                                <TextBox Text="{Binding NotesDraft, UpdateSourceTrigger=PropertyChanged}"
                                          AcceptsReturn="True" TextWrapping="Wrap" Height="96"
+                                         LostFocus="OnNotesLostFocus"
                                          VerticalScrollBarVisibility="Auto" />
+                                <Border Style="{StaticResource Panel.Flat}" Padding="9,6" Margin="0,5,0,0"
+                                        Visibility="{Binding HasNotesPreview, Converter={StaticResource BoolToVisibility}}">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Content="表示メモをコピー" Style="{StaticResource Btn.Link}"
+                                                    FontSize="10.5"
+                                                    Command="{Binding DataContext.ActiveDocument.CopyDisplayNotesCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                            <TextBlock Text="表示" FontSize="10.5" FontWeight="Bold"
+                                                       Foreground="{DynamicResource Brush.TextFaint}" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding DisplayNotesDraft}" FontSize="11.5" TextWrapping="Wrap"
+                                                   MaxHeight="120" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Border>
 
                                 <!-- ============ 回数で完了する項目 ============ -->
                                 <Expander Header="チェックリスト" Foreground="{DynamicResource Brush.Text}" IsExpanded="True" Margin="0,14,0,0">
@@ -779,7 +825,7 @@
                                                     <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
                                                           Width="9" Height="9" StrokeThickness="1.9" />
                                                 </Button>
-                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
+                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding DisplayTitle}"
                                                         ToolTip="このステップへ移動"
                                                         Command="{Binding DataContext.ActiveDocument.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />
@@ -802,7 +848,7 @@
                                                     <Path Style="{StaticResource ToolIcon}" Data="{StaticResource Icon.Close}"
                                                           Width="9" Height="9" StrokeThickness="1.9" />
                                                 </Button>
-                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding Title}"
+                                                <Button Style="{StaticResource Btn.Row}" Content="{Binding DisplayTitle}"
                                                         ToolTip="このステップへ移動"
                                                         Command="{Binding DataContext.ActiveDocument.FocusNodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}" />

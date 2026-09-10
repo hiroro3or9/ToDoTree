@@ -15,7 +15,7 @@ public partial class GraphView
         var (target, completed) = MainViewModel.RepeatSeed(node);
         var dialog = new RepeatSettingsWindow();
         if (Window.GetWindow(this) is { } owner) dialog.Owner = owner;
-        dialog.Configure(node.Title, RepeatState.Of(node.Model), node.Model.Status, target, completed, isNew);
+        dialog.Configure(node.DisplayTitle, RepeatState.Of(node.Model), node.Model.Status, target, completed, isNew);
 
         // 取り消しは「接続に失敗した」でも「設定した」でもない。何も変えずに戻る。
         if (dialog.ShowDialog() != true)
