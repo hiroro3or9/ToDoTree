@@ -62,7 +62,7 @@ internal static partial class Program
         }
         finally { vm.DeleteRecoveryFile(); }
         // MainWindowへテスト専用の公開形状を渡し、実セッション・自動保存を起動しない。
-        var window = new MainWindow { DataContext = new TaskDetailsWorkspace(vm), Width = 1500, Height = 1100,
+        var window = new MainWindow(new TaskDetailsWorkspace(vm)) { Width = 1500, Height = 1100,
             ShowInTaskbar = false, ShowActivated = false, Opacity = 0 };
         window.Show(); window.UpdateLayout();
         RenderTaskDetails(window, "task-details-light");

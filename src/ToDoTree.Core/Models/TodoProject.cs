@@ -15,7 +15,11 @@ public sealed class TodoProject
     /// 10 でプロジェクト変数（<see cref="Variables"/>）と、原文の波括弧のエスケープが加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 10;
+    public const int CurrentSchemaVersion = 11;
+
+    /// <summary>形式11: 手順と実施履歴。通常文書は従来どおり。</summary>
+    public DocumentKind DocumentKind { get; set; }
+    public ProcedureData? Procedure { get; set; }
 
     private List<InboxItem> _inbox = [];
     public List<InboxItem> Inbox { get => _inbox; set => _inbox = value ?? []; }
@@ -59,6 +63,8 @@ public sealed class TodoProject
         Description = Description,
         Bookmark = Bookmark?.Clone(),
         SchemaVersion = SchemaVersion,
+        DocumentKind = DocumentKind,
+        Procedure = Procedure?.Clone(),
         Variables = [.. Variables.Select(v => v.Clone())],
         Nodes = [.. Nodes.Select(n => n.Clone())],
         Inbox = [.. Inbox.Select(item => item.Clone())],

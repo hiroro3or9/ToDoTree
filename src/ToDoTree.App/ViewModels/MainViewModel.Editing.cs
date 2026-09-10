@@ -415,6 +415,7 @@ public sealed partial class MainViewModel
 
     public void Undo()
     {
+        if (IsExecutionView) { Procedure?.UndoCommand.Execute(null); return; }
         CommitPendingBlockEdit();
 
         if (_undo.Count == 0)
@@ -434,6 +435,7 @@ public sealed partial class MainViewModel
 
     public void Redo()
     {
+        if (IsExecutionView) { Procedure?.RedoCommand.Execute(null); return; }
         CommitPendingBlockEdit();
 
         if (_redo.Count == 0)

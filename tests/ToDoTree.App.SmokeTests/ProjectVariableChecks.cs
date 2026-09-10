@@ -132,7 +132,7 @@ internal static partial class Program
             "An existing definition wins over the one in the part.");
 
         // ---- 画面 ----
-        var window = new MainWindow
+        var window = new MainWindow(new TaskDetailsWorkspace(vm))
         {
             DataContext = new TaskDetailsWorkspace(vm),
             Width = 1500, Height = 1100, ShowInTaskbar = false, ShowActivated = false, Opacity = 0,

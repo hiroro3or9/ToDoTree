@@ -29,6 +29,13 @@
 
 ## 2. データモデル
 
+形式11で作業手順を追加した。`TodoProject.DocumentKind`が`Procedure`の文書は
+`ProcedureData`に定義と全実施記録を保持する。`GraphSnapshot`で通常のグラフを再利用し、
+実施・中断状態・過去記録の間で可変参照を共有しない。
+Coreの`ProcedureService`が変更候補を作り、Appは保存成功後に採用する。
+既存のMainViewModelは手順の編集用コピーを表示し、ProcedureViewModelが実施画面と履歴を担当する。
+詳細は[作業手順と実施記録](PROCEDURE_RUN_DESIGN.md)を参照。
+
 ```
 TodoProject
  ├ Nodes : TodoNode[]      … ステップ
@@ -76,7 +83,7 @@ UI 側では、自分自身へ引いた線だけを「繰り返しの設定」�
 依存関係やタスク状態には関与せず、境界は所属ノードの表示矩形から求める。
 作成には2件以上必要で、所属変更後に1件になっても維持し、0件になれば除去する。
 
-プロジェクトの形式バージョンは6。互換性とJSONの詳細は[保存と復旧](STORAGE.md)を参照。
+プロジェクトの形式バージョンは11。互換性とJSONの詳細は[保存と復旧](STORAGE.md)を参照。
 
 ## 3. Core の機能
 

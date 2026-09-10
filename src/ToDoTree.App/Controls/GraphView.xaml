@@ -164,6 +164,7 @@
                       ItemContainerStyle="{StaticResource ColorChoiceStyle}" />
             <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
             <MenuItem Header="部品として保存…" Command="{Binding SaveTemplateCommand}" />
+            <MenuItem Header="作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
             <Separator />
             <MenuItem Header="ブロックを解除" InputGestureText="Ctrl+Shift+G" Command="{Binding UngroupBlockCommand}" />
         </ContextMenu>
@@ -196,6 +197,7 @@
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
             <MenuItem Header="この枝を選択" Command="{Binding SelectBranchCommand}" />
             <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
+            <MenuItem Header="選択範囲を作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
             <Separator />
             <MenuItem Header="ブロックにまとめる" InputGestureText="Ctrl+G" Command="{Binding GroupSelectionCommand}"
                       ToolTip="{Binding GroupHint}" ToolTipService.ShowOnDisabled="True" />

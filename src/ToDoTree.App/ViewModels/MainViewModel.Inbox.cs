@@ -17,6 +17,7 @@ public sealed partial class MainViewModel
     }
     public ICommand AddInboxCommand => _addInboxCommand ??= new RelayCommand(() =>
     {
+        if (IsProcedure) return;
         var title = InboxTitle.Trim();
         if (title.Length == 0) return;
         PushUndo();
@@ -26,7 +27,7 @@ public sealed partial class MainViewModel
         InboxTitle = string.Empty;
         MarkDirty();
         StatusMessage = "受信箱に保存しました。キャンバスへドラッグするか、配置ボタンで整理できます。";
-    }, () => !string.IsNullOrWhiteSpace(InboxTitle));
+    }, () => !IsProcedure && !string.IsNullOrWhiteSpace(InboxTitle));
     public ICommand DeleteInboxCommand => _deleteInboxCommand ??= new RelayCommand(value =>
     {
         if (value is not InboxItemViewModel row || !_project.Inbox.Contains(row.Model)) return;

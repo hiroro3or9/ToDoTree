@@ -4,6 +4,7 @@
         xmlns:controls="clr-namespace:ToDoTree.App.Controls"
         xmlns:converters="clr-namespace:ToDoTree.App.Converters"
         xmlns:vm="clr-namespace:ToDoTree.App.ViewModels"
+        xmlns:views="clr-namespace:ToDoTree.App.Views"
         Title="{Binding WindowTitle}"
         Icon="Assets/AppIcon.ico"
         Height="860" Width="1440" MinHeight="560" MinWidth="900"
@@ -14,10 +15,6 @@
         UseLayoutRounding="True"
         FontFamily="Yu Gothic UI, Meiryo UI, Segoe UI"
         FontSize="12.5" PreviewKeyDown="OnWindowPreviewKeyDown">
-
-    <Window.DataContext>
-        <vm:WorkspaceViewModel />
-    </Window.DataContext>
 
     <Window.Resources>
         <converters:EnumLabelConverter x:Key="EnumLabel" />
@@ -71,6 +68,7 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -266,10 +264,26 @@
         </Border>
 
         <!-- ============ ツールバー ============ -->
-        <Border Grid.Row="2" DataContext="{Binding ActiveDocument}"
+        <Border Grid.Row="2" DataContext="{Binding ActiveDocument}" Padding="16,6"
+                Background="{DynamicResource Brush.SurfaceAlt}"
+                Visibility="{Binding IsProcedure, Converter={StaticResource BoolToVisibility}}">
+            <WrapPanel>
+                <TextBlock Text="{Binding Procedure.RevisionLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,14,0" />
+                <Button Content="手順を編集" Command="{Binding ShowDefinitionCommand}" Style="{StaticResource Btn.Ghost}" />
+                <Button Content="今回の実施・履歴" Command="{Binding ShowExecutionCommand}" Style="{StaticResource Btn.Ghost}" Margin="8,0" />
+                <Button Content="保存" Command="{Binding SaveCommand}" Style="{StaticResource Btn.Ghost}" />
+                <Button Content="開く" Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource Btn.Ghost}" Margin="8,0" />
+                <TextBlock Text="手順の変更は次回の実施に反映されます" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextSubtle}" Margin="14,0" />
+            </WrapPanel>
+        </Border>
+
+        <Border Grid.Row="3" DataContext="{Binding ActiveDocument}"
                 Background="{DynamicResource Brush.Chrome}"
                 BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1"
                 Padding="11,6">
+            <Border.Style><Style TargetType="Border"><Style.Triggers>
+                <DataTrigger Binding="{Binding IsExecutionView}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+            </Style.Triggers></Style></Border.Style>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -313,6 +327,7 @@
                                 <MenuItem Header="並行して追加" Command="{Binding AddSiblingCommand}" InputGestureText="Shift+Enter" />
                                 <MenuItem Header="まとめて入力" Command="{Binding ImportOutlineCommand}" InputGestureText="Ctrl+I" />
                                 <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
+                                <MenuItem Header="選択範囲を作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
                                 <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
                                 <Separator />
                                 <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" InputGestureText="Ctrl+E" />
@@ -377,7 +392,10 @@
         </Border>
 
         <!-- ============ 本体 ============ -->
-        <Grid Grid.Row="3" DataContext="{Binding ActiveDocument}" Margin="16,16,16,12">
+        <Grid Grid.Row="4" DataContext="{Binding ActiveDocument}" Margin="16,16,16,12">
+            <Grid.Style><Style TargetType="Grid"><Style.Triggers>
+                <DataTrigger Binding="{Binding IsExecutionView}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger>
+            </Style.Triggers></Style></Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="284" MinWidth="190" />
                 <ColumnDefinition Width="10" />
@@ -400,7 +418,8 @@
                             </StackPanel>
                         </Border>
                         <!-- 次にやること -->
-                        <Expander DockPanel.Dock="Top" Header="受信箱（仮置き）" Foreground="{DynamicResource Brush.Text}" IsExpanded="True" Margin="0,0,4,10">
+                        <Expander DockPanel.Dock="Top" Header="受信箱（仮置き）" Foreground="{DynamicResource Brush.Text}" IsExpanded="True" Margin="0,0,4,10"
+                                  Visibility="{Binding IsNormalTodo, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel Margin="2,6,2,0">
                                 <TextBlock Text="名前だけ残して、あとでグラフへ配置" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" />
                                 <DockPanel Margin="0,6,0,6">
@@ -559,6 +578,7 @@
                                   Padding="0,0,6,0">
                         <StackPanel>
 
+                            <StackPanel Visibility="{Binding IsNormalTodo, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="作業のしおり" Style="{StaticResource Text.Section}" Margin="2,0,0,6" />
                             <TextBlock Text="{Binding BookmarkTitle}" TextWrapping="Wrap"
                                        Foreground="{DynamicResource Brush.TextSubtle}" Margin="2,0,0,6" />
@@ -575,6 +595,7 @@
                                 </WrapPanel>
                             </StackPanel>
                             <Border Style="{StaticResource Rule.Horizontal}" Margin="0,14" />
+                            </StackPanel>
 
                             <!-- 何も選んでいないとき -->
                             <StackPanel Margin="0,26,0,0"
@@ -864,8 +885,12 @@
         </Grid>
 
         <!-- ============ ステータスバー ============ -->
-        <Border Grid.Row="4" DataContext="{Binding ActiveDocument}"
+        <views:ProcedureView Grid.Row="3" Grid.RowSpan="2" DataContext="{Binding ActiveDocument.Procedure}"
+            Visibility="{Binding DataContext.ActiveDocument.IsExecutionView, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+
+        <Border Grid.Row="5" DataContext="{Binding ActiveDocument}"
                 Background="{DynamicResource Brush.Chrome}"
+                Visibility="{Binding IsExecutionView, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}"
                 BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="16,8">
             <DockPanel LastChildFill="False">
                 <TextBlock DockPanel.Dock="Left" Text="{Binding ProgressText}" FontWeight="SemiBold"
@@ -886,6 +911,11 @@
                            Foreground="{DynamicResource Brush.TextSubtle}" VerticalAlignment="Center"
                            HorizontalAlignment="Right" Margin="16,0,0,0" />
             </DockPanel>
+        </Border>
+        <Border Grid.Row="5" DataContext="{Binding ActiveDocument}" Padding="16,8"
+                Background="{DynamicResource Brush.Chrome}"
+                Visibility="{Binding IsExecutionView, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding StatusMessage}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Brush.TextSubtle}"/>
         </Border>
     </Grid>
 </Window>

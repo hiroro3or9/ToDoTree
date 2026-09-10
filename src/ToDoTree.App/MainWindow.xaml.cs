@@ -10,10 +10,14 @@ public partial class MainWindow : Window
 {
     private WorkspaceViewModel? _workspace;
 
-    public MainWindow()
+    public MainWindow() : this(new WorkspaceViewModel()) { }
+
+    /// <summary>Allows isolated UI hosts to supply a workspace without restoring the user's session.</summary>
+    public MainWindow(object workspace)
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        DataContext = workspace;
         _workspace = DataContext as WorkspaceViewModel;
     }
 
@@ -22,6 +26,20 @@ public partial class MainWindow : Window
 
     private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_workspace?.ActiveDocument is { IsExecutionView: true, Procedure: { } procedure } &&
+            (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+        {
+            if (e.Key is Key.Z or Key.Y && Keyboard.FocusedElement is not TextBox)
+            {
+                var command = e.Key == Key.Z ? procedure.UndoCommand : procedure.RedoCommand;
+                if (command.CanExecute(null)) command.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key is not (Key.S or Key.N or Key.O or Key.C or Key.V or Key.X or Key.A or Key.Z or Key.Y)
+                && !(e.Key == Key.D && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift)))
+                e.Handled = true;
+            return;
+        }
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
             SearchBox.Focus();
