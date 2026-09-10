@@ -7,10 +7,12 @@ namespace ToDoTree.App.Services;
 /// <summary>次に起動したときに前回の続きから始めるための小さな設定。</summary>
 public sealed class AppSettings
 {
-    private static readonly string SettingsPath = Path.Combine(
+    private static readonly string DefaultSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "ToDoTree",
         "settings.json");
+
+    private string _settingsPath = DefaultSettingsPath;
 
     // 直列化のたびに作り直すと、内部キャッシュが毎回捨てられて遅くなる。
     private static readonly JsonSerializerOptions SerializerOptions = new() { WriteIndented = true };
@@ -19,6 +21,24 @@ public sealed class AppSettings
 
     /// <summary>前回終了時に開いていたプロジェクト。LastFilePath は旧形式との互換用に残す。</summary>
     public List<ProjectSessionState> OpenProjects { get; set; } = [];
+
+    private List<string> _knownProjectPaths = [];
+    /// <summary>閉じた後も完了実績を参照できるよう、開いた・保存したファイルを記録する。</summary>
+    public List<string> KnownProjectPaths { get => _knownProjectPaths; set => _knownProjectPaths = value ?? []; }
+
+    public void RememberProject(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return;
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!KnownProjectPaths.Contains(fullPath, StringComparer.OrdinalIgnoreCase)) KnownProjectPaths.Add(fullPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // 旧設定の不正なパスは履歴へ取り込まない。
+        }
+    }
 
     /// <summary>前回選択していたタブ。</summary>
     public Guid? ActiveDocumentId { get; set; }
@@ -34,15 +54,19 @@ public sealed class AppSettings
     /// <summary>カード表示か、丸ひとつのミニマル表示か。</summary>
     public NodeStyle NodeStyle { get; set; } = NodeStyle.Card;
 
-    public static AppSettings Load()
+    public static AppSettings Load(string? path = null)
     {
+        var settingsPath = path ?? DefaultSettingsPath;
         try
         {
-            if (File.Exists(SettingsPath))
+            if (File.Exists(settingsPath))
             {
-                var json = File.ReadAllText(SettingsPath);
+                var json = File.ReadAllText(settingsPath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions) ?? new AppSettings();
+                settings._settingsPath = settingsPath;
                 settings.OpenProjects ??= [];
+                settings.RememberProject(settings.LastFilePath);
+                foreach (var state in settings.OpenProjects) settings.RememberProject(state.FilePath);
                 return settings;
             }
         }
@@ -51,20 +75,20 @@ public sealed class AppSettings
             // 設定が壊れていても起動を止めない。
         }
 
-        return new AppSettings();
+        return new AppSettings { _settingsPath = settingsPath };
     }
 
     public void Save()
     {
         try
         {
-            var directory = Path.GetDirectoryName(SettingsPath);
+            var directory = Path.GetDirectoryName(_settingsPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, SerializerOptions));
+            File.WriteAllText(_settingsPath, JsonSerializer.Serialize(this, SerializerOptions));
         }
         catch
         {

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using ToDoTree.App.Services;
+using ToDoTree.App.Views;
 using ToDoTree.Core.Graph;
 using ToDoTree.Core.Models;
 using ToDoTree.Core.Storage;
@@ -25,6 +26,9 @@ public sealed class WorkspaceViewModel : ObservableObject
     private readonly IProjectStore _store;
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _autoSaveTimer;
+    private readonly string _recoveryDirectory;
+    private CompletedTasksWindow? _completedTasksWindow;
+    public CompletedTasksViewModel AllCompletedTasks { get; }
     private MainViewModel? _activeDocument;
     private readonly bool _restoringSession;
 
@@ -33,10 +37,14 @@ public sealed class WorkspaceViewModel : ObservableObject
     {
     }
 
-    internal WorkspaceViewModel(IProjectStore store, AppSettings settings)
+    internal WorkspaceViewModel(IProjectStore store, AppSettings settings,
+        string? recoveryDirectory = null, bool restoreSession = true)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _recoveryDirectory = recoveryDirectory ?? RecoveryDirectory;
+        AllCompletedTasks = new CompletedTasksViewModel(_store, _settings, () => Documents);
+        ShowCompletedTasksCommand = new RelayCommand(ShowCompletedTasks);
 
         NewProjectCommand = new RelayCommand(NewProject);
         OpenProjectCommand = new RelayCommand(OpenProject);
@@ -45,7 +53,7 @@ public sealed class WorkspaceViewModel : ObservableObject
             parameter => parameter is MainViewModel);
 
         _restoringSession = true;
-        RestoreSession();
+        if (restoreSession) RestoreSession();
         _restoringSession = false;
         PersistSession();
 
@@ -81,6 +89,24 @@ public sealed class WorkspaceViewModel : ObservableObject
     public ICommand OpenProjectCommand { get; }
 
     public ICommand CloseProjectCommand { get; }
+
+    public ICommand ShowCompletedTasksCommand { get; }
+
+    private void ShowCompletedTasks()
+    {
+        if (_completedTasksWindow is not null)
+        {
+            _completedTasksWindow.Activate();
+            AllCompletedTasks.Refresh();
+            return;
+        }
+        _completedTasksWindow = new CompletedTasksWindow(AllCompletedTasks)
+        {
+            Owner = Application.Current?.MainWindow,
+        };
+        _completedTasksWindow.Closed += (_, _) => _completedTasksWindow = null;
+        _completedTasksWindow.Show();
+    }
 
     private void RestoreSession()
     {
@@ -182,7 +208,7 @@ public sealed class WorkspaceViewModel : ObservableObject
             _settings,
             project,
             filePath,
-            RecoveryDirectory,
+            _recoveryDirectory,
             documentId,
             isDirty);
 
@@ -203,6 +229,7 @@ public sealed class WorkspaceViewModel : ObservableObject
                 StringComparison.OrdinalIgnoreCase));
         document.DocumentStateChanged += OnDocumentStateChanged;
         document.ProcedureCreated += OpenCreatedProcedure;
+        if (document.IsNormalTodo) _settings.RememberProject(filePath);
         Documents.Add(document);
         return document;
     }
@@ -297,6 +324,7 @@ public sealed class WorkspaceViewModel : ObservableObject
         }
 
         PersistSession();
+        if (_completedTasksWindow is not null) AllCompletedTasks.Refresh();
     }
 
     /// <summary>アプリを閉じる前に、すべてのタブの未保存状態を確認する。</summary>
@@ -331,6 +359,7 @@ public sealed class WorkspaceViewModel : ObservableObject
 
         PersistSession(discardedUnsaved);
         _autoSaveTimer.Stop();
+        _completedTasksWindow?.Close();
         return true;
     }
 
@@ -338,10 +367,12 @@ public sealed class WorkspaceViewModel : ObservableObject
     {
         foreach (var document in Documents.ToArray())
         {
+            document.RefreshCompletedTasks();
             document.AutoSave();
         }
 
         PersistSession();
+        if (_completedTasksWindow is not null) AllCompletedTasks.Refresh();
     }
 
     private void OnDocumentStateChanged(object? sender, EventArgs e)
@@ -356,6 +387,9 @@ public sealed class WorkspaceViewModel : ObservableObject
         {
             return;
         }
+
+        foreach (var document in Documents.Where(document => document.IsNormalTodo))
+            _settings.RememberProject(document.FilePath);
 
         _settings.OpenProjects = [.. Documents
             .Where(document => !string.IsNullOrEmpty(document.FilePath)
@@ -380,6 +414,6 @@ public sealed class WorkspaceViewModel : ObservableObject
         _settings.Save();
     }
 
-    private static string RecoveryPath(Guid documentId) =>
-        Path.Combine(RecoveryDirectory, $"{documentId:N}.todotree.json");
+    private string RecoveryPath(Guid documentId) =>
+        Path.Combine(_recoveryDirectory, $"{documentId:N}.todotree.json");
 }
