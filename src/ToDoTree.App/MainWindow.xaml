@@ -196,6 +196,11 @@
                         Style="{StaticResource Btn.Icon}" Command="{Binding NewProjectCommand}"
                         Content="＋" FontSize="16" ToolTip="新しいプロジェクトをタブで開く" />
 
+                <Button x:Name="AllCompletedTasksButton" DockPanel.Dock="Right" Margin="8,0,0,5"
+                        Style="{StaticResource Btn.Ghost}" Command="{Binding ShowCompletedTasksCommand}"
+                        Content="今日の完了（全プロジェクト）"
+                        ToolTip="閉じたプロジェクトも含めて、今日完了したタスクを表示" />
+
                 <TabControl ItemsSource="{Binding Documents}"
                             SelectedItem="{Binding ActiveDocument, Mode=TwoWay}"
                             Background="Transparent" BorderThickness="0">
@@ -480,6 +485,39 @@
                                 </ItemsControl>
                             </StackPanel>
                         </Border>
+
+                        <Expander x:Name="CompletedTodayExpander" DockPanel.Dock="Top"
+                                  Header="{Binding CompletedTodayHeader}"
+                                  IsExpanded="{Binding IsCompletedTasksExpanded}"
+                                  Foreground="{DynamicResource Brush.Text}" Margin="0,0,4,10"
+                                  Visibility="{Binding IsNormalTodo, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Margin="2,6,2,0">
+                                <TextBlock Text="{Binding CompletedTodayDescription}" FontSize="11"
+                                           Foreground="{DynamicResource Brush.TextSubtle}" />
+                                <TextBlock Text="今日はまだ完了したタスクがありません。" TextWrapping="Wrap"
+                                           Margin="0,8,0,4" Foreground="{DynamicResource Brush.TextSubtle}"
+                                           Visibility="{Binding HasNoCompletedToday, Converter={StaticResource BoolToVisibility}}" />
+                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsControl x:Name="CompletedTodayList" ItemsSource="{Binding CompletedTodayNodes}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource Btn.Ghost}" HorizontalContentAlignment="Stretch"
+                                                        Margin="0,3,0,0" Padding="8,6"
+                                                        Command="{Binding DataContext.FocusCompletedTaskCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" ToolTip="{Binding CardTooltip}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis"
+                                                                   FontSize="12" Foreground="{DynamicResource Brush.Text}" />
+                                                        <TextBlock Text="{Binding CompletedTimeText}" FontSize="10.5" Margin="0,2,0,0"
+                                                                   Foreground="{DynamicResource Brush.Success}" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Expander>
 
                         <!-- 一覧の見出し -->
                         <Grid DockPanel.Dock="Top" Margin="0,4,4,2">

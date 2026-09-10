@@ -340,6 +340,9 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
 
     public string StatusLabel => IsManuallyBlocked ? "ブロック中" : Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
 
+    public string CompletedTimeText => Model.CompletedAt is { } completedAt
+        ? $"{completedAt.LocalDateTime:HH:mm} 完了" : string.Empty;
+
     // ---- 回数で完了する項目 ----
 
     /// <summary>回数で完了する項目。null 判定はここに集約する。</summary>
@@ -692,6 +695,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         nameof(HasBookmark),
         nameof(Readiness),
         nameof(StatusLabel),
+        nameof(CompletedTimeText),
         nameof(KindLabel),
         nameof(Fill),
         nameof(KindAccent),

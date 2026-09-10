@@ -35,6 +35,8 @@ internal static partial class Program
             VerifyTaskDetails();
             VerifyProjectVariables();
             VerifyProcedures();
+            VerifyCompletedTasks();
+            VerifyWorkspaceCompletedTasks();
             Console.WriteLine($"WPF smoke checks: {_checks} passed. Renders: {Path.Combine(AppContext.BaseDirectory, "artifacts")}");
             return 0;
         }

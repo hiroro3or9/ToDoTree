@@ -490,6 +490,7 @@ public sealed partial class MainViewModel
         UpdateHighlights();
         RefreshSidebar();
         RefreshPlanning();
+        RefreshCompletedTasks();
         Progress = _graph.Progress();
         NotifyVisualsChanged();
     }
