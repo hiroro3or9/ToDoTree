@@ -29,13 +29,14 @@ public sealed partial class MainViewModel
     {
         SetBookmarkCommand = new RelayCommand(() =>
         {
+            if (IsProcedure) return;
             if (SelectedNode is not { } node || _project.Bookmark?.NodeId == node.Id) return;
             PushUndo();
             _project.Bookmark = new WorkBookmark { NodeId = node.Id };
             MarkDirty();
             RefreshAll();
             StatusMessage = $"「{node.DisplayTitle}」にしおりを置きました。再開メモを残せます。";
-        }, () => SelectedNode is not null && _project.Bookmark?.NodeId != SelectedNode.Id);
+        }, () => !IsProcedure && SelectedNode is not null && _project.Bookmark?.NodeId != SelectedNode.Id);
         ClearBookmarkCommand = new RelayCommand(() =>
         {
             if (!HasBookmark) return;

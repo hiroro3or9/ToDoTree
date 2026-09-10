@@ -48,6 +48,15 @@ public sealed partial class MainViewModel : ObservableObject
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _project = project ?? throw new ArgumentNullException(nameof(project));
+        if (project.Procedure is { } procedure)
+        {
+            Procedure = new ProcedureViewModel(this, procedure);
+            var definition = procedure.Definition.ToProject(project.Name);
+            definition.Id = project.Id;
+            definition.Description = project.Description;
+            project = definition;
+            _project = definition;
+        }
         _graph = new TodoGraph(_project);
         _filePath = filePath;
         _recoveryDirectory = recoveryDirectory;
@@ -86,6 +95,7 @@ public sealed partial class MainViewModel : ObservableObject
         InitializeBlocks();
         InitializeBookmark();
         LoadProject(project, filePath);
+        Procedure?.Initialize();
         IsDirty = isDirty;
     }
 
@@ -391,6 +401,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool Save()
     {
+        if (Procedure?.SavePendingDetails() == false) return false;
         // 見出しのドラッグや命名の途中で保存すると、確定前の座標が書き出されてしまう。
         CommitPendingBlockEdit();
 
@@ -404,6 +415,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool SaveAs()
     {
+        if (Procedure?.SavePendingDetails() == false) return false;
         CommitPendingBlockEdit();
 
         var dialog = new SaveFileDialog
@@ -430,7 +442,9 @@ public sealed partial class MainViewModel : ObservableObject
 
         try
         {
-            _store.Save(path, _project);
+            var stored = PrepareStorageProject();
+            _store.Save(path, stored);
+            AcceptStorageProject(stored);
             _filePath = path;
             DeleteRecoveryFile();
             IsDirty = false;

@@ -252,7 +252,7 @@ public class ProjectVariableTests
             new JsonProjectStore().Save(path, project);
             var loaded = new JsonProjectStore().Load(path);
 
-            await Assert.That(loaded.SchemaVersion).IsEqualTo(10);
+            await Assert.That(loaded.SchemaVersion).IsEqualTo(TodoProject.CurrentSchemaVersion);
             await Assert.That(loaded.Variables.Count).IsEqualTo(1);
             await Assert.That(loaded.Variables[0].Value).IsEqualTo("なにかしらの固有名称");
             await Assert.That(loaded.Nodes[0].Title).IsEqualTo("{Hoge} の手順書を作成").Because("原文のまま");
@@ -514,7 +514,7 @@ public class ProjectVariableTests
 
             await Assert.That(variables.ValueKind).IsEqualTo(JsonValueKind.Array);
             await Assert.That(variables[0].GetProperty("name").GetString()).IsEqualTo("Hoge");
-            await Assert.That(document.RootElement.GetProperty("schemaVersion").GetInt32()).IsEqualTo(10);
+            await Assert.That(document.RootElement.GetProperty("schemaVersion").GetInt32()).IsEqualTo(TodoProject.CurrentSchemaVersion);
         }
         finally
         {

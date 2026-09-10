@@ -42,6 +42,7 @@ public sealed class JsonProjectStore : IProjectStore
         // 移行で書き換える前に控える。回数は形式6からなので、
         // 「元のファイルが何形式を名乗っていたか」で判定する必要がある。
         var declaredVersion = project.SchemaVersion;
+        ProcedureValidation.ValidateDocument(project, declaredVersion);
         if (TaskDetailsValidation.Validate(project, declaredVersion) is { } detailsError)
             throw new InvalidDataException(detailsError);
 
@@ -104,6 +105,7 @@ public sealed class JsonProjectStore : IProjectStore
     public void Save(string path, TodoProject project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        ProcedureValidation.ValidateDocument(project, project.SchemaVersion);
         if (TaskDetailsValidation.Validate(project, TodoProject.CurrentSchemaVersion) is { } detailsError)
             throw new InvalidDataException(detailsError);
 

@@ -202,8 +202,22 @@ public sealed class WorkspaceViewModel : ObservableObject
                 Path.GetFullPath(candidate),
                 StringComparison.OrdinalIgnoreCase));
         document.DocumentStateChanged += OnDocumentStateChanged;
+        document.ProcedureCreated += OpenCreatedProcedure;
         Documents.Add(document);
         return document;
+    }
+
+    private void OpenCreatedProcedure(TodoProject project)
+    {
+        var document = AddDocument(project, null, isDirty: true);
+        if (document.Save()) ActiveDocument = document;
+        else
+        {
+            document.DocumentStateChanged -= OnDocumentStateChanged;
+            document.ProcedureCreated -= OpenCreatedProcedure;
+            Documents.Remove(document);
+        }
+        PersistSession();
     }
 
     private void NewProject()
@@ -265,6 +279,7 @@ public sealed class WorkspaceViewModel : ObservableObject
         var wasActive = ReferenceEquals(ActiveDocument, document);
         document.DeleteRecoveryFile();
         document.DocumentStateChanged -= OnDocumentStateChanged;
+        document.ProcedureCreated -= OpenCreatedProcedure;
         Documents.Remove(document);
 
         if (Documents.Count == 0)

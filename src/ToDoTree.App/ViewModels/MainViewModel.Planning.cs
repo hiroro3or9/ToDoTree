@@ -225,21 +225,27 @@ public sealed partial class MainViewModel
 
         try
         {
+            if (Procedure?.SavePendingDetails() == false) return;
             if (!string.IsNullOrEmpty(_filePath))
             {
-                _store.Save(_filePath, _project);
+                var stored = PrepareStorageProject();
+                _store.Save(_filePath, stored);
+                AcceptStorageProject(stored);
                 IsDirty = false;
                 StatusMessage = $"自動保存しました（{DateTime.Now:HH:mm}）。";
             }
             else
             {
                 // 未保存タブ同士が上書きし合わないよう、タブごとに退避する。
-                _store.Save(RecoveryFilePath, _project);
+                var stored = PrepareStorageProject();
+                _store.Save(RecoveryFilePath, stored);
+                AcceptStorageProject(stored);
             }
         }
-        catch
+        catch (Exception ex)
         {
             // 自動保存に失敗しても作業は止めない。
+            if (IsProcedure) StatusMessage = $"自動保存失敗・変更は未保存です: {ex.Message}";
         }
     }
 
