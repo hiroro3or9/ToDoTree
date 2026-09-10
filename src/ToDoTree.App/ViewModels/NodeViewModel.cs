@@ -8,7 +8,7 @@ using ToDoTree.Core.Models;
 namespace ToDoTree.App.ViewModels;
 
 /// <summary>キャンバス上の 1 枚のカード。</summary>
-public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : ObservableObject
+public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) : ObservableObject
 {
     /// <summary>
     /// 箱の大きさ。辺の描画位置・矩形選択・全体表示・ミニマップも、この値を見ている。
@@ -240,7 +240,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     public Readiness Readiness => owner.Graph.ReadinessOf(Model);
 
-    public string StatusLabel => Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
+    public string StatusLabel => IsManuallyBlocked ? "ブロック中" : Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
 
     // ---- 回数で完了する項目 ----
 
@@ -366,6 +366,8 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         get
         {
             var lines = new List<string> { Title };
+            if (IsManuallyBlocked) lines.Add(string.IsNullOrWhiteSpace(BlockReason) ? "ブロック中（理由未入力）" : $"ブロック中：{BlockReason}");
+            if (Model.Checklist.Count > 0) lines.Add(ChecklistSummary);
             if (Model.Notes.Length > 0)
             {
                 lines.Add(Model.Notes.Length > 120 ? Model.Notes[..120] + "…" : Model.Notes);
@@ -384,7 +386,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         ? NodePalette.DoneTextBrush
         : NodePalette.TextBrush;
 
-    public Brush StatusBrush => NodePalette.StrokeOf(Readiness);
+    public Brush StatusBrush => IsManuallyBlocked ? NodePalette.AtRiskBrush : NodePalette.StrokeOf(Readiness);
 
     public double CardOpacity => _isDimmed ? 0.35 : Readiness is Readiness.Done or Readiness.Cancelled ? 0.75 : 1d;
 
@@ -403,7 +405,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         _ => Brushes.Transparent,
     };
 
-    public Brush DotStroke => NodePalette.StrokeOf(Readiness);
+    public Brush DotStroke => StatusBrush;
 
     /// <summary>着手できるものだけ輪郭を太くして、目が先に行くようにする。</summary>
     public double DotStrokeThickness => Readiness switch
@@ -431,6 +433,7 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
         get
         {
             var parts = new List<string>();
+            if (Model.Checklist.Count > 0) parts.Add(ChecklistSummary);
             if (Model.Due is { } due)
             {
                 parts.Add($"〆 {due.LocalDateTime:M/d}");
@@ -580,6 +583,8 @@ public sealed class NodeViewModel(TodoNode model, MainViewModel owner) : Observa
 
     /// <summary>状態やグラフが変わったあと、表示用の値をまとめて更新する。</summary>
     public void RefreshDerived() => OnPropertyChanged(
+        nameof(IsManuallyBlocked), nameof(CanBlock), nameof(BlockReason), nameof(BlockToggleLabel),
+        nameof(ChecklistSummary), nameof(BlockingCauses), nameof(BlockingSummary),
         nameof(HasBookmark),
         nameof(Readiness),
         nameof(StatusLabel),

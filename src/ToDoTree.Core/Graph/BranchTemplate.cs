@@ -47,6 +47,13 @@ public static class BranchTemplate
             node.Id = map[node.Id];
             node.X += dx; node.Y += dy;
             node.Status = NodeStatus.NotStarted;
+            node.IsManuallyBlocked = false;
+            node.BlockReason = string.Empty;
+            foreach (var item in node.Checklist)
+            {
+                item.Id = Guid.NewGuid();
+                item.IsChecked = false;
+            }
             node.Due = null; node.CompletedAt = null;
 
             // 目標回数は部品の性格なので残し、実績だけ 0 に戻す。
@@ -90,6 +97,7 @@ public static class BranchTemplate
             || template.Edges.Select(e => e.Id).Distinct().Count() != template.Edges.Count
             || template.Edges.Select(e => (e.FromId, e.ToId)).Distinct().Count() != template.Edges.Count)
             throw new InvalidDataException("部品の接続情報が不正です。");
+        if (TaskDetailsValidation.Validate(template, template.SchemaVersion) is { } detailsError) throw new InvalidDataException(detailsError);
         if (RepeatService.Validate(template) is { } repeatError) throw new InvalidDataException(repeatError);
         if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);
         if (BlockConnections.ValidatePorts(template) is { } portError) throw new InvalidDataException(portError);

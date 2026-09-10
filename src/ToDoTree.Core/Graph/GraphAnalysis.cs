@@ -43,6 +43,7 @@ public static class GraphAnalysis
     {
         NodeStatus.Done => Readiness.Done,
         NodeStatus.Cancelled => Readiness.Cancelled,
+        _ when node.IsManuallyBlocked => Readiness.Blocked,
         NodeStatus.InProgress => Readiness.InProgress,
         _ => graph.ParentsOf(node.Id).All(p => p.IsSettled) ? Readiness.Ready : Readiness.Blocked,
     };
@@ -180,7 +181,7 @@ public static class GraphAnalysis
 
         foreach (var child in graph.ChildrenOf(id))
         {
-            if (child.IsSettled)
+            if (child.IsSettled || child.IsManuallyBlocked)
             {
                 continue;
             }
