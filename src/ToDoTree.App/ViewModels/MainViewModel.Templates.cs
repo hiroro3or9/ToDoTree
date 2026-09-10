@@ -11,7 +11,8 @@ public sealed partial class MainViewModel
     private ICommand? _openTemplatesCommand;
     public ICommand SaveTemplateCommand => _saveTemplateCommand ??= new RelayCommand(() =>
     {
-        var ids = SelectedBlock?.Model.NodeIds ?? [.. SelectedNodes.Select(n => n.Id)];
+        IEnumerable<Guid> ids = SelectedBlock is { } block
+            ? DescendantNodeIds(block.Id) : SelectedNodes.Select(n => n.Id);
         var name = SelectedBlock?.Title ?? SelectedNode?.Title ?? "新しい部品";
         if (string.IsNullOrWhiteSpace(name)) name = "新しい部品";
         TemplateLibraryRequested?.Invoke(BranchTemplate.Capture(_project, ids, name));

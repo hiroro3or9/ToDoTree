@@ -231,7 +231,7 @@ public class RepeatTests
         try
         {
             store.Save(path, graph.Project);
-            await Assert.That(graph.Project.SchemaVersion).IsEqualTo(6);
+            await Assert.That(graph.Project.SchemaVersion).IsEqualTo(TodoProject.CurrentSchemaVersion);
 
             var loaded = store.Load(path);
             var restored = loaded.Nodes.First(n => n.Id == b.Id);

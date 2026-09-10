@@ -13,8 +13,14 @@ public sealed class TodoBlock
     public const string DefaultTitle = "新しいブロック";
 
     private List<Guid> _nodeIds = [];
+    private List<BlockPort> _ports = [];
+
+    public List<BlockPort> Ports { get => _ports; set => _ports = value ?? []; }
 
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>直接の親ブロック。null は最上位を表す。</summary>
+    public Guid? ParentBlockId { get; set; }
 
     public string Title { get; set; } = DefaultTitle;
 
@@ -27,13 +33,14 @@ public sealed class TodoBlock
     /// </summary>
     public string? ColorId { get; set; }
 
-    /// <summary>所属するステップ。並び順は表示に使わない（境界は座標から計算する）。</summary>
+    /// <summary>直接所属するステップ。子ブロック内のステップは重複して持たない。</summary>
     public List<Guid> NodeIds { get => _nodeIds; set => _nodeIds = value ?? []; }
 
     public TodoBlock Clone()
     {
         var copy = (TodoBlock)MemberwiseClone();
         copy.NodeIds = [.. NodeIds];
+        copy.Ports = [.. Ports];
         return copy;
     }
 

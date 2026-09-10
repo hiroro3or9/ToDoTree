@@ -25,6 +25,11 @@ public sealed class BranchTemplateStore(string directory)
                     throw new InvalidDataException(repeatError);
                 }
 
+                if (template.SchemaVersion < 8 && template.Blocks.Any(b => b.ParentBlockId is not null))
+                {
+                    throw new InvalidDataException("旧形式を名乗る部品にブロックの親子関係が入っています。");
+                }
+
                 if (template.SchemaVersion is >= 2 and < TodoProject.CurrentSchemaVersion) template.SchemaVersion = TodoProject.CurrentSchemaVersion;
                 BranchTemplate.Validate(template);
                 templates.Add(template);

@@ -14,7 +14,7 @@ namespace ToDoTree.App.ViewModels;
 /// 位置と大きさは所属ノードから毎回計算する派生値で、保存されない。
 /// カードの状態色を主役にしたいので、枠と背景はどれも控えめにしてある。
 /// </summary>
-public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : ObservableObject
+public sealed class BlockViewModel(TodoBlock model, MainViewModel owner, int depth = 0) : ObservableObject
 {
     /// <summary>選択中に背景を濃くする倍率。既定色の Block.Fill と Block.Selected.Fill の比に合わせてある。</summary>
     private const double SelectedFillFactor = 1.75;
@@ -26,10 +26,14 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     private bool _canMove = true;
     private int _visibleCount;
     private int _totalCount;
+    private int _childCount;
 
     public TodoBlock Model { get; } = model;
 
     public Guid Id => Model.Id;
+    public Guid? ParentBlockId => Model.ParentBlockId;
+    public int Depth { get; } = depth;
+    public string HierarchyPath => owner.BlockPath(Id);
     private NodeViewModel? _connectionNode;
     public NodeViewModel ConnectionNode
     {
@@ -38,14 +42,21 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
             _connectionNode ??= new NodeViewModel(new ToDoTree.Core.Models.TodoNode { Id = Id }, owner);
             _connectionNode.Model.Title = Title;
             _connectionNode.Model.X = X; _connectionNode.Model.Y = Y;
-            _connectionNode.Model.Status = Model.NodeIds.All(id => owner.Graph.Find(id)?.IsSettled == true)
+            _connectionNode.Model.Status = owner.DescendantNodeIds(Id).All(id => owner.Graph.Find(id)?.IsSettled == true)
                 ? ToDoTree.Core.Models.NodeStatus.Done : ToDoTree.Core.Models.NodeStatus.NotStarted;
             return _connectionNode;
         }
     }
-    public bool IsCollapsed => Model.IsCollapsed && owner.FocusedBlockId != Id;
+    public bool IsCollapsed => Model.IsCollapsed && !owner.IsExpandedForFocus(Id);
     public string CollapseActionText => IsCollapsed ? "ブロックを開く" : "ブロックを畳む";
-    public string ProgressText => $"完了 {Model.NodeIds.Count(id => owner.Graph.Find(id)?.IsSettled == true)}/{Model.NodeIds.Count}";
+    public string ProgressText
+    {
+        get
+        {
+            var members = owner.DescendantNodeIds(Id);
+            return $"完了 {members.Count(id => owner.Graph.Find(id)?.IsSettled == true)}/{members.Count}";
+        }
+    }
     private bool _isDropTarget;
     public bool IsDropTarget
     {
@@ -120,10 +131,22 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
         }
     }
 
+    public int ChildCount
+    {
+        get => _childCount;
+        private set => SetProperty(ref _childCount, value, nameof(ChildCount));
+    }
+
     /// <summary>見出しに添える件数。隠れているものがあるときは、その旨も出す。</summary>
-    public string CountText => IsCollapsed ? ProgressText : VisibleCount == TotalCount
-        ? $"{TotalCount} 件"
-        : $"表示 {VisibleCount} / 全 {TotalCount} 件";
+    public string CountText
+    {
+        get
+        {
+            var tasks = IsCollapsed ? ProgressText : VisibleCount == TotalCount
+                ? $"{TotalCount} 件" : $"表示 {VisibleCount} / 全 {TotalCount} 件";
+            return ChildCount > 0 ? $"{tasks} / 子 {ChildCount}" : tasks;
+        }
+    }
 
     /// <summary>隠れている所属ノードがあるあいだは、見えないものを動かさないよう移動を止める。</summary>
     public bool CanMove
@@ -171,7 +194,7 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
     }
 
     /// <summary>選んでいる囲みだけ、ブロック層の中で手前に出す。</summary>
-    public int ZIndex => IsEditing ? 30 : IsSelected ? 20 : 10;
+    public int ZIndex => Depth * 100 + (IsEditing ? 30 : IsSelected ? 20 : 10);
 
     /// <summary>個別色。null は既定色。<see cref="MainViewModel.ApplyBlockColor"/> から書き換える。</summary>
     public string? ColorId => Model.ColorId;
@@ -219,12 +242,19 @@ public sealed class BlockViewModel(TodoBlock model, MainViewModel owner) : Obser
 
     private ICommand? _addSelectionCommand;
 
+    public ICommand MoveSelectedBlockHereCommand => _moveSelectedBlockHereCommand ??= new RelayCommand(
+        () => owner.MoveSelectedBlockTo(this), () => owner.CanMoveSelectedBlockTo(this));
+
+    private ICommand? _moveSelectedBlockHereCommand;
+
     /// <summary>境界と件数を計算し直す。ドラッグ中もここだけを更新する。</summary>
-    public void Update(BlockBounds? bounds, int visibleCount, int totalCount)
+    public void Update(BlockBounds? bounds, int visibleCount, int totalCount, int childCount = 0)
     {
         RefreshSummary();
         TotalCount = totalCount;
         VisibleCount = visibleCount;
+        ChildCount = childCount;
+        OnPropertyChanged(nameof(CountText));
         CanMove = visibleCount == totalCount && totalCount > 0;
 
         if (bounds is not { } box)

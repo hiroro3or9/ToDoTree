@@ -24,8 +24,10 @@ public sealed partial class MainViewModel
     public ICommand RevealEdgeCommand => _revealEdgeCommand ??= new RelayCommand(() =>
     {
         if (SelectedEdge is not { IsAggregated: true } edge) return;
-        var blocks = Blocks.Where(b => b.IsCollapsed &&
-            (b.Model.NodeIds.Contains(edge.Model.FromId) || b.Model.NodeIds.Contains(edge.Model.ToId))).ToList();
+        var endpointBlocks = new[] { edge.Model.FromId, edge.Model.ToId }
+            .Select(id => _blockById.GetValueOrDefault(id) ?? BlockOf(id)).Where(b => b is not null).Cast<BlockViewModel>();
+        var ids = endpointBlocks.SelectMany(b => _blockHierarchy.AncestorsOf(b.Id).Select(a => a.Id).Append(b.Id)).ToHashSet();
+        var blocks = Blocks.Where(b => b.Model.IsCollapsed && ids.Contains(b.Id)).ToList();
         if (blocks.Count == 0) return;
         PushUndo();
         foreach (var block in blocks) block.Model.IsCollapsed = false;
@@ -68,10 +70,16 @@ public sealed partial class MainViewModel
     public (Guid Id, BlockBounds Bounds, bool Visible, bool IsBlock) DisplayEndpoint(Guid id)
     {
         var block = _blockById.GetValueOrDefault(id);
-        if (block is not null) return (id, block.Bounds, block.IsVisible, true);
+        if (block is not null)
+        {
+            var projection = CollapsedProjection(block.Id);
+            return projection is null ? (id, block.Bounds, block.IsVisible, true)
+                : (projection.Id, projection.Bounds, projection.IsVisible, true);
+        }
         if (!_byId.TryGetValue(id, out var node)) return (id, default, false, false);
         block = BlockOf(id);
-        if (block is { IsCollapsed: true }) return (block.Id, block.Bounds, block.IsVisible && _baseVisible.Contains(id), true);
+        if (block is not null && CollapsedProjection(block.Id) is { } collapsed)
+            return (collapsed.Id, collapsed.Bounds, collapsed.IsVisible && _baseVisible.Contains(id), true);
         return (id, new BlockBounds(node.X, node.Y, NodeViewModel.CardWidth, NodeViewModel.CardHeight), node.IsVisible, false);
     }
 

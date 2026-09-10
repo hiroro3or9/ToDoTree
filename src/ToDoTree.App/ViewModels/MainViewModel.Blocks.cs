@@ -34,6 +34,7 @@ public sealed partial class MainViewModel
 {
     private readonly Dictionary<Guid, BlockViewModel> _blockById = [];
     private readonly Dictionary<Guid, BlockViewModel> _blockOfNode = [];
+    private BlockHierarchy _blockHierarchy = null!;
 
     private BlockViewModel? _selectedBlock;
 
@@ -84,6 +85,9 @@ public sealed partial class MainViewModel
         }
 
         if (block.IsCollapsed) return "ブロックを開くと中を整列できます。";
+
+        if (ChildBlocks(block.Id).Count > 0)
+            return "子ブロックを選ぶと中を整列できます。";
 
         if (block.TotalCount < BlockService.MinimumSize)
         {
@@ -201,7 +205,8 @@ public sealed partial class MainViewModel
         var fitted = new BlockBounds(block.X, block.Y, bounds.Width, bounds.Height);
         var area = new System.Windows.Rect(fitted.X, fitted.Y, fitted.Width, fitted.Height);
         if (Nodes.Any(n => n.IsVisible && !positions.ContainsKey(n.Id) && area.IntersectsWith(n.VisualBounds))
-            || Blocks.Any(b => b.Id != block.Id && b.IsVisible && fitted.IntersectsWith(b.Bounds)))
+            || Blocks.Any(b => b.Id != block.Id && !IsAncestorBlock(b.Id, block.Id)
+                && b.IsVisible && fitted.IntersectsWith(b.Bounds)))
             return new BlockLayoutResult(BlockLayoutStatus.OverlapsOutside, new Dictionary<Guid, Vec2>(), null);
 
         return result with { Positions = positions, Bounds = fitted };
@@ -212,6 +217,7 @@ public sealed partial class MainViewModel
         BlockLayoutStatus.Unchanged => $"「{block.Title}」の中はすでに整列されています。",
         BlockLayoutStatus.TooFewNodes => $"{BlockService.MinimumSize} 件以上のステップが必要です。",
         BlockLayoutStatus.ContainsPinnedNodes => "中のステップの位置固定を解除すると整列できます。",
+        BlockLayoutStatus.ContainsChildBlocks => "子ブロックを選ぶと中を整列できます。",
         BlockLayoutStatus.OverlapsOutside =>
             "周囲と重なるため整列できません。ブロックを広い場所へ移動してください。",
         _ => "ブロックの情報を確認してください。整列できませんでした。",
@@ -235,6 +241,10 @@ public sealed partial class MainViewModel
 
     public ICommand RemoveFromBlockCommand { get; private set; } = null!;
 
+    public ICommand DetachBlockCommand { get; private set; } = null!;
+
+    public ICommand WrapBlockCommand { get; private set; } = null!;
+
     /// <summary>選んでいるブロックの中だけを並べ直す。</summary>
     public ICommand LayoutBlockCommand { get; private set; } = null!;
 
@@ -248,6 +258,9 @@ public sealed partial class MainViewModel
 
     public bool HasSelectedBlock => _selectedBlock is not null;
 
+    public IEnumerable<BlockViewModel> BlockMoveTargets => _selectedBlock is not { } selected
+        ? [] : Blocks.Where(b => CanMoveSelectedBlockTo(b));
+
     /// <summary>ブロックのメニューの見出し。どれを掴んだかを名前で確かめられるようにする。</summary>
     public string BlockMenuHeader => _selectedBlock is { } block
         ? $"{Shorten(block.Title)}  ・  {block.CountText}"
@@ -260,13 +273,13 @@ public sealed partial class MainViewModel
     /// 確定前のブロック操作が動いている（移動中・命名中）。
     /// このあいだは自動保存を見送る。中途半端な座標や名前をファイルに残さないため。
     /// </summary>
-    public bool IsBlockEditing => _draggingBlock is not null || _renamingBlock is not null || _nodeDragActive;
+    public bool IsBlockEditing => _draggingBlock is not null || _renamingBlock is not null || _nodeDragActive || _portDrag is not null;
 
     public bool HasBlocks => Blocks.Count > 0;
 
-    /// <summary>いまの選択をそのままブロックにできる（2 件以上・全部が未所属）。</summary>
-    public bool CanGroupSelection =>
-        _selection.Count >= BlockService.MinimumSize && _selection.All(id => !_blockOfNode.ContainsKey(id));
+    /// <summary>いまの選択をそのままブロックにできる（2 件以上・直接所属先が同じ）。</summary>
+    public bool CanGroupSelection => _selection.Count >= BlockService.MinimumSize
+        && _selection.Select(id => BlockOf(id)?.Id).Distinct().Count() == 1;
 
     /// <summary>いまの選択を既存のブロックに足せる（全部が未所属）。</summary>
     public bool CanAddSelectionToBlock =>
@@ -282,9 +295,11 @@ public sealed partial class MainViewModel
     /// </summary>
     public string GroupHint => _selection.Count < BlockService.MinimumSize
         ? $"{BlockService.MinimumSize} 件以上のステップを選んでください。"
-        : _selection.Any(id => _blockOfNode.ContainsKey(id))
-            ? "すでにブロックに入っているステップが含まれています。所属を外してからまとめてください。"
-            : $"選んだ {_selection.Count} 件を 1 つの囲みにまとめます。";
+        : _selection.Select(id => BlockOf(id)?.Id).Distinct().Count() != 1
+            ? "同じブロック内のステップを選んでください。"
+            : BlockOf(_selection.First()) is { } parent
+                ? $"選んだ {_selection.Count} 件を「{parent.Title}」内の子ブロックにまとめます。"
+                : $"選んだ {_selection.Count} 件を 1 つの囲みにまとめます。";
 
     /// <summary>カードの上か見出しの上で、いま文字を打っている（日本語変換中を含む）。</summary>
     public bool IsNaming => IsBlockEditing || SelectedNode is { IsEditing: true };
@@ -321,6 +336,9 @@ public sealed partial class MainViewModel
         SelectBlockNodesCommand = new RelayCommand(SelectNodesOfBlock, () => HasSelectedBlock);
         RemoveFromBlockCommand = new RelayCommand(
             RemoveSelectionFromBlock, () => CanRemoveSelectionFromBlock);
+        DetachBlockCommand = new RelayCommand(DetachSelectedBlock,
+            () => _selectedBlock?.Model.ParentBlockId is not null);
+        WrapBlockCommand = new RelayCommand(WrapSelectedBlock, () => HasSelectedBlock);
         LayoutBlockCommand = new RelayCommand(LayoutSelectedBlock, () => CanLayoutSelectedBlock);
         AlignCommand = new RelayCommand(Align, () => !HasSelectedBlock || CanLayoutSelectedBlock);
     }
@@ -330,6 +348,40 @@ public sealed partial class MainViewModel
     public BlockViewModel? BlockOf(Guid nodeId) =>
         _blockOfNode.TryGetValue(nodeId, out var block) ? block : null;
 
+    public IReadOnlySet<Guid> DescendantNodeIds(Guid blockId) => _blockHierarchy.DescendantNodeIds(blockId);
+
+    public IReadOnlyList<TodoBlock> ChildBlocks(Guid blockId) => _blockHierarchy.ChildrenOf(blockId);
+
+    public bool IsAncestorBlock(Guid ancestorId, Guid blockId) => _blockHierarchy.IsAncestorOf(ancestorId, blockId);
+
+    public string BlockPath(Guid blockId) => _blockHierarchy.PathOf(blockId);
+
+    public bool IsExpandedForFocus(Guid blockId) => _focusedBlockId is { } focused
+        && (focused == blockId || IsAncestorBlock(focused, blockId));
+
+    public BlockViewModel? CollapsedProjection(Guid blockId)
+    {
+        if (IsExpandedForFocus(blockId)) return null;
+        var chain = _blockHierarchy.AncestorsOf(blockId).Reverse()
+            .Concat(_blockHierarchy.Find(blockId) is { } self ? [self] : []);
+        var collapsed = chain.FirstOrDefault(b => b.IsCollapsed);
+        return collapsed is null ? null : _blockById.GetValueOrDefault(collapsed.Id);
+    }
+
+    /// <summary>ノードまでの折りたたまれた祖先を、1回の履歴でまとめて開く。</summary>
+    internal bool RevealBlockPath(Guid nodeId)
+    {
+        if (BlockOf(nodeId) is not { } owner) return false;
+        var path = _blockHierarchy.AncestorsOf(owner.Id).Reverse().Append(owner.Model)
+            .Where(b => b.IsCollapsed).ToList();
+        if (path.Count == 0) return false;
+        PushUndo();
+        foreach (var block in path) block.IsCollapsed = false;
+        MarkDirty();
+        RefreshAll();
+        return true;
+    }
+
     /// <summary>モデルの Blocks から、画面用の一覧と索引を作り直す。</summary>
     internal void RebuildBlocks()
     {
@@ -337,6 +389,7 @@ public sealed partial class MainViewModel
         // 画面に出す前に必ず通るので、壊れた所属が表示や保存へ抜けていかない。
         BlockService.Prune(_project);
         _graph.Rebuild();
+        _blockHierarchy = new BlockHierarchy(_project);
 
         var keepSelected = _selectedBlock?.Id;
 
@@ -344,9 +397,9 @@ public sealed partial class MainViewModel
         _blockById.Clear();
         _blockOfNode.Clear();
 
-        foreach (var model in _project.Blocks)
+        foreach (var model in _project.Blocks.OrderBy(b => _blockHierarchy.DepthOf(b.Id)))
         {
-            var vm = new BlockViewModel(model, this);
+            var vm = new BlockViewModel(model, this, _blockHierarchy.DepthOf(model.Id));
             Blocks.Add(vm);
             _blockById[model.Id] = vm;
 
@@ -371,7 +424,7 @@ public sealed partial class MainViewModel
         RebuildEdges();
 
         OnPropertyChanged(nameof(HasBlocks));
-        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
+        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader), nameof(BlockMoveTargets));
         NotifyBlockCommandStates();
     }
 
@@ -411,33 +464,53 @@ public sealed partial class MainViewModel
 
     private void ComputeBlockBounds()
     {
-        var rects = new List<NodeRect>();
+        var reference = new Dictionary<Guid, BlockBounds>();
 
-        foreach (var block in Blocks)
+        // 折りたたみやフィルターに左右されない基準境界を、子から親へ作る。
+        foreach (var block in Blocks.OrderByDescending(b => b.Depth))
         {
-            rects.Clear();
-            var total = 0;
-
-            foreach (var nodeId in block.Model.NodeIds)
+            var direct = block.Model.NodeIds.Where(_byId.ContainsKey).Select(id =>
             {
-                if (!_byId.TryGetValue(nodeId, out var node))
-                {
-                    continue;
-                }
+                var visual = _byId[id].VisualBounds;
+                return new NodeRect(id, visual.X, visual.Y, visual.Width, visual.Height);
+            }).ToList();
+            var children = ChildBlocks(block.Id).Where(c => reference.ContainsKey(c.Id))
+                .Select(c => reference[c.Id]).ToList();
+            if (BlockGeometry.Compute(direct, children) is { } bounds) reference[block.Id] = bounds;
+        }
 
-                total++;
-                if (node.IsVisible || (block.IsCollapsed && _baseVisible.Contains(node.Id)))
+        // 表示境界も子から親へ。親が畳まれている間、子の IsCollapsed 自体は変更しない。
+        foreach (var block in Blocks.OrderByDescending(b => b.Depth))
+        {
+            var descendants = DescendantNodeIds(block.Id);
+            var total = descendants.Count;
+            var visibleCount = descendants.Count(_baseVisible.Contains);
+            var hiddenByAncestor = !IsExpandedForFocus(block.Id)
+                && _blockHierarchy.AncestorsOf(block.Id).Any(b => b.IsCollapsed);
+            var omittedFocusAncestor = _focusedBlockId is { } focused
+                && IsAncestorBlock(block.Id, focused);
+
+            BlockBounds? bounds = null;
+            if (!hiddenByAncestor && !omittedFocusAncestor && visibleCount > 0 && reference.TryGetValue(block.Id, out var baseline))
+            {
+                if (block.IsCollapsed)
                 {
-                    // 畳んだ見出しも同じ原点に置き、開閉でループの高さだけ跳ねないようにする。
-                    var visual = node.VisualBounds;
-                    rects.Add(new NodeRect(node.Id, visual.X, visual.Y, visual.Width, visual.Height));
+                    bounds = new BlockBounds(baseline.X, baseline.Y, 340, 48);
+                }
+                else
+                {
+                    var direct = block.Model.NodeIds.Where(id => _byId.TryGetValue(id, out var node) && node.IsVisible)
+                        .Select(id =>
+                        {
+                            var visual = _byId[id].VisualBounds;
+                            return new NodeRect(id, visual.X, visual.Y, visual.Width, visual.Height);
+                        }).ToList();
+                    var children = ChildBlocks(block.Id).Select(c => _blockById[c.Id])
+                        .Where(c => c.IsVisible).Select(c => c.Bounds).ToList();
+                    bounds = BlockGeometry.Compute(direct, children);
                 }
             }
-
-            var bounds = BlockGeometry.Compute(rects);
-            if (block.IsCollapsed && bounds is { } expanded)
-                bounds = new BlockBounds(expanded.X, expanded.Y, 340, 48);
-            block.Update(bounds, rects.Count, total);
+            block.Update(bounds, visibleCount, total, ChildBlocks(block.Id).Count);
         }
 
         // 全部隠れた囲みを選んだままにはしない。
@@ -487,8 +560,11 @@ public sealed partial class MainViewModel
     /// <summary>ブロックを選ぶ。ノード・線・通過点の選択とは排他にする。</summary>
     public void SelectBlock(BlockViewModel? block)
     {
+        var hadPort = _selectedBlockPortId is not null;
+        _selectedBlockPortId = null;
         if (ReferenceEquals(_selectedBlock, block))
         {
+            if (hadPort) NotifyVisualsChanged();
             return;
         }
 
@@ -527,7 +603,7 @@ public sealed partial class MainViewModel
         }
 
         UpdateBlockHighlights();
-        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader));
+        OnPropertyChanged(nameof(SelectedBlock), nameof(HasSelectedBlock), nameof(BlockMenuHeader), nameof(BlockMoveTargets));
         NotifyBlockCommandStates();
         NotifyVisualsChanged();
     }
@@ -535,9 +611,9 @@ public sealed partial class MainViewModel
     /// <summary>ブロック選択中は、その所属ノードだけを補助強調する。</summary>
     private void UpdateBlockHighlights()
     {
-        var members = _selectedBlock is { } selected
-            ? selected.Model.NodeIds.ToHashSet()
-            : [];
+        IReadOnlySet<Guid> members = _selectedBlock is { } selected
+            ? DescendantNodeIds(selected.Id)
+            : new HashSet<Guid>();
 
         foreach (var node in Nodes)
         {
@@ -569,7 +645,7 @@ public sealed partial class MainViewModel
         }
 
         if (block.IsCollapsed) ToggleBlockCollapse(block);
-        var targets = NodesOf(block.Model.NodeIds).Where(n => n.IsVisible).ToList();
+        var targets = NodesOf(DescendantNodeIds(block.Id)).Where(n => n.IsVisible).ToList();
         if (targets.Count == 0)
         {
             return;
@@ -593,9 +669,9 @@ public sealed partial class MainViewModel
             return;
         }
 
-        if (ids.Any(id => _blockOfNode.ContainsKey(id)))
+        if (ids.Select(id => BlockOf(id)?.Id).Distinct().Count() != 1)
         {
-            StatusMessage = "すでにブロックに入っているステップが含まれています。所属を外してからまとめてください。";
+            StatusMessage = "同じブロック内のステップを選んでください。";
             return;
         }
 
@@ -635,7 +711,8 @@ public sealed partial class MainViewModel
         EndBlockRename(commit: true);
 
         var title = block.Title;
-        var memberIds = block.Model.NodeIds.ToList();
+        var memberIds = DescendantNodeIds(block.Id).ToList();
+        var parentId = block.Model.ParentBlockId;
 
         BeginTransaction();
         BlockService.Dissolve(_project, block.Id);
@@ -644,8 +721,8 @@ public sealed partial class MainViewModel
         _selectedBlock = null;
         RebuildBlocks();
 
-        // 解除した直後は、そのまま動かし続けられるよう中のステップを選び直す。
-        SelectNodes(NodesOf(memberIds));
+        if (parentId is { } parent && _blockById.TryGetValue(parent, out var parentBlock)) SelectBlock(parentBlock);
+        else SelectNodes(NodesOf(memberIds));
         CommitTransaction();
         RefreshAll();
 
@@ -697,6 +774,57 @@ public sealed partial class MainViewModel
         StatusMessage = removed == 1
             ? "ブロックから外しました（位置と繋がりはそのままです）。Ctrl+Z で戻せます。"
             : $"{removed} 件をブロックから外しました。Ctrl+Z で戻せます。";
+    }
+
+    public bool CanMoveSelectedBlockTo(BlockViewModel target) => _selectedBlock is { } selected
+        && target.Id != selected.Id && selected.Model.ParentBlockId != target.Id
+        && !IsAncestorBlock(selected.Id, target.Id);
+
+    public void MoveSelectedBlockTo(BlockViewModel target)
+    {
+        if (_selectedBlock is not { } selected || !CanMoveSelectedBlockTo(target)) return;
+        MoveSelectedBlock(target.Id, $"「{target.Title}」の中へ移しました。");
+    }
+
+    public void DetachSelectedBlock()
+    {
+        if (_selectedBlock is not { Model.ParentBlockId: not null } selected) return;
+        BeginTransaction();
+        if (BlockService.DetachBlock(_project, selected.Id) is { } error)
+        {
+            CancelTransaction(); StatusMessage = error; return;
+        }
+        RebuildBlocks(); CommitTransaction(); RefreshAll();
+        StatusMessage = "親ブロックから一段外しました。Ctrl+Zで戻せます。";
+    }
+
+    public void WrapSelectedBlock()
+    {
+        if (_selectedBlock is not { } selected) return;
+        BeginTransaction();
+        var result = BlockService.Wrap(_project, selected.Id);
+        if (!result.IsOk) { CancelTransaction(); StatusMessage = result.Error!; return; }
+        RebuildBlocks();
+        if (_blockById.TryGetValue(result.Block!.Id, out var wrapper))
+        {
+            SelectBlock(wrapper);
+            BeginBlockRename(wrapper, keepTransaction: true, isNew: true);
+        }
+        StatusMessage = $"「{selected.Title}」を包む親ブロックを作りました。名前を入力してください。";
+    }
+
+    private void MoveSelectedBlock(Guid? targetParentId, string successMessage)
+    {
+        if (_selectedBlock is not { } selected) return;
+        var selectedId = selected.Id;
+        BeginTransaction();
+        if (BlockService.MoveBlock(_project, selectedId, targetParentId) is { } error)
+        {
+            RollbackTransaction(); StatusMessage = error; return;
+        }
+        RebuildBlocks(); CommitTransaction(); RefreshAll();
+        if (_blockById.TryGetValue(selectedId, out var restored)) SelectBlock(restored);
+        StatusMessage = successMessage + " Ctrl+Zで戻せます。";
     }
 
     /// <summary>
@@ -844,7 +972,7 @@ public sealed partial class MainViewModel
         // 押した瞬間の座標を控え、毎フレーム「元の位置＋差分」で置き直す。
         // 差分を足し込み続けると、ズーム倍率のぶんだけ誤差が溜まる。
         _dragOrigins = [];
-        foreach (var id in block.Model.NodeIds)
+        foreach (var id in DescendantNodeIds(block.Id))
         {
             if (_byId.TryGetValue(id, out var node))
             {
@@ -852,7 +980,7 @@ public sealed partial class MainViewModel
             }
         }
 
-        var moving = block.Model.NodeIds.ToHashSet();
+        var moving = DescendantNodeIds(block.Id);
         _dragWaypoints = [.. BlockGeometry.InternalEdges(_project, moving)
             .Select(edge => (Edge: edge, Points: edge.Waypoints.ToArray()))];
 
@@ -886,7 +1014,7 @@ public sealed partial class MainViewModel
         NotifyVisualsChanged();
     }
 
-    public void CommitBlockDrag()
+    public void CommitBlockDrag(bool transfer = false, Guid? targetParentId = null)
     {
         if (_draggingBlock is null)
         {
@@ -894,17 +1022,36 @@ public sealed partial class MainViewModel
         }
 
         var title = _draggingBlock.Title;
+        var blockId = _draggingBlock.Id;
         var count = _dragOrigins.Count;
+        if (transfer && BlockService.MoveBlock(_project, blockId, targetParentId) is { } error)
+        {
+            EndBlockDrag();
+            RollbackTransaction();
+            StatusMessage = error + " 位置と所属変更を取り消しました。";
+            return;
+        }
+        if (transfer && targetParentId is { } target && FindBlock(target) is { } destination)
+            destination.Model.IsCollapsed = false;
         EndBlockDrag();
 
         var changed = CommitTransaction();
+        if (transfer) RebuildBlocks();
         NotifyVisualsChanged();
+
+        if (transfer && _blockById.TryGetValue(blockId, out var moved)) SelectBlock(moved);
 
         if (changed)
         {
-            StatusMessage = $"「{title}」の {count} 件をまとめて動かしました。Ctrl+Z で戻せます。";
+            StatusMessage = transfer
+                ? targetParentId is { } destinationId && _blockById.TryGetValue(destinationId, out var parent)
+                    ? $"「{title}」を「{parent.Title}」の中へ移しました。Ctrl+Z で戻せます。"
+                    : $"「{title}」を最上位へ移しました。Ctrl+Z で戻せます。"
+                : $"「{title}」の {count} 件をまとめて動かしました。Ctrl+Z で戻せます。";
         }
     }
+
+    private BlockViewModel? FindBlock(Guid id) => _blockById.GetValueOrDefault(id);
 
     public void CancelBlockDrag()
     {
@@ -946,6 +1093,7 @@ public sealed partial class MainViewModel
     /// <summary>保存・タブを閉じる・アプリ終了の前に、編集中の操作を確定する。</summary>
     public void CommitPendingBlockEdit()
     {
+        EndBlockPortDrag(commit: true);
         if (_draggingBlock is not null)
         {
             CommitBlockDrag();
@@ -1052,9 +1200,11 @@ public sealed partial class MainViewModel
 
             if (before.IsCollapsed != after.IsCollapsed
                 || before.Id != after.Id
+                || before.ParentBlockId != after.ParentBlockId
                 || !string.Equals(before.Title, after.Title, StringComparison.Ordinal)
                 || before.NodeIds.Count != after.NodeIds.Count
-                || !before.NodeIds.SequenceEqual(after.NodeIds))
+                || !before.NodeIds.SequenceEqual(after.NodeIds)
+                || !before.Ports.SequenceEqual(after.Ports))
             {
                 return true;
             }

@@ -103,6 +103,24 @@
             <Separator />
             <MenuItem Header="ここに通過点を追加" Command="{Binding AddWaypointCommand}" />
             <MenuItem Header="通過点をすべて解除" Command="{Binding ClearWaypointsCommand}" />
+            <MenuItem Header="接続元の接続点" ItemsSource="{Binding FromPortChoices}"
+                      IsEnabled="{Binding HasItems, RelativeSource={RelativeSource Self}}">
+                <MenuItem.ItemContainerStyle>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Title}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
+            <MenuItem Header="接続先の接続点" ItemsSource="{Binding ToPortChoices}"
+                      IsEnabled="{Binding HasItems, RelativeSource={RelativeSource Self}}">
+                <MenuItem.ItemContainerStyle>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Title}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
             <MenuItem Header="色" ItemsSource="{Binding EdgeColorChoices}"
                       ItemContainerStyle="{StaticResource ColorChoiceStyle}"
                       IsEnabled="{Binding CanColorSelectedEdge}"
@@ -122,6 +140,7 @@
 
         <!-- ブロックの見出しを右クリックしたとき。囲みの解除は、ここか Ctrl+Shift+G だけ。 -->
         <ContextMenu x:Key="BlockMenu">
+            <MenuItem Header="ここに接続点を追加" Command="{Binding AddBlockPortCommand}" />
             <MenuItem Header="ブロックを畳む / 開く" Command="{Binding CollapseBlockCommand}" />
             <MenuItem Header="このブロックに集中 / 解除" Command="{Binding FocusBlockCommand}" />
             <MenuItem Header="ここから繋ぐ" Command="{Binding StartConnectCommand}" />
@@ -130,12 +149,28 @@
             <MenuItem Header="中を整列" InputGestureText="Ctrl+L" Command="{Binding LayoutBlockCommand}"
                       ToolTip="{Binding BlockLayoutHint}" ToolTipService.ShowOnDisabled="True" />
             <MenuItem Header="名前を変更" InputGestureText="F2" Command="{Binding RenameBlockCommand}" />
+            <MenuItem Header="ブロックに入れる" ItemsSource="{Binding BlockMoveTargets}">
+                <MenuItem.ItemContainerStyle>
+                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                        <Setter Property="Header" Value="{Binding HierarchyPath}" />
+                        <Setter Property="InputGestureText" Value="{Binding CountText}" />
+                        <Setter Property="Command" Value="{Binding MoveSelectedBlockHereCommand}" />
+                    </Style>
+                </MenuItem.ItemContainerStyle>
+            </MenuItem>
+            <MenuItem Header="親ブロックから外す" Command="{Binding DetachBlockCommand}" />
+            <MenuItem Header="このブロックを包む" Command="{Binding WrapBlockCommand}" />
             <MenuItem Header="色" ItemsSource="{Binding BlockColorChoices}"
                       ItemContainerStyle="{StaticResource ColorChoiceStyle}" />
             <MenuItem Header="中のステップを選択" Command="{Binding SelectBlockNodesCommand}" />
             <MenuItem Header="部品として保存…" Command="{Binding SaveTemplateCommand}" />
             <Separator />
             <MenuItem Header="ブロックを解除" InputGestureText="Ctrl+Shift+G" Command="{Binding UngroupBlockCommand}" />
+        </ContextMenu>
+
+        <ContextMenu x:Key="BlockPortMenu">
+            <MenuItem Header="ドラッグで接続・Alt＋ドラッグで移動" IsEnabled="False" />
+            <MenuItem Header="この接続点を削除" InputGestureText="Delete" Command="{Binding RemoveBlockPortCommand}" />
         </ContextMenu>
 
         <ContextMenu x:Key="NodeMenu">
@@ -686,7 +721,7 @@
             </ItemsControl>
 
             <!-- ステップ同士を結ぶ線 -->
-            <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" Nodes="{Binding Nodes}" />
+            <controls:EdgeLayer x:Name="EdgeRenderer" Edges="{Binding Edges}" Nodes="{Binding Nodes}" Blocks="{Binding Blocks}" />
 
             <!-- ステップのカード -->
             <ItemsControl x:Name="NodeHost" ItemsSource="{Binding Nodes}">
