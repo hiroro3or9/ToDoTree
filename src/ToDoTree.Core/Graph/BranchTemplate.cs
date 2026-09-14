@@ -6,7 +6,7 @@ namespace ToDoTree.Core.Graph;
 /// <summary>選択範囲を再利用できる独立したグラフへ変換する。元データは変更しない。</summary>
 public static class BranchTemplate
 {
-    public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name)
+    public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name, bool resetWorkState = true)
     {
         var ids = TaskHierarchy.IncludeDescendants(source, selection);
         var hierarchy = new BlockHierarchy(source);
@@ -37,11 +37,14 @@ public static class BranchTemplate
                 NodeIds = [.. b.NodeIds.Where(ids.Contains)],
             })],
         };
+        foreach (var node in fragment.Nodes)
+            if (node.SelectedChoiceEdgeId is { } chosen && !fragment.Edges.Any(e => e.Id == chosen))
+                node.SelectedChoiceEdgeId = null;
         Validate(fragment);
-        return Instantiate(fragment, 0, 0);
+        return Instantiate(fragment, 0, 0, resetWorkState);
     }
 
-    public static TodoProject Instantiate(TodoProject template, double x, double y)
+    public static TodoProject Instantiate(TodoProject template, double x, double y, bool resetWorkState = true)
     {
         Validate(template);
         if (!double.IsFinite(x) || !double.IsFinite(y)) throw new ArgumentException("配置位置が不正です。");
@@ -49,6 +52,7 @@ public static class BranchTemplate
         copy.Specimens.Clear();
         copy.Id = Guid.NewGuid();
         var map = copy.Nodes.Select(n => n.Id).Concat(copy.Blocks.Select(b => b.Id)).ToDictionary(id => id, _ => Guid.NewGuid());
+        var edgeMap = copy.Edges.ToDictionary(e => e.Id, _ => Guid.NewGuid());
         var dx = x - copy.Nodes.Min(n => n.X);
         var dy = y - copy.Nodes.Min(n => n.Y);
         var now = DateTimeOffset.Now;
@@ -57,27 +61,32 @@ public static class BranchTemplate
             node.Id = map[node.Id];
             node.ParentTaskId = node.ParentTaskId is { } parent ? map[parent] : null;
             node.X += dx; node.Y += dy;
-            node.Status = NodeStatus.NotStarted;
-            node.SelectedChoiceEdgeId = null;
-            node.IsManuallyBlocked = false;
-            node.BlockReason = string.Empty;
+            node.SelectedChoiceEdgeId = !resetWorkState && node.SelectedChoiceEdgeId is { } chosen
+                && edgeMap.TryGetValue(chosen, out var newEdgeId) ? newEdgeId : null;
+            if (resetWorkState)
+            {
+                node.Status = NodeStatus.NotStarted;
+                node.IsManuallyBlocked = false;
+                node.BlockReason = string.Empty;
+                node.Due = null;
+                node.CompletedAt = null;
+            }
             foreach (var item in node.Checklist)
             {
                 item.Id = Guid.NewGuid();
-                item.IsChecked = false;
+                if (resetWorkState) item.IsChecked = false;
             }
-            node.Due = null; node.CompletedAt = null;
 
             // 目標回数は部品の性格なので残し、実績だけ 0 に戻す。
             // 元の実績を持ち込むと、置いた直後から完了済みの項目が現れる。
-            if (node.Repeat is { } repeat) repeat.CompletedCount = 0;
+            if (resetWorkState && node.Repeat is { } repeat) repeat.CompletedCount = 0;
             node.IsPinned = false;
             node.CreatedAt = node.UpdatedAt = now;
         }
         foreach (var edge in copy.Edges)
         {
-            edge.Id = Guid.NewGuid();
-            edge.DecisionReason = string.Empty;
+            edge.Id = edgeMap[edge.Id];
+            if (resetWorkState) edge.DecisionReason = string.Empty;
             edge.FromId = map[edge.FromId]; edge.ToId = map[edge.ToId];
             edge.Waypoints = [.. edge.Waypoints.Select(p => new JunctionPoint(p.X + dx, p.Y + dy, p.IsSmooth))];
         }

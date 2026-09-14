@@ -140,6 +140,9 @@
 
         <!-- ブロックの見出しを右クリックしたとき。囲みの解除は、ここか Ctrl+Shift+G だけ。 -->
         <ContextMenu x:Key="BlockMenu">
+            <MenuItem Header="コピー" InputGestureText="Ctrl+C" Command="{Binding CopyItemsCommand}" />
+            <MenuItem Header="ここに貼り付け" Command="{Binding PasteItemsHereCommand}" />
+            <Separator />
             <MenuItem Header="ここに接続点を追加" Command="{Binding AddBlockPortCommand}" />
             <MenuItem Header="ブロックを畳む / 開く" Command="{Binding CollapseBlockCommand}" />
             <MenuItem Header="このブロックに集中 / 解除" Command="{Binding FocusBlockCommand}" />
@@ -175,6 +178,9 @@
         </ContextMenu>
 
         <ContextMenu x:Key="NodeMenu">
+            <MenuItem Header="コピー" InputGestureText="Ctrl+C" Command="{Binding CopyItemsCommand}" />
+            <MenuItem Header="ここに貼り付け" Command="{Binding PasteItemsHereCommand}" />
+            <Separator />
             <MenuItem Header="{Binding SelectedNode.BlockToggleLabel}" Command="{Binding SelectedNode.ToggleBlockCommand}" />
             <MenuItem Header="続きを追加" InputGestureText="Enter" Command="{Binding AddChildCommand}" />
             <MenuItem Header="並行して追加" InputGestureText="Shift+Enter" Command="{Binding AddSiblingCommand}" />
@@ -225,6 +231,7 @@
         </ContextMenu>
 
         <ContextMenu x:Key="CanvasMenu">
+            <MenuItem Header="ここに貼り付け" Command="{Binding PasteItemsHereCommand}" />
             <MenuItem Header="ここにステップを追加" Command="{Binding AddNodeHereCommand}" />
             <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
             <MenuItem Header="まとめて入力" InputGestureText="Ctrl+I" Command="{Binding ImportOutlineCommand}" />

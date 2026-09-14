@@ -46,6 +46,13 @@ public partial class MainWindow : Window
             SearchBox.SelectAll();
             e.Handled = true;
         }
+        if (Keyboard.Modifiers == ModifierKeys.Control && e.Key is Key.C or Key.V
+            && Keyboard.FocusedElement is not System.Windows.Controls.Primitives.TextBoxBase
+            && Keyboard.FocusedElement is not PasswordBox)
+        {
+            Graph.HandleItemClipboardShortcut(paste: e.Key == Key.V);
+            e.Handled = true;
+        }
     }
 
     private void OnSearchKeyDown(object sender, KeyEventArgs e)

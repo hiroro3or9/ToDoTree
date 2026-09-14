@@ -10,6 +10,21 @@ public partial class GraphView
 {
     private TemplateLibraryWindow? _templateLibrary;
 
+    public void HandleItemClipboardShortcut(bool paste)
+    {
+        if (_viewModel is null || IsViewportLocked || _panning || _marqueeStart is not null
+            || _dragGroup.Count > 0 || _draggingWaypoint || _blockDragActive
+            || _blockPress is not null || _connectSource is not null || _draggingBlockPort) return;
+        var command = paste ? _viewModel.PasteItemsCommand : _viewModel.CopyItemsCommand;
+        if (command.CanExecute(null)) command.Execute(null);
+    }
+
+    private void PasteItemsAtViewportCenter()
+    {
+        var point = Viewport.TranslatePoint(new Point(Viewport.ActualWidth / 2, Viewport.ActualHeight / 2), Surface);
+        _viewModel?.PasteItems(point.X, point.Y);
+    }
+
     private void OpenTemplateLibrary(TodoProject? draft)
     {
         _templateLibrary?.Close();
