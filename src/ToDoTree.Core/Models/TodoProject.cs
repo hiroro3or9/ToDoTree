@@ -15,7 +15,11 @@ public sealed class TodoProject
     /// 10 でプロジェクト変数（<see cref="Variables"/>）と、原文の波括弧のエスケープが加わった。
     /// 旧アプリは新しい形式を読み込み時に拒否するので、上げたぶんだけ古い版での上書きを防げる。
     /// </summary>
-    public const int CurrentSchemaVersion = 11;
+    public const int CurrentSchemaVersion = 14; // 作業カードの内部ステップ
+
+    /// <summary>形式12: 選択式の分岐と、達成時点の標本帳。</summary>
+    private List<AchievementSpecimen> _specimens = [];
+    public List<AchievementSpecimen> Specimens { get => _specimens; set => _specimens = value ?? []; }
 
     /// <summary>形式11: 手順と実施履歴。通常文書は従来どおり。</summary>
     public DocumentKind DocumentKind { get; set; }
@@ -70,5 +74,6 @@ public sealed class TodoProject
         Inbox = [.. Inbox.Select(item => item.Clone())],
         Edges = [.. Edges.Select(e => e.Clone())],
         Blocks = [.. Blocks.Select(b => b.Clone())],
+        Specimens = [.. Specimens.Select(s => s.Clone())],
     };
 }

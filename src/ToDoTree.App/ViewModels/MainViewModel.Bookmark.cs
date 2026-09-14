@@ -54,6 +54,7 @@ public sealed partial class MainViewModel
     {
         if (!HasBookmark) return false;
         var node = _byId[_project.Bookmark!.NodeId];
+        RevealTaskScope(node.Id);
         if (_focusedBlockId is not null) ToggleFocus();
         _collapsed.Clear();
         _focusId = null;

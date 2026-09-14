@@ -41,11 +41,13 @@ public static class GraphAnalysis
     /// <summary>そのステップにいま着手できるか（先行がすべて片付いているか）。</summary>
     public static Readiness ReadinessOf(this TodoGraph graph, TodoNode node) => node.Status switch
     {
+        _ when graph.BranchStateOf(node.Id) == BranchState.Skipped => Readiness.Cancelled,
+        _ when graph.BranchStateOf(node.Id) == BranchState.Pending => Readiness.Blocked,
         NodeStatus.Done => Readiness.Done,
         NodeStatus.Cancelled => Readiness.Cancelled,
-        _ when node.IsManuallyBlocked => Readiness.Blocked,
+        _ when node.IsManuallyBlocked || !TaskHierarchy.AncestorsReady(graph, node.Id) => Readiness.Blocked,
         NodeStatus.InProgress => Readiness.InProgress,
-        _ => graph.ParentsOf(node.Id).All(p => p.IsSettled) ? Readiness.Ready : Readiness.Blocked,
+        _ => graph.DependenciesSettled(node.Id) ? Readiness.Ready : Readiness.Blocked,
     };
 
     /// <summary>いま着手できる（＝次にやるべき）ステップ。</summary>
@@ -60,7 +62,7 @@ public static class GraphAnalysis
     public static IReadOnlySet<Guid> Descendants(this TodoGraph graph, Guid id) =>
         Traverse(id, current => graph.OutgoingOf(current).Select(e => e.ToId));
 
-    public static ProgressSummary Progress(this TodoGraph graph)
+    public static ProgressSummary Progress(this TodoGraph graph, Guid? parentTaskId = null)
     {
         if (graph.NodeCount == 0)
         {
@@ -70,9 +72,9 @@ public static class GraphAnalysis
         int done = 0, inProgress = 0, ready = 0, blocked = 0, cancelled = 0, overdue = 0;
         int estimatedTotal = 0, estimatedDone = 0;
 
-        foreach (var node in graph.Nodes)
+        foreach (var node in graph.Nodes.Where(n => n.ParentTaskId == parentTaskId))
         {
-            if (node.IsOverdue)
+            if (node.IsOverdue && graph.BranchStateOf(node.Id) == BranchState.Active)
             {
                 overdue++;
             }
@@ -96,7 +98,7 @@ public static class GraphAnalysis
                     break;
             }
 
-            if (node.Status == NodeStatus.Cancelled)
+            if (node.Status == NodeStatus.Cancelled || graph.BranchStateOf(node.Id) == BranchState.Skipped)
             {
                 continue;
             }
@@ -109,7 +111,7 @@ public static class GraphAnalysis
             }
         }
 
-        var total = graph.NodeCount - cancelled;
+        var total = graph.Nodes.Count(n => n.ParentTaskId == parentTaskId) - cancelled;
         return new ProgressSummary(total, done, inProgress, ready, blocked, cancelled, overdue, estimatedTotal, estimatedDone);
     }
 
@@ -129,12 +131,14 @@ public static class GraphAnalysis
 
         foreach (var node in order)
         {
+            if (graph.BranchStateOf(node.Id) == BranchState.Skipped) continue;
             var weight = node.EstimateMinutes ?? DefaultEstimateMinutes;
             var bestParent = (Guid?)null;
             var bestParentCost = 0;
 
             foreach (var edge in graph.IncomingOf(node.Id))
             {
+                if (ChoiceService.EdgeState(graph, edge) == BranchState.Skipped) continue;
                 if (best.TryGetValue(edge.FromId, out var cost) && cost > bestParentCost)
                 {
                     bestParentCost = cost;
@@ -181,13 +185,13 @@ public static class GraphAnalysis
 
         foreach (var child in graph.ChildrenOf(id))
         {
-            if (child.IsSettled || child.IsManuallyBlocked)
+            if (child.IsSettled || child.IsManuallyBlocked || graph.BranchStateOf(child.Id) != BranchState.Active)
             {
                 continue;
             }
 
             // 自分以外の先行がすべて片付いているなら、自分が終われば動き出す。
-            if (graph.ParentsOf(child.Id).All(p => p.Id == id || p.IsSettled))
+            if (graph.DependenciesSettled(child.Id, id))
             {
                 unlocked.Add(child);
             }

@@ -18,9 +18,11 @@ public sealed class BlockHierarchy
         _blocks = project.Blocks.Where(b => b is not null).GroupBy(b => b.Id)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // 親が一覧の後ろにあっても子を登録できるよう、先に全ブロックの入れ物を作る。
+        foreach (var id in _blocks.Keys) _children[id] = [];
+
         foreach (var block in _blocks.Values)
         {
-            _children.TryAdd(block.Id, []);
             if (block.ParentBlockId is { } parent && _blocks.ContainsKey(parent))
                 _children[parent].Add(block);
             foreach (var nodeId in block.NodeIds)

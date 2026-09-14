@@ -27,6 +27,7 @@ public sealed partial class MainViewModel
     public ICommand FocusCompletedTaskCommand => _focusCompletedTaskCommand ??= new RelayCommand(value =>
     {
         if (value is not NodeViewModel item || !_byId.TryGetValue(item.Id, out var node)) return;
+        RevealTaskScope(node.Id);
         if (_focusedBlockId is not null) ToggleFocus();
         _collapsed.Clear();
         _focusId = null;

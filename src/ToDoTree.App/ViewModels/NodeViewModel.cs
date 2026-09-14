@@ -32,8 +32,24 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
     public TodoNode Model { get; } = model;
 
     public Guid Id => Model.Id;
+    public bool IsProjectEntrance => Model.ProjectLink is not null;
+    public bool HasInternalSteps => TaskHierarchy.Children(owner.Graph.Project, Id).Any();
+    public bool IsStatusEditable => !HasInternalSteps;
+    public string InternalProgress
+    {
+        get
+        {
+            if (!HasInternalSteps) return string.Empty;
+            var progress = owner.Graph.Progress(Id);
+            return $"内部 {progress.Done}／{progress.Total} 件完了";
+        }
+    }
 
     public bool HasBookmark => owner.Graph.Project.Bookmark?.NodeId == Id;
+    public bool IsSkippedBranch => owner.Graph.BranchStateOf(Id) == BranchState.Skipped;
+    public bool IsPendingBranch => owner.Graph.BranchStateOf(Id) == BranchState.Pending;
+    public string ChoiceSummary => IsSkippedBranch ? "見送った道" : IsPendingBranch ? "道の選択待ち"
+        : Model.IsChoice ? Model.SelectedChoiceEdgeId is null ? "分岐：未選択" : "分岐：選択済み" : string.Empty;
 
     // ---- ユーザーが編集する値 ----
 
@@ -180,6 +196,9 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
                 return;
             }
 
+            if (!owner.CanChangeTaskStatus(Id)) { OnPropertyChanged(); return; }
+            if (value is NodeStatus.Done or NodeStatus.InProgress && !owner.CanProgressBranch(Id))
+            { OnPropertyChanged(); return; }
             // 回数つきの項目は、状態だけを書き換えられない。
             // ここを素通りさせると「3 回中 1 回なのに完了」が作れてしまう。
             if (Model.Repeat is not null)
@@ -338,7 +357,8 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
 
     public Readiness Readiness => owner.Graph.ReadinessOf(Model);
 
-    public string StatusLabel => IsManuallyBlocked ? "ブロック中" : Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && owner.Graph.ParentsOf(Id).Any(n => !n.IsSettled) ? "・先行に未完了あり" : "");
+    public string StatusLabel => IsSkippedBranch ? "見送り" : IsPendingBranch ? "道の選択待ち"
+        : IsManuallyBlocked ? "ブロック中" : Labels.Of(Readiness) + (Model.Status == NodeStatus.InProgress && !owner.Graph.DependenciesSettled(Id) ? "・先行に未完了あり" : "");
 
     public string CompletedTimeText => Model.CompletedAt is { } completedAt
         ? $"{completedAt.LocalDateTime:HH:mm} 完了" : string.Empty;
@@ -374,7 +394,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         Model.Repeat is { } repeat ? $"{repeat.CompletedCount}/{repeat.TargetCount}" : string.Empty;
 
     /// <summary>いま「1回達成」を押せる（取り消し中と上限では押せない）。</summary>
-    public bool CanAdvanceRepeat => RepeatService.CanAdvance(Model);
+    public bool CanAdvanceRepeat => !IsSkippedBranch && !IsPendingBranch && RepeatService.CanAdvance(Model);
 
     /// <summary>目標に届いている。ボタンをチェック表示へ変える。</summary>
     public bool IsRepeatFull => Model.Repeat is { IsFull: true };
@@ -416,7 +436,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         ? NodePalette.DoneTextBrush
         : NodePalette.RepeatLoop;
 
-    public string KindLabel => Labels.Of(Kind);
+    public string KindLabel => IsProjectEntrance ? "枝の入口 ↗" : Labels.Of(Kind);
 
     public Brush Fill => NodePalette.FillOf(Readiness);
 
@@ -467,6 +487,11 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         get
         {
             var lines = new List<string> { DisplayTitle };
+            if (HasInternalSteps) lines.Add(InternalProgress + "\nダブルクリックで内部を開く（状態は自動集計）");
+            if (Model.ProjectLink is { } link) lines.Add($"枝の入口 → {link.ProjectName}\nダブルクリックで移動先を開く\n{link.FilePath}");
+            if (ChoiceSummary.Length > 0) lines.Add(ChoiceSummary);
+            foreach (var edge in owner.Graph.IncomingOf(Id).Where(e => !string.IsNullOrWhiteSpace(e.DecisionReason)))
+                lines.Add($"判断理由：{edge.DecisionReason}");
 
             // 変数を使っているカードでは、置き換わる前の原文も添える。
             // 表示だけを見て「なぜこの名前なのか」を追えないと、値を直す先が分からない。
@@ -495,12 +520,12 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
 
     public Brush StatusBrush => IsManuallyBlocked ? NodePalette.AtRiskBrush : NodePalette.StrokeOf(Readiness);
 
-    public double CardOpacity => _isDimmed ? 0.35 : Readiness is Readiness.Done or Readiness.Cancelled ? 0.75 : 1d;
+    public double CardOpacity => _isDimmed || IsSkippedBranch ? 0.35 : Readiness is Readiness.Done or Readiness.Cancelled ? 0.75 : 1d;
 
     public TextDecorationCollection? TitleDecorations =>
         Readiness is Readiness.Done or Readiness.Cancelled ? TextDecorations.Strikethrough : null;
 
-    public bool IsOverdue => Model.IsOverdue;
+    public bool IsOverdue => !IsSkippedBranch && Model.IsOverdue;
 
     // ---- ミニマル表示（丸ひとつ）のための値 ----
 
@@ -540,6 +565,9 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         get
         {
             var parts = new List<string>();
+            if (IsProjectEntrance) parts.Add("↗ ダブルクリックで移動先へ");
+            if (HasInternalSteps) parts.Add(InternalProgress);
+            if (ChoiceSummary.Length > 0) parts.Add(ChoiceSummary);
             if (Model.Checklist.Count > 0) parts.Add(ChecklistSummary);
             if (Model.Due is { } due)
             {
@@ -571,7 +599,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         _ => 4,
     };
 
-    public string GroupLabel => Readiness switch
+    public string GroupLabel => IsSkippedBranch ? "見送り" : IsPendingBranch ? "道の選択待ち" : Readiness switch
     {
         Readiness.InProgress => "進行中",
         Readiness.Ready => "着手できる",
@@ -690,6 +718,7 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
 
     /// <summary>状態やグラフが変わったあと、表示用の値をまとめて更新する。</summary>
     public void RefreshDerived() => OnPropertyChanged(
+        nameof(IsSkippedBranch), nameof(IsPendingBranch), nameof(ChoiceSummary),
         nameof(IsManuallyBlocked), nameof(CanBlock), nameof(BlockReason), nameof(BlockToggleLabel),
         nameof(ChecklistSummary), nameof(BlockingCauses), nameof(BlockingSummary),
         nameof(HasBookmark),
@@ -737,6 +766,9 @@ public sealed partial class NodeViewModel(TodoNode model, MainViewModel owner) :
         nameof(HasAlert),
         nameof(AlertBrush),
         nameof(CardTooltip),
+        nameof(HasInternalSteps),
+        nameof(IsStatusEditable),
+        nameof(InternalProgress),
         nameof(MetaText),
         nameof(HasMeta),
         nameof(GroupLabel),

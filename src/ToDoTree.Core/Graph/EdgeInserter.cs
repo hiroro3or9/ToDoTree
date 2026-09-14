@@ -33,21 +33,34 @@ public static class EdgeInserter
         }
 
         var label = edge.Label;
+        var selectedChoice = from.SelectedChoiceEdgeId == edge.Id;
         graph.Disconnect(fromId, toId);
 
+        node.ParentTaskId = from.ParentTaskId;
         graph.AddNode(node);
         node.X = (from.X + to.X) / 2;
         node.Y = (from.Y + to.Y) / 2;
 
         // 新しいステップはどこにも繋がっていないので、ここで循環になることはない。
         // それでも繋げなかったときは、元の線に戻して何もなかったことにする。
-        if (graph.Connect(fromId, node.Id) is null || graph.Connect(node.Id, toId, label) is null)
+        var head = graph.Connect(fromId, node.Id);
+        if (head is null || graph.Connect(node.Id, toId, label) is null)
         {
             graph.RemoveNode(node.Id);
-            graph.Connect(fromId, toId, label);
+            var restored = graph.Connect(fromId, toId, label);
+            if (restored is not null)
+            {
+                restored.Id = edge.Id; restored.DecisionReason = edge.DecisionReason;
+                if (selectedChoice) from.SelectedChoiceEdgeId = edge.Id;
+                graph.Rebuild();
+            }
             return null;
         }
 
+        head.Id = edge.Id;
+        head.DecisionReason = edge.DecisionReason;
+        if (selectedChoice) from.SelectedChoiceEdgeId = head.Id;
+        graph.Rebuild();
         return node;
     }
 }

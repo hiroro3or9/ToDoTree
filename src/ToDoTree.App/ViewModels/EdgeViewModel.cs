@@ -60,6 +60,10 @@ public sealed class EdgeViewModel(TodoEdge model, NodeViewModel from, NodeViewMo
     }
 
     public TodoEdge Model { get; } = model;
+    public bool IsSkippedBranch => owner is not null && owner.Graph.Edges.Where(e => e.Id == Model.Id)
+        .All(e => ChoiceService.EdgeState(owner.Graph, e) == BranchState.Skipped);
+    public bool IsChosenBranch => owner is not null && owner.Graph.Find(Model.FromId) is { IsChoice: true } n
+        && n.SelectedChoiceEdgeId == Model.Id && owner.Graph.BranchStateOf(n.Id) == BranchState.Active;
 
     public NodeViewModel From => owner?.EndpointNode(Model.FromId) ?? from;
 

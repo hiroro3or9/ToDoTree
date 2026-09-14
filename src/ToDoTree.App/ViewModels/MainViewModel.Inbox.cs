@@ -78,6 +78,7 @@ public sealed partial class MainViewModel
     public ICommand FocusBlockingCauseCommand => _focusBlockingCauseCommand ??= new RelayCommand(value =>
     {
         if (value is not NodeViewModel node || !_byId.ContainsKey(node.Id)) return;
+        RevealTaskScope(node.Id);
         if (_focusedBlockId is not null) ToggleFocus();
         _collapsed.Clear();
         _focusId = null;

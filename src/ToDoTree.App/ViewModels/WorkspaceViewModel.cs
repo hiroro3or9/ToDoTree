@@ -13,7 +13,7 @@ using ToDoTree.Core.Storage;
 namespace ToDoTree.App.ViewModels;
 
 /// <summary>開いているプロジェクトタブと、現在選択中のタブを管理する。</summary>
-public sealed class WorkspaceViewModel : ObservableObject
+public sealed partial class WorkspaceViewModel : ObservableObject
 {
     private static readonly string AppDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -229,6 +229,8 @@ public sealed class WorkspaceViewModel : ObservableObject
                 StringComparison.OrdinalIgnoreCase));
         document.DocumentStateChanged += OnDocumentStateChanged;
         document.ProcedureCreated += OpenCreatedProcedure;
+        document.BranchMoved += OpenMovedBranch;
+        document.ProjectLinkRequested += OpenLinkedProject;
         if (document.IsNormalTodo) _settings.RememberProject(filePath);
         Documents.Add(document);
         return document;
@@ -242,6 +244,8 @@ public sealed class WorkspaceViewModel : ObservableObject
         {
             document.DocumentStateChanged -= OnDocumentStateChanged;
             document.ProcedureCreated -= OpenCreatedProcedure;
+            document.BranchMoved -= OpenMovedBranch;
+            document.ProjectLinkRequested -= OpenLinkedProject;
             Documents.Remove(document);
         }
         PersistSession();
@@ -307,6 +311,8 @@ public sealed class WorkspaceViewModel : ObservableObject
         document.DeleteRecoveryFile();
         document.DocumentStateChanged -= OnDocumentStateChanged;
         document.ProcedureCreated -= OpenCreatedProcedure;
+        document.BranchMoved -= OpenMovedBranch;
+        document.ProjectLinkRequested -= OpenLinkedProject;
         Documents.Remove(document);
 
         if (Documents.Count == 0)

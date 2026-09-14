@@ -26,14 +26,19 @@ public sealed partial class MainViewModel
     public void InsertTemplate(TodoProject template, double x, double y)
     {
         if (IsNaming || IsConnecting) return;
+        if (IsProcedure && template.Nodes.Any(n => n.IsChoice || n.ParentTaskId is not null))
+        {
+            StatusMessage = "選択式の分岐を含む部品は通常プロジェクトに配置してください。";
+            return;
+        }
         var instance = BranchTemplate.Instantiate(template, x, y);
         var right = instance.Nodes.Max(n => n.X) + NodeViewModel.CardWidth;
         var bottom = instance.Nodes.Max(n => n.Y) + NodeViewModel.CardHeight;
         // まとまりを壊さず、既存カードと重なる場合はその下へ逃がす。
-        if (Nodes.Any(n => n.X < right + 24 && n.X + NodeViewModel.CardWidth + 24 > x
+        if (Nodes.Where(IsInTaskScope).Any(n => n.X < right + 24 && n.X + NodeViewModel.CardWidth + 24 > x
             && n.Y < bottom + 24 && n.Y + NodeViewModel.CardHeight + 24 > y))
         {
-            instance = BranchTemplate.Instantiate(template, x, Nodes.Max(n => n.Y) + NodeViewModel.CardHeight + 80);
+            instance = BranchTemplate.Instantiate(template, x, Nodes.Where(IsInTaskScope).Max(n => n.Y) + NodeViewModel.CardHeight + 80);
         }
         // 足りない定義だけを補い、同名の定義は挿入先を優先する。既存の値を黙って
         // 上書きすると、もとから使っていたステップの表示まで変わってしまう。
@@ -42,6 +47,7 @@ public sealed partial class MainViewModel
         PushUndo();
         _project.Variables.AddRange(added);
         if (added.Count > 0) RebuildVariableResolver();
+        foreach (var node in instance.Nodes.Where(n => n.ParentTaskId is null)) node.ParentTaskId = _currentTaskId;
         _project.Nodes.AddRange(instance.Nodes);
         _project.Edges.AddRange(instance.Edges);
         _project.Blocks.AddRange(instance.Blocks);

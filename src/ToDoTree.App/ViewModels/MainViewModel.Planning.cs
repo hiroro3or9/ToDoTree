@@ -59,7 +59,7 @@ public sealed partial class MainViewModel
     private void RefreshPlanning()
     {
         var criticalOrder = ShowCriticalPath
-            ? Graph.CriticalPath().Select(n => n.Id).ToList()
+            ? ScopeGraph().CriticalPath().Select(n => n.Id).ToList()
             : [];
 
         var criticalNodes = criticalOrder.ToHashSet();
@@ -74,7 +74,7 @@ public sealed partial class MainViewModel
             }
         }
 
-        var schedule = ScheduleAnalysis.Compute(Graph);
+        var schedule = ScheduleAnalysis.Compute(ScopeGraph());
 
         foreach (var node in Nodes)
         {
@@ -89,7 +89,7 @@ public sealed partial class MainViewModel
 
         NextActions.Clear();
         var rank = 1;
-        foreach (var action in NextActionPlanner.Suggest(Graph, count: 3))
+        foreach (var action in NextActionPlanner.Suggest(Graph, count: Graph.NodeCount).Where(a => a.Node.ParentTaskId == _currentTaskId).Take(3))
         {
             if (_byId.TryGetValue(action.Node.Id, out var vm))
             {
@@ -148,7 +148,7 @@ public sealed partial class MainViewModel
         // これから中に入るステップを、その囲みの外へ弾かないようにする。
         // 所属を先に付けてしまうと今度は固定対象になって並ばないので、整列 → 所属の順にする。
         var adopting = anchorId is { } anchor ? BlockOf(anchor)?.Id : null;
-        LayeredLayoutEngine.Apply(_graph, BuildLayoutOptions(adopting));
+        LayeredLayoutEngine.Apply(ScopeGraph(), BuildLayoutOptions(adopting));
 
         foreach (var node in Nodes)
         {
@@ -172,11 +172,11 @@ public sealed partial class MainViewModel
     {
         if (SelectedNode is not { } current)
         {
-            SelectedNode = Nodes.FirstOrDefault();
+            SelectedNode = Nodes.FirstOrDefault(IsInTaskScope);
             return;
         }
 
-        if (Navigation.FindNeighbor(_graph, current.Id, direction) is not { } neighbor)
+        if (Navigation.FindNeighbor(ScopeGraph(), current.Id, direction) is not { } neighbor)
         {
             return;
         }

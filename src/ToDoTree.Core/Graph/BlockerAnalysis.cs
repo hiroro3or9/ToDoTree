@@ -10,6 +10,8 @@ public static class BlockerAnalysis
     public static IReadOnlyList<BlockingCause> Find(TodoGraph graph, Guid targetId)
     {
         if (graph.Find(targetId) is not { IsSettled: false } target) return [];
+        if (graph.BranchStateOf(targetId) == BranchState.Skipped) return [new(target, "分岐で見送った道です")];
+        if (graph.BranchStateOf(targetId) == BranchState.Pending) return [new(target, "分岐元で進める道を選んでください")];
         var causes = new List<BlockingCause>();
         var seen = new HashSet<Guid>();
         var pending = new Stack<TodoNode>();
@@ -20,7 +22,8 @@ public static class BlockerAnalysis
             if (node.IsManuallyBlocked)
                 causes.Add(new(node, string.IsNullOrWhiteSpace(node.BlockReason)
                     ? "手動でブロック中（理由未入力）" : $"ブロック中：{node.BlockReason}"));
-            var parents = graph.ParentsOf(node.Id).Where(p => !p.IsSettled).ToList();
+            var parents = graph.IncomingOf(node.Id).Where(e => ChoiceService.EdgeState(graph, e) != BranchState.Skipped)
+                .Select(e => graph.Find(e.FromId)!).Where(p => !p.IsSettled).DistinctBy(p => p.Id).ToList();
             if (node.Id != targetId && !node.IsManuallyBlocked && parents.Count == 0)
                 causes.Add(new(node, node.Status == NodeStatus.InProgress ? "前提の作業が進行中" : "前提の作業が未着手"));
             foreach (var parent in parents) pending.Push(parent);

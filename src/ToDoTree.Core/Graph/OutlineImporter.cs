@@ -26,6 +26,7 @@ public static class OutlineImporter
             var node = new TodoNode
             {
                 Title = item.Title,
+                ParentTaskId = anchorId is { } anchorNode ? graph.Find(anchorNode)?.ParentTaskId : graph.NewNodeParentId,
                 Tags = [.. item.Tags],
                 Due = item.Due,
                 EstimateMinutes = item.EstimateMinutes,

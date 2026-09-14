@@ -330,7 +330,14 @@
                                 <MenuItem Header="独立したステップを追加" Command="{Binding AddRootCommand}" />
                                 <MenuItem Header="続きを追加" Command="{Binding AddChildCommand}" InputGestureText="Enter" />
                                 <MenuItem Header="並行して追加" Command="{Binding AddSiblingCommand}" InputGestureText="Shift+Enter" />
+                                <MenuItem Header="選択肢の分岐を追加" Command="{Binding AddChoiceBranchCommand}" />
+                                <MenuItem Header="進める道を選ぶ…" Command="{Binding ConfigureChoiceCommand}" />
+                                <Separator />
+                                <MenuItem Header="完了したゴールを標本帳に残す…" Command="{Binding CaptureSpecimenCommand}" />
+                                <MenuItem Header="完了した枝の標本帳…" Command="{Binding OpenSpecimensCommand}" />
                                 <MenuItem Header="まとめて入力" Command="{Binding ImportOutlineCommand}" InputGestureText="Ctrl+I" />
+                                <MenuItem Header="枝の引っ越し…" Command="{Binding MoveBranchCommand}" />
+                                <MenuItem Header="移動先を開く" Command="{Binding OpenProjectLinkCommand}" />
                                 <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
                                 <MenuItem Header="選択範囲を作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
                                 <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
@@ -417,7 +424,7 @@
 
                         <Border DockPanel.Dock="Top" Margin="0,2,4,14" Padding="14" CornerRadius="12" Background="{DynamicResource Brush.AccentSoft}" BorderBrush="{DynamicResource Brush.AccentBorder}" BorderThickness="1">
                             <StackPanel>
-                                <TextBlock Text="プロジェクトの進捗" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}" />
+                                <TextBlock Text="{Binding ScopeProgressTitle}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.Accent}" />
                                 <TextBlock Text="{Binding ProgressText}" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,10" TextWrapping="Wrap" />
                                 <ProgressBar Height="7" Minimum="0" Maximum="1" Value="{Binding ProgressRatio, Mode=OneWay}" />
                             </StackPanel>
@@ -548,7 +555,7 @@
                                  SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
                                  MouseDoubleClick="OnSidebarDoubleClick" PreviewKeyDown="OnSidebarKeyDown"
                                  Padding="0,0,4,0"
-                                 ToolTip="Enter またはダブルクリックでその位置へ移動します">
+                                 ToolTip="Enter でカードの位置へ、ダブルクリックで作業の内部へ移動します（枝の入口は移動先を開きます）">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
@@ -595,11 +602,36 @@
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                 <StackPanel>
-                                    <TextBlock Text="ゴールへの道のり" FontSize="16" FontWeight="SemiBold" />
-                                    <TextBlock Text="ステップをつないで、次の一歩を明確に。" Margin="0,4,8,0" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding TaskScopeTitle}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding TaskScopeHint}" Margin="0,4,8,0" FontSize="11" Foreground="{DynamicResource Brush.TextSubtle}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                                 <Button Grid.Column="1" Style="{StaticResource Btn.Outline}" Command="{Binding ZoomFitCommand}" Content="全体表示" VerticalAlignment="Center" ToolTip="全体表示 (Ctrl+0)" />
                             </Grid>
+                        </Border>
+                        <Border DockPanel.Dock="Top" Padding="10,6" Background="{DynamicResource Brush.Surface}"
+                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1">
+                            <DockPanel LastChildFill="True">
+                                <Button DockPanel.Dock="Left" Content="‹ 戻る" Command="{Binding LeaveTaskCommand}"
+                                        Style="{StaticResource Btn.Ghost}" Margin="0,0,8,0" />
+                                <Button DockPanel.Dock="Right" Content="内部ステップを追加" Command="{Binding AddRootCommand}"
+                                        Style="{StaticResource Btn.Outline}" Margin="8,0,0,0"
+                                        Visibility="{Binding IsInsideTask, Converter={StaticResource BoolToVisibility}}" />
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                    <ItemsControl ItemsSource="{Binding TaskBreadcrumbs}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Content="{Binding Title}" Command="{Binding OpenCommand}" Style="{StaticResource Btn.Ghost}"
+                                                            MaxWidth="200" ToolTip="{Binding Title}" />
+                                                    <TextBlock Text="{Binding Separator}" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Brush.TextSubtle}" Margin="4,0" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </DockPanel>
                         </Border>
                         <controls:GraphView x:Name="Graph" />
                     </DockPanel>
@@ -660,6 +692,13 @@
                                         Visibility="{Binding DataContext.ActiveDocument.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
 
                                 <TextBlock Text="タイトル" Style="{StaticResource Text.Label}" Margin="2,2,0,5" />
+                                <TextBlock Text="{Binding ChoiceSummary}" Foreground="{DynamicResource Brush.Accent}" TextWrapping="Wrap"/>
+                                <WrapPanel Margin="0,4,0,8">
+                                    <Button Content="進める道を選ぶ…" Style="{StaticResource Btn.Link}"
+                                            Command="{Binding DataContext.ActiveDocument.ConfigureChoiceCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                    <Button Content="標本帳に残す…" Style="{StaticResource Btn.Link}"
+                                            Command="{Binding DataContext.ActiveDocument.CaptureSpecimenCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                </WrapPanel>
                                 <TextBox x:Name="TitleBox" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
                                          FontSize="13.5" FontWeight="SemiBold" Padding="10,8"
                                          KeyDown="OnTitleBoxKeyDown"
@@ -722,7 +761,7 @@
                                             代わりに下の「繰り返し」の専用操作で動かす。
                                         -->
                                         <ComboBox ItemsSource="{Binding DataContext.ActiveDocument.StatusValues, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  SelectedItem="{Binding Status}"
+                                                  SelectedItem="{Binding Status}" IsEnabled="{Binding IsStatusEditable}"
                                                   Visibility="{Binding IsRepeating, Converter={StaticResource BoolToVisibility}, ConverterParameter=invert}">
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate>

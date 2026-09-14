@@ -8,13 +8,15 @@ public static class BranchTemplate
 {
     public static TodoProject Capture(TodoProject source, IEnumerable<Guid> selection, string name)
     {
-        var ids = selection.ToHashSet();
+        var ids = TaskHierarchy.IncludeDescendants(source, selection);
         var hierarchy = new BlockHierarchy(source);
         var includedBlockIds = source.Blocks.Where(b => b.NodeIds.Any(ids.Contains)).Select(b => b.Id).ToHashSet();
         foreach (var blockId in includedBlockIds.ToArray())
             includedBlockIds.UnionWith(hierarchy.AncestorsOf(blockId).Select(b => b.Id));
         var endpoints = ids.Concat(includedBlockIds).ToHashSet();
         var captured = source.Nodes.Where(n => ids.Contains(n.Id)).Select(n => n.Clone()).ToList();
+        foreach (var node in captured)
+            if (node.ParentTaskId is { } parent && !ids.Contains(parent)) node.ParentTaskId = null;
         var fragment = new TodoProject
         {
             Name = name.Trim(),
@@ -44,6 +46,7 @@ public static class BranchTemplate
         Validate(template);
         if (!double.IsFinite(x) || !double.IsFinite(y)) throw new ArgumentException("配置位置が不正です。");
         var copy = template.DeepClone();
+        copy.Specimens.Clear();
         copy.Id = Guid.NewGuid();
         var map = copy.Nodes.Select(n => n.Id).Concat(copy.Blocks.Select(b => b.Id)).ToDictionary(id => id, _ => Guid.NewGuid());
         var dx = x - copy.Nodes.Min(n => n.X);
@@ -52,8 +55,10 @@ public static class BranchTemplate
         foreach (var node in copy.Nodes)
         {
             node.Id = map[node.Id];
+            node.ParentTaskId = node.ParentTaskId is { } parent ? map[parent] : null;
             node.X += dx; node.Y += dy;
             node.Status = NodeStatus.NotStarted;
+            node.SelectedChoiceEdgeId = null;
             node.IsManuallyBlocked = false;
             node.BlockReason = string.Empty;
             foreach (var item in node.Checklist)
@@ -72,6 +77,7 @@ public static class BranchTemplate
         foreach (var edge in copy.Edges)
         {
             edge.Id = Guid.NewGuid();
+            edge.DecisionReason = string.Empty;
             edge.FromId = map[edge.FromId]; edge.ToId = map[edge.ToId];
             edge.Waypoints = [.. edge.Waypoints.Select(p => new JunctionPoint(p.X + dx, p.Y + dy, p.IsSmooth))];
         }
@@ -108,6 +114,7 @@ public static class BranchTemplate
         if (TaskDetailsValidation.Validate(template, template.SchemaVersion) is { } detailsError) throw new InvalidDataException(detailsError);
         if (RepeatService.Validate(template) is { } repeatError) throw new InvalidDataException(repeatError);
         if (BlockService.Validate(template) is { } error) throw new InvalidDataException(error);
+        if (TaskHierarchy.Validate(template, template.SchemaVersion) is { } taskError) throw new InvalidDataException(taskError);
         if (BlockConnections.ValidatePorts(template) is { } portError) throw new InvalidDataException(portError);
         if (new TodoGraph(template.DeepClone()).HasCycle()) throw new InvalidDataException("部品の接続が循環しています。");
     }

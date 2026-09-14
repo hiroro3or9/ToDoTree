@@ -19,6 +19,7 @@ public sealed class TodoGraph
     }
 
     public TodoProject Project { get; }
+    public Guid? NewNodeParentId { get; set; }
 
     public IReadOnlyList<TodoNode> Nodes => Project.Nodes;
 
@@ -27,6 +28,22 @@ public sealed class TodoGraph
     public IReadOnlyList<TodoEdge> Edges => _effectiveEdges;
 
     public int NodeCount => Project.Nodes.Count;
+
+    public IReadOnlyDictionary<Guid, BranchState> BranchStates { get; private set; } = new Dictionary<Guid, BranchState>();
+    public BranchState BranchStateOf(Guid id)
+    {
+        var state = BranchStates.GetValueOrDefault(id, BranchState.Active);
+        foreach (var parent in TaskAncestors(id))
+        {
+            var inherited = BranchStates.GetValueOrDefault(parent.Id, BranchState.Active);
+            if (inherited == BranchState.Skipped) return BranchState.Skipped;
+            if (inherited == BranchState.Pending && state == BranchState.Active) state = BranchState.Pending;
+        }
+        return state;
+    }
+    public bool DependenciesSettled(Guid id, Guid? completing = null) => IncomingOf(id)
+        .All(e => ChoiceService.EdgeState(this, e) == BranchState.Skipped
+            || (ChoiceService.EdgeState(this, e) == BranchState.Active && (e.FromId == completing || Find(e.FromId)!.IsSettled)));
 
     /// <summary>プロジェクトを直接いじった後にインデックスを張り直す。</summary>
     public void Rebuild()
@@ -45,6 +62,8 @@ public sealed class TodoGraph
         // 壊れた辺（存在しないノードを指す辺）はここで落とす。
         var endpoints = _nodes.Keys.Concat(Project.Blocks.Select(b => b.Id)).ToHashSet();
         Project.Edges.RemoveAll(e => !endpoints.Contains(e.FromId) || !endpoints.Contains(e.ToId));
+        foreach (var node in Project.Nodes.Where(n => n.SelectedChoiceEdgeId is { } id && !Project.Edges.Any(e => e.Id == id && e.FromId == n.Id)))
+            node.SelectedChoiceEdgeId = null;
         _effectiveEdges.Clear();
         _effectiveEdges.AddRange(BlockConnections.Expand(Project));
 
@@ -53,11 +72,24 @@ public sealed class TodoGraph
             _outgoing[edge.FromId].Add(edge);
             _incoming[edge.ToId].Add(edge);
         }
+        BranchStates = ChoiceService.Evaluate(this);
+        TaskHierarchy.Synchronize(this);
     }
 
     public TodoNode? Find(Guid id) => _nodes.TryGetValue(id, out var node) ? node : null;
 
     public bool Contains(Guid id) => _nodes.ContainsKey(id);
+
+    public IEnumerable<TodoNode> TaskAncestors(Guid id)
+    {
+        if (Find(id)?.ParentTaskId is null) yield break;
+        var seen = new HashSet<Guid> { id };
+        while (Find(id)?.ParentTaskId is { } parent && seen.Add(parent) && Find(parent) is { } node)
+        {
+            yield return node;
+            id = parent;
+        }
+    }
 
     public IReadOnlyList<TodoEdge> OutgoingOf(Guid id) =>
         _outgoing.TryGetValue(id, out var list) ? list : Array.Empty<TodoEdge>();
@@ -87,6 +119,7 @@ public sealed class TodoGraph
             throw new InvalidOperationException($"ID {node.Id} のステップはすでに存在します。");
         }
 
+        node.ParentTaskId ??= NewNodeParentId;
         Project.Nodes.Add(node);
         _nodes[node.Id] = node;
         _outgoing[node.Id] = [];
@@ -102,10 +135,11 @@ public sealed class TodoGraph
             return false;
         }
 
-        Project.Edges.RemoveAll(e => e.FromId == id || e.ToId == id);
-        Project.Nodes.Remove(node);
-        if (Project.Bookmark?.NodeId == id) Project.Bookmark = null;
-        BlockService.Remove(Project, [id]);
+        var removing = TaskHierarchy.IncludeDescendants(Project, [id]);
+        Project.Edges.RemoveAll(e => removing.Contains(e.FromId) || removing.Contains(e.ToId));
+        Project.Nodes.RemoveAll(n => removing.Contains(n.Id));
+        if (Project.Bookmark is { } bookmark && removing.Contains(bookmark.NodeId)) Project.Bookmark = null;
+        BlockService.Remove(Project, removing.ToArray());
         Rebuild();
         return true;
     }
@@ -150,6 +184,10 @@ public sealed class TodoGraph
         {
             return ConnectionCheck.NodeNotFound;
         }
+
+        if (BlockConnections.Members(Project, fromId).Concat(BlockConnections.Members(Project, toId))
+            .Select(id => Find(id)!.ParentTaskId).Distinct().Count() > 1)
+            return ConnectionCheck.DifferentTaskScope;
 
         if (Project.Edges.Any(e => e.FromId == fromId && e.ToId == toId))
         {
@@ -226,6 +264,7 @@ public sealed class TodoGraph
     private bool RemoveEdgeCore(TodoEdge edge)
     {
         var removed = Project.Edges.RemoveAll(e => e.Id == edge.Id) > 0;
+        foreach (var node in Project.Nodes.Where(n => n.SelectedChoiceEdgeId == edge.Id)) node.SelectedChoiceEdgeId = null;
         if (removed) Rebuild();
         return removed;
     }

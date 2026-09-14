@@ -16,6 +16,7 @@ public enum ConnectionCheck
 
     /// <summary>繋ぐと循環する（DAG が壊れる）。</summary>
     WouldCreateCycle,
+    DifferentTaskScope,
 }
 
 public static class ConnectionCheckExtensions
@@ -29,6 +30,7 @@ public static class ConnectionCheckExtensions
         ConnectionCheck.NodeNotFound => "ステップが見つかりません。",
         ConnectionCheck.Duplicate => "すでに繋がっています。",
         ConnectionCheck.WouldCreateCycle => "循環してしまうため繋げません（ゴールに辿り着けなくなります）。",
+        ConnectionCheck.DifferentTaskScope => "異なる階層へは直接接続できません。外側の親カードを接続してください。",
         _ => "接続できません。",
     };
 }

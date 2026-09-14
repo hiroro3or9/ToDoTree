@@ -114,6 +114,7 @@ public sealed partial class MainViewModel
     {
         node ??= SelectedNode;
         if (node?.Model.Repeat is null) return;
+        if (!CanProgressBranch(node.Id)) return;
 
         // 完了予告はいまのグラフで計算する。加算したあとでは先行の状態が変わっている。
         var impact = RepeatService.IsFinalNext(node.Model)
@@ -147,6 +148,7 @@ public sealed partial class MainViewModel
     {
         node ??= SelectedNode;
         if (node?.Model.Repeat is null) return;
+        if (!CanProgressBranch(node.Id)) return;
         if (!RunRepeat(node, RepeatService.Begin, out _)) return;
         StatusMessage = "着手しました。回数は増えていません。";
     }
@@ -157,6 +159,7 @@ public sealed partial class MainViewModel
         if (node?.Model.Repeat is null) return;
 
         var resuming = node.Model.Status == NodeStatus.Cancelled;
+        if (resuming && !CanProgressBranch(node.Id)) return;
         var impact = resuming && node.Model.Repeat.IsFull
             ? CompletionImpact.Calculate(_graph, [node.Id]) : null;
 
@@ -215,6 +218,7 @@ public sealed partial class MainViewModel
     /// <summary>設定画面を開く。自分自身への接続からもここへ来る。</summary>
     public void RequestRepeatSettings(NodeViewModel? node)
     {
+        if ((node ?? SelectedNode) is { } task && !CanChangeTaskStatus(task.Id)) return;
         node ??= SelectedNode;
         if (node is null) return;
 
@@ -241,7 +245,9 @@ public sealed partial class MainViewModel
     /// <summary>設定画面の「適用」。目標と達成回数は同じ操作でまとめて反映する。</summary>
     public void ApplyRepeat(NodeViewModel node, int target, int completed)
     {
+        if (!CanChangeTaskStatus(node.Id)) return;
         ArgumentNullException.ThrowIfNull(node);
+        if (completed > (node.Model.Repeat?.CompletedCount ?? 0) && !CanProgressBranch(node.Id)) return;
 
         var willComplete = RepeatService.PreviewStatus(node.Model.Status, target, completed) == NodeStatus.Done
             && node.Model.Status != NodeStatus.Done;
@@ -269,6 +275,7 @@ public sealed partial class MainViewModel
     /// </summary>
     public void AdvanceSelection(IReadOnlyList<NodeViewModel> targets)
     {
+        if (targets.Any(n => !CanProgressBranch(n.Id))) return;
         ArgumentNullException.ThrowIfNull(targets);
 
         var plain = targets.Where(n => n.Model.Repeat is null && n.Model.Status != NodeStatus.Done).ToList();

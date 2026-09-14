@@ -8,6 +8,14 @@ public sealed class TodoNode
     public string Title { get; set; } = string.Empty;
 
     public string Notes { get; set; } = string.Empty;
+    public ProjectLink? ProjectLink { get; set; }
+
+    /// <summary>この作業を内包する親カード。null はプロジェクトの最上位。</summary>
+    public Guid? ParentTaskId { get; set; }
+
+    /// <summary>後続の線から、進める道を一つだけ選ぶ。</summary>
+    public bool IsChoice { get; set; }
+    public Guid? SelectedChoiceEdgeId { get; set; }
 
     public bool IsManuallyBlocked { get; set; }
     public string BlockReason { get; set; } = string.Empty;
@@ -73,6 +81,7 @@ public sealed class TodoNode
         // MemberwiseClone は参照をそのまま写す。回数を共有したままだと、
         // 履歴・部品・プロジェクト複製の片方で加算したぶんが元にも乗ってしまう。
         copy.Repeat = Repeat?.Clone();
+        copy.ProjectLink = ProjectLink?.Clone();
         return copy;
     }
 

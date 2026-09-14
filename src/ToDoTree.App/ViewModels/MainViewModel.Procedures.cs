@@ -25,6 +25,16 @@ public sealed partial class MainViewModel
             var ids = (SelectedBlock is { } block ? DescendantNodeIds(block.Id) : SelectedNodes.Select(n => n.Id)).ToHashSet();
             var name = SelectedBlock?.Title ?? SelectedNode?.DisplayTitle ?? "新しい作業手順";
             var fragment = BranchTemplate.Capture(_project, ids, name);
+            if (fragment.Nodes.Any(n => n.ParentTaskId is not null))
+            {
+                StatusMessage = "内部ステップを持つ作業は通常プロジェクトで編集してください。手順にする場合は内部の階層で選択してください。";
+                return;
+            }
+            if (fragment.Nodes.Any(n => n.IsChoice))
+            {
+                StatusMessage = "選択式の分岐は通常プロジェクトで使えます。作業手順にする場合は、分岐の設定を通常の並行分岐に戻してください。";
+                return;
+            }
             var endpoints = new HashSet<Guid>(ids);
             // Capture remaps IDs, so use the source hierarchy for boundary reporting.
             var hierarchy = new BlockHierarchy(_project);

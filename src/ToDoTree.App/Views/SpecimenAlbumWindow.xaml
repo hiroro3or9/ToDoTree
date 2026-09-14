@@ -1,0 +1,47 @@
+<Window x:Class="ToDoTree.App.Views.SpecimenAlbumWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ToDoTree.App.Controls"
+        Title="完了した枝の標本帳" Width="1100" Height="760" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource Brush.Window}" Foreground="{DynamicResource Brush.Text}">
+    <DockPanel Margin="24">
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="完了した枝の標本帳" FontSize="27" FontWeight="SemiBold"/>
+            <TextBlock x:Name="ProjectTitle" Margin="0,6,0,16" Foreground="{DynamicResource Brush.TextSubtle}"/>
+            <DockPanel Margin="0,0,0,16">
+                <ComboBox x:Name="CategoryFilter" Width="150" SelectedIndex="0" SelectionChanged="Filter_Changed" Margin="0,0,12,0">
+                    <ComboBoxItem Content="すべて"/><ComboBoxItem Content="作ったもの"/><ComboBoxItem Content="学んだこと"/><ComboBoxItem Content="達成したこと"/>
+                </ComboBox>
+                <TextBlock Text="検索" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox x:Name="Search" TextChanged="Filter_Changed"/>
+            </DockPanel>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="閉じる" Style="{StaticResource Btn.Outline}" IsCancel="True" MinWidth="100"/>
+        </StackPanel>
+        <Grid>
+            <TextBlock x:Name="EmptyText" Text="まだ標本がありません。完了したゴールを選び、編集メニューから「標本帳に残す」を選んでください。"
+                       TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="450"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="Cards">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="320" Margin="0,0,16,16" Padding="16" CornerRadius="12"
+                                    Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Category}" Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Title}" FontSize="19" FontWeight="SemiBold" Margin="0,8,0,4" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding CompletedAt, StringFormat={}{0:yyyy/MM/dd} 達成}" Foreground="{DynamicResource Brush.TextSubtle}"/>
+                                    <controls:SpecimenGraph Specimen="{Binding}" Height="160" Margin="0,8"/>
+                                    <TextBlock Text="{Binding Reflection}" TextWrapping="Wrap" MaxHeight="65" TextTrimming="CharacterEllipsis"/>
+                                    <Button Content="道のりを見る" Style="{StaticResource Btn.Outline}" Click="Details_Click" Margin="0,14,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>

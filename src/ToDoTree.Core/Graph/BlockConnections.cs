@@ -26,7 +26,7 @@ public static class BlockConnections
             foreach (var to in targets)
             {
                 if (from == edge.FromId && to == edge.ToId) yield return edge;
-                else yield return new TodoEdge { Id = edge.Id, FromId = from, ToId = to, Label = edge.Label };
+                else yield return new TodoEdge { Id = edge.Id, FromId = from, ToId = to, Label = edge.Label, DecisionReason = edge.DecisionReason };
             }
         }
     }
@@ -37,6 +37,7 @@ public static class BlockConnections
             return "ステップのIDが重複しています。";
         if (BlockService.Validate(project) is { } error) return error;
         if (ValidatePorts(project) is { } portError) return portError;
+        if (TaskHierarchy.Validate(project, TodoProject.CurrentSchemaVersion) is { } taskError) return taskError;
         var known = project.Nodes.Select(n => n.Id).Concat(project.Blocks.Select(b => b.Id)).ToHashSet();
         if (project.Edges.Any(e => e is null || !known.Contains(e.FromId) || !known.Contains(e.ToId)))
             return "存在しないステップまたはブロックへの接続があります。";

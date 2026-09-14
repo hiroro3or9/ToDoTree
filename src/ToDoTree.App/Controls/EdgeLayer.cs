@@ -240,21 +240,22 @@ public sealed partial class EdgeLayer : FrameworkElement
 
         var pen = edge.IsSelected ? _selectedPen
             : edge.IsOnCriticalPath ? _criticalPen
-            : edge.IsHighlighted ? _highlightPen
+            : edge.IsHighlighted || edge.IsChosenBranch ? _highlightPen
             : basePen;
 
         var arrow = edge.IsSelected ? _selectedArrow
             : edge.IsOnCriticalPath ? _criticalArrow
-            : edge.IsHighlighted ? _highlightArrow
+            : edge.IsHighlighted || edge.IsChosenBranch ? _highlightArrow
             : baseArrow;
 
-        if (edge.IsAggregated)
+        if (edge.IsAggregated || edge.IsSkippedBranch)
         {
             pen = pen.Clone();
             pen.DashStyle = DashStyles.Dash;
             pen.Freeze();
         }
         var tip = ToPoint(route[^1]);
+        drawingContext.PushOpacity(edge.IsSkippedBranch && !edge.IsSelected ? 0.3 : 1);
         drawingContext.DrawGeometry(null, pen, BuildRoute(route));
         DrawArrowHead(drawingContext, ToPoint(route[^2]), tip, arrow, _arrowSize, _arrowHalf);
         for (var i = 0; !edge.IsAggregated && i < edge.Model.Waypoints.Count; i++)
@@ -264,6 +265,7 @@ public sealed partial class EdgeLayer : FrameworkElement
                 edge.IsSelected ? _selectedPen : basePen, ToPoint(edge.Model.Waypoints[i].ToVector()),
                 selected ? 6 : 5, selected ? 6 : 5);
         }
+        drawingContext.Pop();
     }
 
     /// <summary>状態色が付いていないときの見え方。個別色があればそれを使う。</summary>
