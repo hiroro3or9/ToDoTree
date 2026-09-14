@@ -185,7 +185,7 @@ public sealed partial class MainViewModel
         model.Y = y;
     }
 
-    private bool Overlaps(double x, double y) => Nodes.Any(n =>
+    private bool Overlaps(double x, double y) => Nodes.Where(IsInTaskScope).Any(n =>
         Math.Abs(n.X - x) < NodeViewModel.CardWidth * 0.75 &&
         Math.Abs(n.Y - y) < NodeViewModel.CardHeight * 0.95);
 
@@ -206,7 +206,7 @@ public sealed partial class MainViewModel
 
         PushUndo();
 
-        var removing = targets.Select(t => t.Id).ToHashSet();
+        var removing = TaskHierarchy.IncludeDescendants(_project, targets.Select(t => t.Id));
         var fallback = targets
             .SelectMany(t => t.Parents.Concat(t.Children))
             .FirstOrDefault(n => !removing.Contains(n.Id));
@@ -216,6 +216,12 @@ public sealed partial class MainViewModel
             _graph.RemoveNodeAndBridge(node.Id);
             Nodes.Remove(node);
             _byId.Remove(node.Id);
+        }
+
+        foreach (var removed in Nodes.Where(n => removing.Contains(n.Id)).ToArray())
+        {
+            Nodes.Remove(removed);
+            _byId.Remove(removed.Id);
         }
 
         // 所属も同じ履歴単位で落とす。最後の 1 件を消したときは囲みごと消える。
@@ -269,7 +275,7 @@ public sealed partial class MainViewModel
         var options = BuildLayoutOptions();
 
         // 全部が固定なら、動かすものが無い。空の履歴と未保存の印だけが増えるのを避ける。
-        var movable = Nodes.Count(n =>
+        var movable = Nodes.Count(n => IsInTaskScope(n) &&
             !options.IsFixed(n.Id) && !(options.RespectPinned && n.Model.IsPinned));
 
         if (movable == 0)
@@ -281,7 +287,7 @@ public sealed partial class MainViewModel
         }
 
         PushUndo();
-        LayeredLayoutEngine.Apply(_graph, options);
+        LayeredLayoutEngine.Apply(ScopeGraph(), options);
 
         foreach (var node in Nodes)
         {
@@ -467,6 +473,7 @@ public sealed partial class MainViewModel
     public void RefreshAll()
     {
         _graph.Rebuild();
+        RefreshTaskNavigation();
         RefreshBookmark();
         foreach (var node in Nodes)
         {
@@ -491,7 +498,7 @@ public sealed partial class MainViewModel
         RefreshSidebar();
         RefreshPlanning();
         RefreshCompletedTasks();
-        Progress = _graph.Progress();
+        Progress = _graph.Progress(_currentTaskId);
         NotifyVisualsChanged();
     }
 
@@ -536,7 +543,7 @@ public sealed partial class MainViewModel
     public void RefreshSidebar()
     {
         var desired = Nodes
-            .Where(n => Matches(n) && (!HideCompleted || !n.Model.IsSettled))
+            .Where(n => IsInTaskScope(n) && Matches(n) && (!HideCompleted || !n.Model.IsSettled))
             .OrderBy(n => n.GroupOrder)
             .ThenBy(n => n.DisplayTitle, StringComparer.CurrentCulture)
             .ToList();

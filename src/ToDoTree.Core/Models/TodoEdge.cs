@@ -9,6 +9,7 @@ public sealed class TodoEdge
     public Guid FromId { get; set; }
     public Guid ToId { get; set; }
     public string? Label { get; set; }
+    public string DecisionReason { get; set; } = string.Empty;
 
     /// <summary>
     /// 線の色。null は既定色。<see cref="ColorPresets"/> の id を入れる。

@@ -42,7 +42,7 @@ public static class ForecastService
         DateTimeOffset? first = null;
         DateTimeOffset? last = null;
 
-        foreach (var node in graph.Nodes)
+        foreach (var node in graph.Nodes.Where(n => graph.BranchStateOf(n.Id) != BranchState.Skipped))
         {
             if (node.Status == NodeStatus.Cancelled)
             {
@@ -101,7 +101,7 @@ public static class ForecastService
 
         foreach (var node in graph.Nodes)
         {
-            if (node.Kind != NodeKind.Goal || node.Due is not { } due || node.IsSettled)
+            if (node.Kind != NodeKind.Goal || node.Due is not { } due || node.IsSettled || graph.BranchStateOf(node.Id) == BranchState.Skipped)
             {
                 continue;
             }

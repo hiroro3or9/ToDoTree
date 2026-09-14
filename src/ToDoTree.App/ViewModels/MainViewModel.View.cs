@@ -151,6 +151,7 @@ public sealed partial class MainViewModel
         }
         _baseVisible = _focusedBlockId is { } focused
             ? BlockConnections.FocusNodes(_graph, focused) : result.Visible;
+        _baseVisible = _baseVisible.Where(id => _graph.Find(id)?.ParentTaskId == _currentTaskId).ToHashSet();
         _hiddenCount = 0;
         foreach (var node in Nodes)
         {
@@ -160,7 +161,7 @@ public sealed partial class MainViewModel
             node.IsCollapsed = _collapsed.Contains(node.Id);
             node.HiddenCount = result.HiddenBehind(node.Id);
 
-            if (!node.IsVisible)
+            if (!node.IsVisible && IsInTaskScope(node))
             {
                 _hiddenCount++;
             }

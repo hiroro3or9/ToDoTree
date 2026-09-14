@@ -449,7 +449,7 @@ public partial class GraphView : UserControl
 
             if (e.ClickCount >= 2)
             {
-                _viewModel.BeginEdit(node);
+                _viewModel.ActivateTask(node);
                 e.Handled = true;
                 return;
             }

@@ -22,6 +22,29 @@ dotnet run --project src/ToDoTree.App
 
 ## 自動テスト
 
+作業カードの内部ステップは `TaskHierarchyTests` と `TaskHierarchyChecks` で検証します。
+外側の着手条件の引き継ぎ、多段階の完了と再開、階層をまたぐ接続の拒否、現在階層の表示・整列、
+保存と旧形式の検出、親の削除とUndo、内部を含む部品化・枝の引っ越しを対象にします。
+WPFのマウス入力イベントをカードへ送るダブルクリックと、パンくず・戻るボタンの連携も確認します。
+全体・内部・深い階層の明暗テーマを `artifacts/task-hierarchy-{overview,inside,deep}-{light,dark}.png` に出力します。
+実際のマウス・IME・異なるDPIでの操作感の確認は別途必要です。
+
+
+
+枝の引っ越しはCoreの `BranchMoveTests` とWPFの `BranchMoveChecks` で検証します。
+接続・進捗・変数・しおりの保持、入れ子ブロックと接続点、現行形式の保存と検証、
+保存失敗時の元データとUndo/Redoの保持、既存ファイルの保護、未保存文書の復旧、
+入口からのタブ再利用と保存済みファイルの再読込を対象にします。
+入口カードの描画は `artifacts/branch-move-light.png` と `branch-move-dark.png` に出力します。
+実マウスのダブルクリック、保存ダイアログ、IME・複数DPIでの確認は別途行います。
+
+
+選択式の分岐と標本帳は `ChoiceAndSpecimenTests` とWPFスモークの `ChoiceAndSpecimenChecks` で検証します。
+未選択・見送り・合流・共通の前提・入れ子・ブロック接続、線への挿入、保存形式の移行、
+標本の独立性、変数の固定、重複登録、Undo/Redo、分類と検索、ダイアログの描画を対象にします。
+描画結果はWPFテストの `artifacts/choices-*.png`、`specimens-*.png`、`capture-specimen-*.png`、
+`choice-graph-*.png` に出力します。実マウス・IME・異なるDPIでの操作確認は別途必要です。
+
 テストはTUnit／Microsoft.Testing.Platform。
 
 ```powershell

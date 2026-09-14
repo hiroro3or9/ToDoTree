@@ -332,6 +332,8 @@ public sealed partial class MainViewModel
     public void SetStatusOfSelection(NodeStatus status)
     {
         var targets = SelectedNodes;
+        if (targets.Any(n => !CanChangeTaskStatus(n.Id))) return;
+        if (status is NodeStatus.Done or NodeStatus.InProgress && targets.Any(n => !CanProgressBranch(n.Id))) return;
         if (targets.Count == 0)
         {
             return;

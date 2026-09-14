@@ -91,6 +91,7 @@ public static class ProcedureValidation
         Check(graph!.Nodes.All(n => n is not null) && graph.Edges.All(e => e is not null) &&
             graph.Blocks.All(b => b is not null) && graph.Variables.All(v => v is not null), "グラフに空の要素があります。");
         Check(graph.Nodes.All(n => n.Tags is not null && n.Checklist.All(c => c is not null)), "項目のタグまたはチェックリストが不正です。");
+        Check(graph.Nodes.All(n => n.ParentTaskId is null), "内部ステップは通常プロジェクトで編集してください。");
         BranchTemplate.Validate(graph.ToProject("作業手順"));
         Check(graph.Nodes.All(n => n.Id != Guid.Empty && Enum.IsDefined(n.Status) && Enum.IsDefined(n.Kind) &&
             ((n.Status == NodeStatus.Done) == n.CompletedAt.HasValue)), "項目の状態・日時・IDが不正です。");

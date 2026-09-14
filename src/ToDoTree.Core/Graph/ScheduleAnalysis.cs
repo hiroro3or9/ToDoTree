@@ -42,11 +42,13 @@ public static class ScheduleAnalysis
         for (var i = order.Count - 1; i >= 0; i--)
         {
             var node = order[i];
+            if (graph.BranchStateOf(node.Id) == BranchState.Skipped) continue;
             var duration = DurationDays(node, options);
 
             DateTimeOffset? latestFinish = node.Due;
 
-            foreach (var child in graph.ChildrenOf(node.Id))
+            foreach (var child in graph.OutgoingOf(node.Id).Where(e => ChoiceService.EdgeState(graph, e) != BranchState.Skipped)
+                         .Select(e => graph.Find(e.ToId)!))
             {
                 if (!result.TryGetValue(child.Id, out var childInfo) || childInfo.LatestStart is not { } childStart)
                 {

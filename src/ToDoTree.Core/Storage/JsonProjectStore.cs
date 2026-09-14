@@ -42,6 +42,9 @@ public sealed class JsonProjectStore : IProjectStore
         // 移行で書き換える前に控える。回数は形式6からなので、
         // 「元のファイルが何形式を名乗っていたか」で判定する必要がある。
         var declaredVersion = project.SchemaVersion;
+        if (TaskHierarchy.Validate(project, declaredVersion) is { } taskError) throw new InvalidDataException(taskError);
+        if (BranchMoveService.ValidateLinks(project, declaredVersion) is { } linkError) throw new InvalidDataException(linkError);
+        if (ChoiceService.Validate(project, declaredVersion) is { } choiceError) throw new InvalidDataException(choiceError);
         ProcedureValidation.ValidateDocument(project, declaredVersion);
         if (TaskDetailsValidation.Validate(project, declaredVersion) is { } detailsError)
             throw new InvalidDataException(detailsError);
@@ -105,6 +108,8 @@ public sealed class JsonProjectStore : IProjectStore
     public void Save(string path, TodoProject project)
     {
         ArgumentNullException.ThrowIfNull(project);
+        if (BranchMoveService.ValidateLinks(project, TodoProject.CurrentSchemaVersion) is { } linkError) throw new InvalidDataException(linkError);
+        if (ChoiceService.Validate(project, TodoProject.CurrentSchemaVersion) is { } choiceError) throw new InvalidDataException(choiceError);
         ProcedureValidation.ValidateDocument(project, project.SchemaVersion);
         if (TaskDetailsValidation.Validate(project, TodoProject.CurrentSchemaVersion) is { } detailsError)
             throw new InvalidDataException(detailsError);

@@ -209,6 +209,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             PushUndo("projectName");
             _project.Name = value;
+            RefreshTaskNavigation();
             MarkDirty();
             OnPropertyChanged();
             OnPropertyChanged(nameof(WindowTitle), nameof(TabTitle));
@@ -327,7 +328,9 @@ public sealed partial class MainViewModel : ObservableObject
         // Undo／Redo でモデルごと差し替わる。表示を組む前にリゾルバーを作り直す。
         RebuildVariableResolver();
         LoadInbox();
-        _graph = new TodoGraph(project);
+        if (selection is { } scopeSelection) _currentTaskId = scopeSelection.ParentTaskId;
+        if (_currentTaskId is { } scope && !project.Nodes.Any(n => n.Id == scope)) _currentTaskId = null;
+        _graph = new TodoGraph(project) { NewNodeParentId = _currentTaskId };
         _filePath = path;
 
         Nodes.Clear();

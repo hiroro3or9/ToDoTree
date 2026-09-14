@@ -132,6 +132,12 @@ public partial class MainWindow : Window
 
     private void OnSidebarDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        if (SidebarList.SelectedItem is NodeViewModel node && _workspace?.ActiveDocument is { } document)
+        {
+            document.ActivateTask(node);
+            e.Handled = true;
+            return;
+        }
         FocusSidebarSelection();
     }
 

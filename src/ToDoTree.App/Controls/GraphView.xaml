@@ -196,6 +196,9 @@
             <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocusCommand}" />
             <MenuItem Header="分割" Command="{Binding SplitCommand}" />
             <MenuItem Header="この枝を選択" Command="{Binding SelectBranchCommand}" />
+            <MenuItem Header="内部ステップを開く" Command="{Binding EnterTaskCommand}" />
+            <MenuItem Header="枝の引っ越し…" Command="{Binding MoveBranchCommand}" />
+            <MenuItem Header="移動先を開く" Command="{Binding OpenProjectLinkCommand}" />
             <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
             <MenuItem Header="選択範囲を作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
             <Separator />

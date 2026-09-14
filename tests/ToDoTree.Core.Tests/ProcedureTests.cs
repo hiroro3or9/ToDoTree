@@ -175,7 +175,7 @@ public class ProcedureTests
             var legacy = store.Load(path);
             await Assert.That(legacy.DocumentKind).IsEqualTo(DocumentKind.Todo);
             await Assert.That(legacy.Procedure is null).IsTrue();
-            await Assert.That(legacy.SchemaVersion).IsEqualTo(11);
+        await Assert.That(legacy.SchemaVersion).IsEqualTo(TodoProject.CurrentSchemaVersion);
         }
         finally { foreach (var file in new[] { path, path + ".bak", path + ".tmp" }) if (File.Exists(file)) File.Delete(file); }
     }

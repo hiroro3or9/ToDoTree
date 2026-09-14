@@ -8,7 +8,7 @@ using ToDoTree.Core.Models;
 namespace ToDoTree.App.ViewModels;
 
 /// <summary>履歴に残す「そのとき何を選んでいたか」。プロジェクト JSON には含めない。</summary>
-internal readonly record struct SelectionState(bool IsBlock, Guid[] Ids)
+internal readonly record struct SelectionState(bool IsBlock, Guid[] Ids, Guid? ParentTaskId = null)
 {
     public static SelectionState Empty => new(false, []);
 }
@@ -1179,8 +1179,8 @@ public sealed partial class MainViewModel
     }
 
     internal SelectionState CaptureSelection() => _selectedBlock is { } block
-        ? new SelectionState(true, [block.Id])
-        : new SelectionState(false, [.. _selection]);
+        ? new SelectionState(true, [block.Id], _currentTaskId)
+        : new SelectionState(false, [.. _selection], _currentTaskId);
 
     /// <summary>
     /// 控えた状態といまの状態が違うか。

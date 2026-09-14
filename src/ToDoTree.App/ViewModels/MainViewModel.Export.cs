@@ -45,7 +45,7 @@ public sealed partial class MainViewModel
 
     private void UpdateForecast()
     {
-        var forecast = ForecastService.Compute(_graph);
+        var forecast = ForecastService.Compute(ScopeGraph());
 
         if (!forecast.HasWork)
         {
@@ -129,6 +129,11 @@ public sealed partial class MainViewModel
             return;
         }
 
+        if (node.Model.IsChoice)
+        {
+            StatusMessage = "分岐元は分割できません。選択肢の先にステップを追加するか、通常の並行分岐へ戻してから分割してください。";
+            return;
+        }
         // 初版では回数つきの項目を割らない。目標と実績を子へどう配るかが決まっておらず、
         // 黙って回数を捨てると、達成した記録だけが消える。
         if (node.Model.Repeat is not null)
