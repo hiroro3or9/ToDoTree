@@ -66,15 +66,41 @@ public partial class TemplateLibraryWindow : Window
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (Details is null || InsertButton is null) return;
+        if (Details is null || InsertButton is null || DeleteButton is null) return;
         var item = TemplateList.SelectedItem as TemplateItem;
         InsertButton.IsEnabled = item is not null;
+        DeleteButton.IsEnabled = item is not null;
         Details.Text = item?.Details ?? "保存した部品を選ぶと、ステップとつながりを確認できます。";
     }
 
     private void OnInsert(object sender, RoutedEventArgs e)
     {
         if (TemplateList.SelectedItem is TemplateItem item) InsertRequested?.Invoke(item.Project);
+    }
+
+    private void OnTemplateKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || Keyboard.Modifiers != ModifierKeys.None) return;
+        OnDelete(sender, e);
+        e.Handled = true;
+    }
+
+    private void OnDelete(object sender, RoutedEventArgs e)
+    {
+        if (TemplateList.SelectedItem is not TemplateItem item) return;
+        if (MessageBox.Show(this, $"「{item.Name}」を部品ライブラリから削除しますか？\n配置済みのアイテムは残ります。",
+            "部品の削除", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        try
+        {
+            _store.Delete(item.Project.Id);
+            _dragStart = null;
+            _dragItem = null;
+            RefreshTemplates();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            StatusText.Text = $"削除できませんでした：{ex.Message}";
+        }
     }
 
     private void OnDragStart(object sender, MouseButtonEventArgs e)

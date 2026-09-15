@@ -9,6 +9,11 @@ public sealed class BranchTemplateStore(string directory)
 {
     private readonly JsonProjectStore _store = new();
 
+    public void Delete(Guid templateId)
+    {
+        File.Delete(Path.Combine(directory, $"{templateId:N}.template.json"));
+    }
+
     public (IReadOnlyList<TodoProject> Templates, IReadOnlyList<string> Errors) LoadAll()
     {
         var templates = new List<TodoProject>();

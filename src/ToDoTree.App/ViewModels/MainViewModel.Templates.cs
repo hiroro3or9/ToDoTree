@@ -24,21 +24,24 @@ public sealed partial class MainViewModel
         () => TemplateLibraryRequested?.Invoke(null), () => !IsNaming);
 
     public void InsertTemplate(TodoProject template, double x, double y)
+        => InsertFragment(template, x, y, resetWorkState: true);
+
+    private void InsertFragment(TodoProject template, double x, double y, bool resetWorkState)
     {
-        if (IsNaming || IsConnecting) return;
+        if (IsExecutionView || IsNaming || IsConnecting) return;
         if (IsProcedure && template.Nodes.Any(n => n.IsChoice || n.ParentTaskId is not null))
         {
             StatusMessage = "選択式の分岐を含む部品は通常プロジェクトに配置してください。";
             return;
         }
-        var instance = BranchTemplate.Instantiate(template, x, y);
+        var instance = BranchTemplate.Instantiate(template, x, y, resetWorkState);
         var right = instance.Nodes.Max(n => n.X) + NodeViewModel.CardWidth;
         var bottom = instance.Nodes.Max(n => n.Y) + NodeViewModel.CardHeight;
         // まとまりを壊さず、既存カードと重なる場合はその下へ逃がす。
         if (Nodes.Where(IsInTaskScope).Any(n => n.X < right + 24 && n.X + NodeViewModel.CardWidth + 24 > x
             && n.Y < bottom + 24 && n.Y + NodeViewModel.CardHeight + 24 > y))
         {
-            instance = BranchTemplate.Instantiate(template, x, Nodes.Where(IsInTaskScope).Max(n => n.Y) + NodeViewModel.CardHeight + 80);
+            instance = BranchTemplate.Instantiate(template, x, Nodes.Where(IsInTaskScope).Max(n => n.Y) + NodeViewModel.CardHeight + 80, resetWorkState);
         }
         // 足りない定義だけを補い、同名の定義は挿入先を優先する。既存の値を黙って
         // 上書きすると、もとから使っていたステップの表示まで変わってしまう。
@@ -61,9 +64,13 @@ public sealed partial class MainViewModel
         // 独立した部品が既存のフォーカス範囲外に隠れないようにする。
         if (_focusedBlockId is not null) ToggleFocus();
         _focusId = null;
-        SelectNodes(instance.Nodes.Select(n => _byId[n.Id]));
+        SearchText = string.Empty;
+        SelectedTag = null;
+        HideCompleted = false;
+        var roots = instance.Nodes.Where(n => n.ParentTaskId == _currentTaskId).Select(n => _byId[n.Id]).ToList();
+        SelectNodes(roots);
         MarkDirty(); RefreshAll();
-        EnsureVisibleRequested?.Invoke(this, _byId[instance.Nodes[0].Id]);
+        EnsureVisibleRequested?.Invoke(this, roots[0]);
         var definitions = added.Count == 0 ? string.Empty : $"・変数 {added.Count} 件を追加";
         StatusMessage = $"「{template.Name}」を {instance.Nodes.Count} 件のステップとして配置しました{definitions}。Ctrl+Z で戻せます。";
     }

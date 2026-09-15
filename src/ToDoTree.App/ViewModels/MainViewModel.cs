@@ -43,8 +43,10 @@ public sealed partial class MainViewModel : ObservableObject
         string? filePath,
         string recoveryDirectory,
         Guid? documentId = null,
-        bool isDirty = false)
+        bool isDirty = false,
+        IItemClipboard? itemClipboard = null)
     {
+        if (itemClipboard is not null) _itemClipboard = itemClipboard;
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _project = project ?? throw new ArgumentNullException(nameof(project));

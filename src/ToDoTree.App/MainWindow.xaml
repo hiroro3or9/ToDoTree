@@ -339,6 +339,8 @@
                                 <MenuItem Header="枝の引っ越し…" Command="{Binding MoveBranchCommand}" />
                                 <MenuItem Header="移動先を開く" Command="{Binding OpenProjectLinkCommand}" />
                                 <MenuItem Header="選択範囲を部品として保存…" Command="{Binding SaveTemplateCommand}" />
+                                <MenuItem Header="コピー" InputGestureText="Ctrl+C" Command="{Binding CopyItemsCommand}" />
+                                <MenuItem Header="貼り付け" InputGestureText="Ctrl+V" Command="{Binding PasteItemsCommand}" />
                                 <MenuItem Header="選択範囲を作業手順として保存…" Command="{Binding CreateProcedureCommand}" />
                                 <MenuItem Header="部品ライブラリ…" Command="{Binding OpenTemplatesCommand}" />
                                 <Separator />

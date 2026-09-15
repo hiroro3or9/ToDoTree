@@ -7,6 +7,84 @@ namespace ToDoTree.Core.Tests;
 public class BranchTemplateTests
 {
     [Test]
+    public async Task Copy_PreservesWorkStateAndRemapsChoiceAndNestedTasks()
+    {
+        var (graph, a, b, c) = GraphTests.Chain();
+        a.IsChoice = true;
+        a.SelectedChoiceEdgeId = graph.Edges[0].Id;
+        graph.Edges[0].DecisionReason = "選んだ理由";
+        b.Due = DateTimeOffset.Now.AddDays(3);
+        b.Checklist.Add(new ChecklistItem { Title = "確認", IsChecked = true });
+        b.IsManuallyBlocked = true;
+        b.BlockReason = "返答待ち";
+        var child = new TodoNode { Title = "内部", ParentTaskId = b.Id, X = 100, Y = 50 };
+        graph.Project.Nodes.Add(child);
+        var fragment = BranchTemplate.Capture(graph.Project, [a.Id, b.Id], "コピー", resetWorkState: false);
+        var copy = BranchTemplate.Instantiate(fragment, 800, 600, resetWorkState: false);
+        var copiedA = copy.Nodes.Single(n => n.Title == a.Title);
+        var copiedB = copy.Nodes.Single(n => n.Title == b.Title);
+        await Assert.That(copy.Nodes.Count).IsEqualTo(3);
+        await Assert.That(copy.Edges.Count).IsEqualTo(1);
+        await Assert.That(copiedA.SelectedChoiceEdgeId).IsEqualTo(copy.Edges[0].Id);
+        await Assert.That(copy.Edges[0].DecisionReason).IsEqualTo("選んだ理由");
+        await Assert.That(copiedB.Due).IsEqualTo(b.Due);
+        await Assert.That(copiedB.IsManuallyBlocked && copiedB.Checklist[0].IsChecked).IsTrue();
+        await Assert.That(copy.Nodes.Single(n => n.Title == "内部").ParentTaskId).IsEqualTo(copiedB.Id);
+        await Assert.That(copiedB.Checklist[0].Id == b.Checklist[0].Id).IsFalse();
+        copiedB.Checklist[0].IsChecked = false;
+        await Assert.That(b.Checklist[0].IsChecked).IsTrue();
+        var partial = BranchTemplate.Capture(graph.Project, [a.Id], "一部", resetWorkState: false);
+        await Assert.That(partial.Nodes[0].SelectedChoiceEdgeId is null).IsTrue();
+        await Assert.That(graph.Project.Nodes.Any(n => n.Id == c.Id)).IsTrue();
+    }
+
+    [Test]
+    public async Task Copy_PreservesCompletedRepeatAndHasIndependentIdsOnEveryPaste()
+    {
+        var node = new TodoNode { Title = "練習", Status = NodeStatus.Done, CompletedAt = DateTimeOffset.Now,
+            Repeat = new RepeatProgress { TargetCount = 3, CompletedCount = 3 } };
+        var project = new TodoProject { Nodes = [node] };
+        var fragment = BranchTemplate.Capture(project, [node.Id], "コピー", resetWorkState: false);
+        var a = BranchTemplate.Instantiate(fragment, 20, 30, resetWorkState: false);
+        var b = BranchTemplate.Instantiate(fragment, 40, 50, resetWorkState: false);
+        await Assert.That(a.Nodes[0].Status).IsEqualTo(NodeStatus.Done);
+        await Assert.That(a.Nodes[0].CompletedAt).IsEqualTo(node.CompletedAt);
+        await Assert.That(a.Nodes[0].Repeat!.CompletedCount).IsEqualTo(3);
+        await Assert.That(a.Nodes[0].Id != b.Nodes[0].Id && a.Nodes[0].Id != node.Id).IsTrue();
+        a.Nodes[0].Repeat!.CompletedCount = 1;
+        await Assert.That(b.Nodes[0].Repeat!.CompletedCount).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task Store_DeletePersistsAndOnlyRemovesTheSelectedTemplate()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"todotree-delete-{Guid.NewGuid():N}");
+        try
+        {
+            var (graph, _, _, _) = GraphTests.Chain();
+            var store = new BranchTemplateStore(directory);
+            var a = store.Save(graph.Project, "同じ名前");
+            var b = store.Save(graph.Project, "同じ名前");
+            store.Delete(a.Id);
+            store.Delete(a.Id);
+            var loaded = new BranchTemplateStore(directory).LoadAll();
+            await Assert.That(loaded.Templates.Count).IsEqualTo(1);
+            await Assert.That(loaded.Templates[0].Id).IsEqualTo(b.Id);
+            await Assert.That(loaded.Errors.Count).IsEqualTo(0);
+            store.Delete(b.Id);
+            await Assert.That(store.LoadAll().Templates.Count).IsEqualTo(0);
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                foreach (var path in Directory.EnumerateFiles(directory)) File.Delete(path);
+                Directory.Delete(directory);
+            }
+        }
+    }
+
+    [Test]
     public async Task Capture_PreservesInternalGraphAndResetsWorkState()
     {
         var (graph, a, b, c) = GraphTests.Chain();

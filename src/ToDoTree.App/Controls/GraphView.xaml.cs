@@ -154,6 +154,7 @@ public partial class GraphView : UserControl
             _viewModel.BlockFocusChanged -= OnBlockFocusChanged;
             _viewModel.VisualsChanged -= OnVisualsChanged;
             _viewModel.TemplateLibraryRequested -= OpenTemplateLibrary;
+            _viewModel.PasteItemsRequested -= PasteItemsAtViewportCenter;
             _viewModel.RepeatSettingsRequested -= OpenRepeatSettings;
             _viewModel.ProjectVariablesRequested -= OpenProjectVariables;
             _viewModel.CompletionRequested -= OnCompletionRequested;
@@ -172,6 +173,7 @@ public partial class GraphView : UserControl
             _viewModel.BlockFocusChanged += OnBlockFocusChanged;
             _viewModel.VisualsChanged += OnVisualsChanged;
             _viewModel.TemplateLibraryRequested += OpenTemplateLibrary;
+            _viewModel.PasteItemsRequested += PasteItemsAtViewportCenter;
             _viewModel.RepeatSettingsRequested += OpenRepeatSettings;
             _viewModel.ProjectVariablesRequested += OpenProjectVariables;
             _viewModel.CompletionRequested += OnCompletionRequested;
