@@ -48,3 +48,10 @@ ToDoTreeは、依存関係のあるステップをグラフで管理するWindow
 
 開発エージェント向けの既存の取り決めは[CLAUDE.md](../CLAUDE.md)にあります。
 同ファイルのCowork環境の制約は、その環境に限定した記録です。
+
+## 別環境での新規作成
+
+[作成ガイド](rebuild-guide/README.md)に、テキストだけで再実装するための設計仕様、
+14段階のAI向け指示書、配色・文言の一覧、受入確認表をまとめています。
+現行の保存形式との互換は前提にせず、`schemaVersion` は1から始めます。
+配布用は[ToDoTree-build-guide.zip](ToDoTree-build-guide.zip)。
