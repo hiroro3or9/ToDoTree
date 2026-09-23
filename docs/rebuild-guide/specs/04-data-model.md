@@ -90,10 +90,11 @@ enumは文字列（C#の名前）、nullは省略、読込時のプロパティ�
 - ブロック端点を展開した後の循環、親ブロックの循環、不正な所属、空のブロック
 - 不正なポート参照（存在しないポートID、position範囲外）
 - チェック項目の空ID・重複ID、null要素
-- 状態と完了日時の不整合（Doneなのに完了日時なし等）
+- 状態と完了日時の不整合: Doneなのに `completedAt` がない、Done以外なのに `completedAt` がある
+  （Cancelledも完了日時を持たない）
 - しおりの参照先が存在しない
-- 内部親（parentTaskId）が存在しない、自分自身や子孫を親にしている
-- 階層をまたぐ依存線とブロック所属
+- （段階13で追加）内部親（parentTaskId）が存在しない、自分自身や子孫を親にしている
+- （段階13で追加）階層をまたぐ依存線とブロック所属
 
 ## 保存経路
 
@@ -130,7 +131,15 @@ Workspaceが5秒周期で全タブを確認する（WPFのDispatcherTimer）。
 | ActiveDocumentId | 前回のアクティブタブ |
 | HasWorkspaceSession | セッションの有無 |
 | KnownProjectPaths | 「今日の完了（全プロジェクト）」が読む既知の保存先 |
-| Direction / Theme / NodeStyle | 流れる向き / 配色 / カードかミニマル |
+| Direction / Theme / NodeStyle | 流れる向き / 配色 / カードかミニマル（数値は下表） |
+
+| enum | 0 | 1 |
+|---|---|---|
+| Direction（LayoutDirection） | LeftToRight | TopToBottom |
+| Theme（AppTheme） | Light | Dark |
+| NodeStyle | Card | Minimal |
+
+範囲外の数値を読んだら既定値（0）で起動する。
 
 起動時は前回のタブ一覧に従い、保存先ありは本体から、なしはタブIDの退避から復元する。
 読めないタブだけスキップする。退避フォルダーの全走査や`.bak`への自動フォールバックはしない。

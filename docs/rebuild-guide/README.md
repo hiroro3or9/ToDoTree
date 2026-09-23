@@ -46,7 +46,7 @@ AI_INSTRUCTIONS.mdとPROGRESS.md、phases/NN.mdを読み、段階NNだけ進め�
 | [段階一覧](IMPLEMENTATION_PLAN.md) / phases | その回の作業範囲と終了条件 |
 | [全体設計](specs/01-architecture.md) | 構成・責務・起動・初回サンプル |
 | [画面仕様](specs/02-visual.md) | 配置・寸法・カードと線・座標 |
-| [配色](specs/palette.md) | 110キーの明暗2値 |
+| [配色](specs/palette.md) | 107色キー＋方眼・影5キーの明暗2値 |
 | [画面の文言](specs/ui-text.md) | メニュー・ラベル・メッセージの正確な日本語 |
 | [基本操作](specs/03-interactions.md) | グラフ編集、キー操作、IMEの扱い |
 | [データ・保存](specs/04-data-model.md) | モデル、検証、保存経路、自動保存、設定 |
