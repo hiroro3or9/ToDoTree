@@ -54,6 +54,7 @@ AI_INSTRUCTIONS.mdとPROGRESS.md、phases/NN.mdを読み、段階NNだけ進め�
 | [ブロック・線](specs/06-blocks-routing.md) | 囲み、入れ子、経路、吸着 |
 | [受信箱ほか](specs/07-work-features.md) | 受信箱、チェック、手動ブロック、しおり |
 | [内部ステップ・コピー](specs/08-hierarchy-clipboard.md) | カードの中の階層、コピーと貼り付け |
+| [保存ファイルの見本](samples/README.md) | JSONの完成例と、読み込んだときの期待値 |
 | [受入確認](ACCEPTANCE.md) | 最後の操作確認 |
 
 ## 前提と限界
