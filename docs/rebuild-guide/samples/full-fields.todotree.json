@@ -1,0 +1,217 @@
+{
+  "schemaVersion": 1,
+  "id": "f0000000-0000-4000-8000-000000000002",
+  "name": "全フィールドの見本",
+  "description": "保存形式の全フィールドを一度ずつ使う見本です。",
+  "nodes": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "title": "スタート",
+      "notes": "",
+      "kind": "Start",
+      "status": "Done",
+      "completedAt": "2026-09-24T09:00:00+09:00",
+      "estimateMinutes": 30,
+      "tags": [],
+      "x": 80,
+      "y": 200,
+      "isPinned": false,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": false,
+      "blockReason": "",
+      "checklist": []
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "title": "資料を集める",
+      "notes": "先方の回答待ち。届いたら要点だけ抜き出す。",
+      "kind": "Step",
+      "status": "InProgress",
+      "due": "2026-09-30T00:00:00+09:00",
+      "estimateMinutes": 90,
+      "tags": [
+        "調査",
+        "外部"
+      ],
+      "x": 420,
+      "y": 140,
+      "isPinned": true,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": true,
+      "blockReason": "先方の回答待ち",
+      "checklist": [
+        {
+          "id": "d0000000-0000-4000-8000-000000000001",
+          "title": "過去の議事録",
+          "isChecked": true
+        },
+        {
+          "id": "d0000000-0000-4000-8000-000000000002",
+          "title": "見積りの前提",
+          "isChecked": false
+        }
+      ]
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "title": "下書きを作る",
+      "notes": "",
+      "kind": "Step",
+      "status": "InProgress",
+      "estimateMinutes": 240,
+      "tags": [],
+      "x": 420,
+      "y": 300,
+      "isPinned": false,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": false,
+      "blockReason": "",
+      "checklist": []
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000004",
+      "title": "提出する",
+      "notes": "",
+      "kind": "Goal",
+      "status": "NotStarted",
+      "due": "2026-10-10T00:00:00+09:00",
+      "estimateMinutes": 30,
+      "tags": [],
+      "x": 860,
+      "y": 200,
+      "isPinned": false,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": false,
+      "blockReason": "",
+      "checklist": []
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000005",
+      "title": "構成を決める",
+      "notes": "",
+      "kind": "Step",
+      "status": "Done",
+      "completedAt": "2026-09-24T09:00:00+09:00",
+      "estimateMinutes": 60,
+      "tags": [],
+      "x": 80,
+      "y": 80,
+      "isPinned": false,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": false,
+      "blockReason": "",
+      "checklist": [],
+      "parentTaskId": "a0000000-0000-4000-8000-000000000003"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000006",
+      "title": "本文を書く",
+      "notes": "",
+      "kind": "Step",
+      "status": "NotStarted",
+      "estimateMinutes": 180,
+      "tags": [],
+      "x": 370,
+      "y": 80,
+      "isPinned": false,
+      "createdAt": "2026-09-24T09:00:00+09:00",
+      "updatedAt": "2026-09-24T09:00:00+09:00",
+      "isManuallyBlocked": false,
+      "blockReason": "",
+      "checklist": [],
+      "parentTaskId": "a0000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0000000-0000-4000-8000-000000000001",
+      "fromId": "a0000000-0000-4000-8000-000000000001",
+      "toId": "a0000000-0000-4000-8000-000000000002",
+      "label": "着手の合図",
+      "colorId": "blue",
+      "fromSide": "Right",
+      "toSide": "Left",
+      "waypoints": [
+        {
+          "x": 250,
+          "y": 184,
+          "isSmooth": false
+        },
+        {
+          "x": 330,
+          "y": 184,
+          "isSmooth": true
+        }
+      ]
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000002",
+      "fromId": "a0000000-0000-4000-8000-000000000002",
+      "toId": "a0000000-0000-4000-8000-000000000003",
+      "fromSide": "Bottom",
+      "toSide": "Top",
+      "waypoints": []
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000003",
+      "fromId": "b0000000-0000-4000-8000-000000000001",
+      "toId": "a0000000-0000-4000-8000-000000000004",
+      "fromSide": "Auto",
+      "toSide": "Auto",
+      "fromPortId": "c0000000-0000-4000-8000-000000000001",
+      "waypoints": []
+    },
+    {
+      "id": "e0000000-0000-4000-8000-000000000004",
+      "fromId": "a0000000-0000-4000-8000-000000000005",
+      "toId": "a0000000-0000-4000-8000-000000000006",
+      "fromSide": "Auto",
+      "toSide": "Auto",
+      "waypoints": []
+    }
+  ],
+  "blocks": [
+    {
+      "id": "b0000000-0000-4000-8000-000000000001",
+      "title": "準備",
+      "nodeIds": [
+        "a0000000-0000-4000-8000-000000000003"
+      ],
+      "isCollapsed": false,
+      "colorId": "teal",
+      "ports": [
+        {
+          "id": "c0000000-0000-4000-8000-000000000001",
+          "side": "Right",
+          "position": 0.5
+        }
+      ]
+    },
+    {
+      "id": "b0000000-0000-4000-8000-000000000002",
+      "parentBlockId": "b0000000-0000-4000-8000-000000000001",
+      "title": "調べもの",
+      "nodeIds": [
+        "a0000000-0000-4000-8000-000000000002"
+      ],
+      "isCollapsed": false,
+      "ports": []
+    }
+  ],
+  "inbox": [
+    {
+      "id": "90000000-0000-4000-8000-000000000001",
+      "title": "会議室を予約する",
+      "createdAt": "2026-09-24T09:00:00+09:00"
+    }
+  ],
+  "bookmark": {
+    "nodeId": "a0000000-0000-4000-8000-000000000002",
+    "note": "回答が来たら見積りの前提から読む"
+  }
+}
