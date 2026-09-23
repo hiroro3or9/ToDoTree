@@ -17,7 +17,8 @@
 
 - 内部の着手条件に、外側のすべての祖先について「手動ブロックされていない」
   「Cancelledでない」「依存が完了している」を加える。どれか欠ければ内部はBlocked。
-- 深い階層から順に集計する。直接の子が全員 Done / Cancelled なら親はDone。
+- 深い階層から順に集計する。直接の子が全員 Done / Cancelled なら親はDone
+  （子が全員Cancelledの場合も親はDone。親をCancelledにはしない）。
   そうでなく Done か InProgress の子がいれば親は InProgress。それ以外は NotStarted。
 - 完了へ変わったときだけ CompletedAt を入れ、未完了へ戻ったら null にする。
 - **子を持つ親の状態を直接変更させない。** 内部を編集して自動で集計させる。

@@ -58,9 +58,6 @@
 | `Node.TextSubtle` | `#FF617887` | `#FFA3B4C9` |
 | `Node.TextDone` | `#FF71828B` | `#FF6B7486` |
 | `Node.Connector.Fill` | `#FFFFFFFF` | `#FF1C212B` |
-| `Node.Repeat.Badge` | `#FFEFF1F6` | `#FF232B39` |
-| `Node.Repeat.Text` | `#FF3D4B63` | `#FFCBD5E6` |
-| `Node.Repeat.Loop` | `#FF6B7A93` | `#FF93A2BC` |
 
 ## 種別の帯
 
@@ -148,6 +145,26 @@
 | `MiniMap.Viewport.Stroke` | `#FF4B6BFB` | `#FF7C93FF` |
 | `MiniMap.Block.Stroke` | `#FFB6C2CF` | `#FF48546A` |
 | `AlignmentGuideBrush` | `#2563EB` | `#93C5FD` |
+
+## 方眼と影（SolidColorBrush以外の5キー）
+
+上の107キーとは別に、同じパレット辞書へ次の5キーを置く。これも両テーマで同じキー名にする。
+
+`Brush.CanvasGrid` は `DrawingBrush`（TileMode=Tile、Viewport・Viewboxとも `0,0,26,26` Absolute）。
+中身は中心(1,1)・半径0.8の `EllipseGeometry` 1つ。点の色だけがテーマで変わる。
+
+| キー | Light | Dark |
+|---|---|---|
+| `Brush.CanvasGrid`（点の色） | `#FFE0E4EC` | `#FF1E2530` |
+
+影は `DropShadowEffect`。Direction=270（真下）、RenderingBias=Performance、Freezeする。
+
+| キー | 用途 | Light（Color / Opacity / BlurRadius / ShadowDepth） | Dark（同） |
+|---|---|---|---|
+| `Effect.Card` | カード | `#FF20293D` / 0.13 / 14 / 3 | `#FF000000` / 0.55 / 16 / 4 |
+| `Effect.Raised` | ホバー中・選択中のカード | `#FF20293D` / 0.20 / 26 / 7 | `#FF000000` / 0.70 / 30 / 8 |
+| `Effect.Panel` | パネル | `#FF20293D` / 0.07 / 18 / 2 | `#FF000000` / 0.38 / 20 / 3 |
+| `Effect.Popup` | メニュー・小窓 | `#FF10162A` / 0.24 / 24 / 5 | `#FF000000` / 0.66 / 28 / 6 |
 
 ## 補足
 
